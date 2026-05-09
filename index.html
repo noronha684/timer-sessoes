@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Timer de Sessões</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1a1a2e">
+<meta name="theme-color" content="#0e0e1a">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Timer">
@@ -24,7 +24,7 @@
   .container { max-width: 640px; margin: 0 auto; }
   h1 { text-align: center; margin-bottom: 20px; font-size: 20px; font-weight: 500; color: #aaa; letter-spacing: 0.5px; }
 
-  .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: #16213e; padding: 4px; border-radius: 12px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: #1f1f2e; padding: 4px; border-radius: 12px; }
   .tab {
     flex: 1; padding: 10px; background: transparent;
     border: none; border-radius: 8px;
@@ -32,13 +32,13 @@
     color: #888; user-select: none;
     transition: background 0.15s, color 0.15s;
   }
-  .tab.active { background: #0f3460; color: #fff; }
+  .tab.active { background: #2d2640; color: #fff; }
 
   .panel { display: none; }
   .panel.active { display: block; }
 
   .focus-card {
-    background: #16213e;
+    background: #1f1f2e;
     border-radius: 16px;
     padding: 36px 28px;
     margin-bottom: 14px;
@@ -95,15 +95,15 @@
   .btn-primary {
     width: 100%;
     padding: 16px;
-    background: #e94560;
+    background: #c4b5fd;
     border: none; border-radius: 10px;
-    color: #fff;
+    color: #1a1a25;
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     transition: background 0.15s, transform 0.05s;
   }
-  .btn-primary:hover { background: #f25674; }
+  .btn-primary:hover { background: #d4c5fe; }
   .btn-primary:active { transform: scale(0.98); }
 
   .running-cat {
@@ -120,7 +120,7 @@
   .timer-display.alerting { animation: pulse 0.6s infinite; }
   @keyframes pulse {
     0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.08); color: #e94560; }
+    50% { transform: scale(1.08); color: #c4b5fd; }
   }
 
   .controls { display: flex; gap: 10px; margin-bottom: 12px; }
@@ -141,7 +141,7 @@
   .btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
   .today-card {
-    background: #16213e;
+    background: #1f1f2e;
     border-radius: 16px;
     padding: 18px 22px;
     margin-bottom: 14px;
@@ -168,19 +168,19 @@
   .today-empty { color: #666; font-size: 13px; }
 
   .options {
-    background: #16213e; padding: 4px 22px; border-radius: 16px;
+    background: #1f1f2e; padding: 4px 22px; border-radius: 16px;
     margin-bottom: 20px;
   }
   .option { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; }
   .option + .option { border-top: 1px solid rgba(255,255,255,0.05); }
   .option label { font-size: 15px; cursor: pointer; }
-  .option input[type="checkbox"] { width: 22px; height: 22px; cursor: pointer; accent-color: #e94560; }
+  .option input[type="checkbox"] { width: 22px; height: 22px; cursor: pointer; accent-color: #c4b5fd; }
 
   .history-day {
-    background: #16213e; padding: 18px 22px; border-radius: 12px;
+    background: #1f1f2e; padding: 18px 22px; border-radius: 12px;
     margin-bottom: 10px;
   }
-  .history-date { font-weight: 600; margin-bottom: 10px; font-size: 15px; color: #e94560; text-transform: capitalize; }
+  .history-date { font-weight: 600; margin-bottom: 10px; font-size: 15px; color: #c4b5fd; text-transform: capitalize; }
   .history-line { display: flex; justify-content: space-between; padding: 5px 0; font-size: 15px; }
   .history-total {
     border-top: 1px solid rgba(255,255,255,0.08);
@@ -196,12 +196,12 @@
   }
   .alert-overlay.active { display: flex; }
   .alert-box {
-    background: #e94560; padding: 40px; border-radius: 16px;
+    background: #c4b5fd; padding: 40px; border-radius: 16px;
     text-align: center; animation: pulse 1s infinite;
     max-width: 90%;
   }
-  .alert-box h2 { font-size: 28px; margin-bottom: 20px; color: #fff; }
-  .alert-box .btn { background: #fff; color: #e94560; padding: 14px 40px; flex: none; }
+  .alert-box h2 { font-size: 28px; margin-bottom: 20px; color: #1a1a25; }
+  .alert-box .btn { background: #1a1a25; color: #c4b5fd; padding: 14px 40px; flex: none; }
 </style>
 </head>
 <body>
@@ -347,19 +347,16 @@ function setupVideoPipNodes() {
 function drawPipFrame() {
   if (!pipCanvasCtx) return;
   const W = pipCanvas.width, H = pipCanvas.height;
-  pipCanvasCtx.fillStyle = '#1a1a2e';
+  pipCanvasCtx.fillStyle = '#1a1a25';
   pipCanvasCtx.fillRect(0, 0, W, H);
   pipCanvasCtx.textAlign = 'center';
-  pipCanvasCtx.fillStyle = '#aaa';
-  pipCanvasCtx.font = 'bold 22px -apple-system, BlinkMacSystemFont, sans-serif';
-  pipCanvasCtx.fillText(state.category.toUpperCase(), W/2, 55);
-  pipCanvasCtx.fillStyle = state.paused ? '#f5a623' : '#e94560';
-  pipCanvasCtx.font = 'bold 96px -apple-system, BlinkMacSystemFont, sans-serif';
-  pipCanvasCtx.fillText(display.textContent, W/2, 175);
+  pipCanvasCtx.fillStyle = state.paused ? '#f5a623' : '#fff';
+  pipCanvasCtx.font = 'bold 110px -apple-system, BlinkMacSystemFont, sans-serif';
+  pipCanvasCtx.fillText(display.textContent, W/2, 165);
   pipCanvasCtx.fillStyle = '#888';
   pipCanvasCtx.font = '18px -apple-system, BlinkMacSystemFont, sans-serif';
   const status = state.paused ? 'PAUSADO' : (state.running ? 'EM ANDAMENTO' : 'PARADO');
-  pipCanvasCtx.fillText(status, W/2, 235);
+  pipCanvasCtx.fillText(status, W/2, 220);
 }
 
 function updatePipMediaState() {
@@ -411,20 +408,18 @@ async function openDocPiP() {
         display: flex; flex-direction: column;
         align-items: center; justify-content: center; gap: 8px;
       }
-      .pip-cat { font-size: 13px; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
-      .pip-time { font-size: 56px; font-weight: bold; color: #e94560; font-variant-numeric: tabular-nums; }
+      .pip-time { font-size: 64px; font-weight: bold; color: #fff; font-variant-numeric: tabular-nums; }
       .pip-time.paused { color: #f5a623; }
       .pip-controls { display: flex; gap: 6px; width: 100%; margin-top: 4px; }
       .pip-btn {
         flex: 1; padding: 10px; border: none; border-radius: 6px;
-        color: #fff; font-size: 14px; font-weight: bold; cursor: pointer;
+        color: #1a1a25; font-size: 14px; font-weight: bold; cursor: pointer;
       }
-      .pip-pause { background: #f5a623; }
-      .pip-resume { background: #27ae60; }
-      .pip-stop { background: #e94560; }
+      .pip-pause { background: #f5a623; color: #1a1a25; }
+      .pip-resume { background: #c4b5fd; color: #1a1a25; }
+      .pip-stop { background: #e94560; color: #fff; }
     </style>`;
   pipWindow.document.body.innerHTML = `
-    <div class="pip-cat" id="pipCat">${state.category}</div>
     <div class="pip-time" id="pipTime">00:00</div>
     <div class="pip-controls">
       <button class="pip-btn pip-pause" id="pipPauseBtn">Pausar</button>
@@ -463,10 +458,8 @@ pipBtn.addEventListener('click', async () => {
 function syncPip() {
   if (pipWindow) {
     const t = pipWindow.document.getElementById('pipTime');
-    const c = pipWindow.document.getElementById('pipCat');
     const pb = pipWindow.document.getElementById('pipPauseBtn');
     if (t) { t.textContent = display.textContent; t.classList.toggle('paused', state.paused); }
-    if (c) c.textContent = state.category;
     if (pb) {
       if (state.paused) { pb.textContent = 'Retomar'; pb.className = 'pip-btn pip-resume'; }
       else { pb.textContent = 'Pausar'; pb.className = 'pip-btn pip-pause'; }

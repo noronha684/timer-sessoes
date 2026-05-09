@@ -271,6 +271,17 @@ function drawPipFrame() {
   pipCanvasCtx.fillText(status, W/2, 235);
 }
 
+function updatePipMediaState() {
+  if (!pipVideo) return;
+  if (state.running && !state.paused) {
+    if (pipVideo.paused) pipVideo.play().catch(() => {});
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+  } else {
+    if (!pipVideo.paused) pipVideo.pause();
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+  }
+}
+
 async function openVideoPiP() {
   setupVideoPipNodes();
   drawPipFrame();
@@ -287,6 +298,7 @@ async function openVideoPiP() {
   }
   await pipVideo.requestPictureInPicture();
   pipDrawInterval = setInterval(drawPipFrame, 1000);
+  updatePipMediaState();
   pipVideo.addEventListener('leavepictureinpicture', () => {
     if (pipDrawInterval) { clearInterval(pipDrawInterval); pipDrawInterval = null; }
     pipBtn.textContent = '📱 Modo flutuante';
@@ -463,6 +475,7 @@ startBtn.addEventListener('click', () => {
   }
   requestWakeLock();
   syncPip();
+  updatePipMediaState();
 });
 
 pauseBtn.addEventListener('click', () => {
@@ -476,6 +489,7 @@ pauseBtn.addEventListener('click', () => {
   pauseBtn.disabled = true;
   releaseWakeLock();
   syncPip();
+  updatePipMediaState();
 });
 
 stopBtn.addEventListener('click', () => {
@@ -508,6 +522,7 @@ function finishSession(completed) {
   stopBtn.disabled = true;
   releaseWakeLock();
   updateDisplay();
+  updatePipMediaState();
 }
 
 function triggerAlert() {

@@ -234,15 +234,69 @@ document.addEventListener('visibilitychange', () => {
 // Document Picture-in-Picture — janela flutuante sobre outros apps
 let pipWindow = null;
 const pipBtn = $('#pipBtn');
-const pipSupported = 'documentPictureInPicture' in window;
-if (pipSupported) pipBtn.style.display = 'block';
+const supportsDocPiP = 'documentPictureInPicture' in window;
+const supportsVideoPiP = !!document.pictureInPictureEnabled;
+if (supportsDocPiP || supportsVideoPiP) pipBtn.style.display = 'block';
 
-pipBtn.addEventListener('click', async () => {
-  if (pipWindow) { pipWindow.close(); return; }
-  try {
-    pipWindow = await documentPictureInPicture.requestWindow({ width: 280, height: 210 });
-  } catch { return; }
+// --- Video PiP (canvas → video) — funciona no Chrome Android ---
+let pipCanvas = null, pipCanvasCtx = null, pipVideo = null, pipDrawInterval = null;
 
+function setupVideoPipNodes() {
+  if (pipCanvas) return;
+  pipCanvas = document.createElement('canvas');
+  pipCanvas.width = 480; pipCanvas.height = 270;
+  pipCanvasCtx = pipCanvas.getContext('2d');
+  pipVideo = document.createElement('video');
+  pipVideo.muted = true;
+  pipVideo.playsInline = true;
+  pipVideo.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;';
+  document.body.appendChild(pipVideo);
+}
+
+function drawPipFrame() {
+  if (!pipCanvasCtx) return;
+  const W = pipCanvas.width, H = pipCanvas.height;
+  pipCanvasCtx.fillStyle = '#1a1a2e';
+  pipCanvasCtx.fillRect(0, 0, W, H);
+  pipCanvasCtx.textAlign = 'center';
+  pipCanvasCtx.fillStyle = '#aaa';
+  pipCanvasCtx.font = 'bold 22px -apple-system, BlinkMacSystemFont, sans-serif';
+  pipCanvasCtx.fillText(state.category.toUpperCase(), W/2, 55);
+  pipCanvasCtx.fillStyle = state.paused ? '#f5a623' : '#e94560';
+  pipCanvasCtx.font = 'bold 96px -apple-system, BlinkMacSystemFont, sans-serif';
+  pipCanvasCtx.fillText(display.textContent, W/2, 175);
+  pipCanvasCtx.fillStyle = '#888';
+  pipCanvasCtx.font = '18px -apple-system, BlinkMacSystemFont, sans-serif';
+  const status = state.paused ? 'PAUSADO' : (state.running ? 'EM ANDAMENTO' : 'PARADO');
+  pipCanvasCtx.fillText(status, W/2, 235);
+}
+
+async function openVideoPiP() {
+  setupVideoPipNodes();
+  drawPipFrame();
+  if (!pipVideo.srcObject) {
+    pipVideo.srcObject = pipCanvas.captureStream(2);
+  }
+  await pipVideo.play();
+  if ('mediaSession' in navigator) {
+    try {
+      navigator.mediaSession.setActionHandler('pause', () => { if (state.running && !state.paused) pauseBtn.click(); });
+      navigator.mediaSession.setActionHandler('play', () => { if (state.paused) startBtn.click(); });
+      navigator.mediaSession.setActionHandler('stop', () => { if (state.running) stopBtn.click(); });
+    } catch {}
+  }
+  await pipVideo.requestPictureInPicture();
+  pipDrawInterval = setInterval(drawPipFrame, 1000);
+  pipVideo.addEventListener('leavepictureinpicture', () => {
+    if (pipDrawInterval) { clearInterval(pipDrawInterval); pipDrawInterval = null; }
+    pipBtn.textContent = '📱 Modo flutuante';
+  }, { once: true });
+  pipBtn.textContent = '✕ Fechar flutuante';
+}
+
+// --- Document PiP — janela com botões reais (Chrome/Edge desktop) ---
+async function openDocPiP() {
+  pipWindow = await documentPictureInPicture.requestWindow({ width: 280, height: 210 });
   pipWindow.document.head.innerHTML = `
     <meta charset="UTF-8">
     <style>
@@ -273,11 +327,9 @@ pipBtn.addEventListener('click', async () => {
       <button class="pip-btn pip-pause" id="pipPauseBtn">Pausar</button>
       <button class="pip-btn pip-stop" id="pipStopBtn">Parar</button>
     </div>`;
-
   pipWindow.document.getElementById('pipPauseBtn').addEventListener('click', () => {
     if (!state.running) return;
-    if (state.paused) startBtn.click();
-    else pauseBtn.click();
+    if (state.paused) startBtn.click(); else pauseBtn.click();
   });
   pipWindow.document.getElementById('pipStopBtn').addEventListener('click', () => {
     if (state.running) stopBtn.click();
@@ -286,22 +338,38 @@ pipBtn.addEventListener('click', async () => {
     pipWindow = null;
     pipBtn.textContent = '📱 Modo flutuante';
   });
-
   pipBtn.textContent = '✕ Fechar flutuante';
   syncPip();
+}
+
+pipBtn.addEventListener('click', async () => {
+  try {
+    if (supportsDocPiP) {
+      if (pipWindow) { pipWindow.close(); return; }
+      await openDocPiP();
+    } else if (supportsVideoPiP) {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else {
+        await openVideoPiP();
+      }
+    }
+  } catch (e) { console.warn('PiP error:', e); }
 });
 
 function syncPip() {
-  if (!pipWindow) return;
-  const t = pipWindow.document.getElementById('pipTime');
-  const c = pipWindow.document.getElementById('pipCat');
-  const pb = pipWindow.document.getElementById('pipPauseBtn');
-  if (t) { t.textContent = display.textContent; t.classList.toggle('paused', state.paused); }
-  if (c) c.textContent = state.category;
-  if (pb) {
-    if (state.paused) { pb.textContent = 'Retomar'; pb.className = 'pip-btn pip-resume'; }
-    else { pb.textContent = 'Pausar'; pb.className = 'pip-btn pip-pause'; }
+  if (pipWindow) {
+    const t = pipWindow.document.getElementById('pipTime');
+    const c = pipWindow.document.getElementById('pipCat');
+    const pb = pipWindow.document.getElementById('pipPauseBtn');
+    if (t) { t.textContent = display.textContent; t.classList.toggle('paused', state.paused); }
+    if (c) c.textContent = state.category;
+    if (pb) {
+      if (state.paused) { pb.textContent = 'Retomar'; pb.className = 'pip-btn pip-resume'; }
+      else { pb.textContent = 'Pausar'; pb.className = 'pip-btn pip-pause'; }
+    }
   }
+  drawPipFrame();
 }
 
 document.querySelectorAll('.tab').forEach(tab => {

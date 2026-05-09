@@ -15,96 +15,177 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #1a1a2e;
+    background: #0e0e1a;
     color: #eee;
     min-height: 100vh;
     padding: 20px;
     -webkit-tap-highlight-color: transparent;
   }
   .container { max-width: 640px; margin: 0 auto; }
-  h1 { text-align: center; margin-bottom: 24px; font-size: 28px; }
+  h1 { text-align: center; margin-bottom: 20px; font-size: 20px; font-weight: 500; color: #aaa; letter-spacing: 0.5px; }
 
-  .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: #16213e; padding: 4px; border-radius: 12px; }
   .tab {
-    flex: 1; padding: 14px; background: #16213e;
-    border: 2px solid transparent; border-radius: 10px;
-    text-align: center; cursor: pointer; font-size: 16px;
-    color: #eee; user-select: none;
+    flex: 1; padding: 10px; background: transparent;
+    border: none; border-radius: 8px;
+    text-align: center; cursor: pointer; font-size: 14px;
+    color: #888; user-select: none;
+    transition: background 0.15s, color 0.15s;
   }
-  .tab.active { background: #0f3460; border-color: #e94560; }
+  .tab.active { background: #0f3460; color: #fff; }
 
   .panel { display: none; }
   .panel.active { display: block; }
 
-  .label { font-size: 14px; color: #aaa; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
-
-  .category-select { display: flex; gap: 8px; margin-bottom: 24px; }
-  .category-btn {
-    flex: 1; padding: 18px; background: #16213e;
-    border: 2px solid transparent; border-radius: 10px;
-    color: #eee; font-size: 18px; font-weight: bold; cursor: pointer;
+  .focus-card {
+    background: #16213e;
+    border-radius: 16px;
+    padding: 36px 28px;
+    margin-bottom: 14px;
+    text-align: center;
   }
-  .category-btn.active { background: #0f3460; border-color: #e94560; }
-
-  .duration-presets { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-  .duration-btn {
-    flex: 1; min-width: 80px; padding: 14px;
-    background: #16213e; border: 2px solid transparent; border-radius: 10px;
-    color: #eee; cursor: pointer; font-size: 16px;
+  .focus-title {
+    font-size: 22px; font-weight: 600;
+    margin-bottom: 10px;
   }
-  .duration-btn.active { background: #0f3460; border-color: #e94560; }
-
-  .custom-duration {
-    width: 100%; padding: 14px; background: #16213e;
-    border: 2px solid #16213e; border-radius: 10px;
-    color: #eee; font-size: 16px; margin-bottom: 24px;
-    -webkit-appearance: none; appearance: none;
+  .focus-desc {
+    color: #aaa;
+    font-size: 14px;
+    margin-bottom: 28px;
+    line-height: 1.55;
   }
-  .custom-duration:focus { outline: none; border-color: #e94560; }
 
+  .picker {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 4px; margin-bottom: 24px;
+  }
+  .picker-arrow {
+    background: transparent; border: none;
+    color: #888; font-size: 16px; cursor: pointer;
+    width: 64px; height: 32px; border-radius: 8px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .picker-arrow:hover { background: rgba(255,255,255,0.06); color: #ccc; }
+  .picker-arrow:active { background: rgba(255,255,255,0.12); }
+  .picker-value {
+    font-size: 64px; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1; margin: 4px 0;
+  }
+  .picker-label {
+    font-size: 13px; color: #888;
+    text-transform: lowercase; letter-spacing: 0.5px;
+  }
+
+  .category-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-bottom: 28px;
+    padding: 9px 16px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 999px;
+    color: #ccc;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .category-chip:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); }
+  .chip-arrow { color: #888; font-size: 11px; }
+
+  .btn-primary {
+    width: 100%;
+    padding: 16px;
+    background: #e94560;
+    border: none; border-radius: 10px;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.05s;
+  }
+  .btn-primary:hover { background: #f25674; }
+  .btn-primary:active { transform: scale(0.98); }
+
+  .running-cat {
+    font-size: 13px; color: #aaa;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    margin-bottom: 8px;
+  }
   .timer-display {
-    text-align: center; font-size: 96px; font-weight: bold;
-    margin: 32px 0; font-variant-numeric: tabular-nums;
-    color: #e94560; letter-spacing: 2px;
+    text-align: center; font-size: 96px; font-weight: 700;
+    margin: 12px 0 28px; font-variant-numeric: tabular-nums;
+    color: #fff; letter-spacing: 2px;
   }
   .timer-display.paused { color: #f5a623; }
   .timer-display.alerting { animation: pulse 0.6s infinite; }
   @keyframes pulse {
     0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.08); color: #fff; }
+    50% { transform: scale(1.08); color: #e94560; }
   }
 
-  .controls { display: flex; gap: 12px; margin-bottom: 24px; }
+  .controls { display: flex; gap: 10px; margin-bottom: 12px; }
   .btn {
-    flex: 1; padding: 20px; border: none; border-radius: 10px;
-    color: #fff; font-size: 18px; font-weight: bold; cursor: pointer;
-    transition: opacity 0.15s;
+    flex: 1; padding: 16px; border: none; border-radius: 10px;
+    color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
+    transition: opacity 0.15s, background 0.15s;
   }
   .btn:active { opacity: 0.8; }
-  .btn-start { background: #27ae60; }
   .btn-pause { background: #f5a623; }
+  .btn-resume { background: #27ae60; }
   .btn-stop { background: #e94560; }
-  .btn-pip { background: #0f3460; width: 100%; }
+  .btn-pip {
+    background: rgba(255,255,255,0.06); color: #ccc;
+    width: 100%; padding: 12px; font-size: 13px; font-weight: 500;
+  }
+  .btn-pip:hover { background: rgba(255,255,255,0.1); }
   .btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
+  .today-card {
+    background: #16213e;
+    border-radius: 16px;
+    padding: 18px 22px;
+    margin-bottom: 14px;
+  }
+  .today-title {
+    font-size: 12px; color: #888;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    margin-bottom: 6px;
+  }
+  .today-total {
+    font-size: 26px; font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .today-breakdown {
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .today-cat {
+    background: rgba(255,255,255,0.05);
+    padding: 5px 11px;
+    border-radius: 7px;
+    font-size: 13px; color: #ccc;
+  }
+  .today-cat-name { color: #888; margin-right: 6px; }
+  .today-empty { color: #666; font-size: 13px; }
+
   .options {
-    background: #16213e; padding: 16px 20px; border-radius: 10px;
+    background: #16213e; padding: 4px 22px; border-radius: 16px;
     margin-bottom: 20px;
   }
-  .option { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; }
-  .option label { font-size: 16px; cursor: pointer; }
-  .option input[type="checkbox"] { width: 22px; height: 22px; cursor: pointer; }
+  .option { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; }
+  .option + .option { border-top: 1px solid rgba(255,255,255,0.05); }
+  .option label { font-size: 15px; cursor: pointer; }
+  .option input[type="checkbox"] { width: 22px; height: 22px; cursor: pointer; accent-color: #e94560; }
 
   .history-day {
-    background: #16213e; padding: 16px 20px; border-radius: 10px;
-    margin-bottom: 12px;
+    background: #16213e; padding: 18px 22px; border-radius: 12px;
+    margin-bottom: 10px;
   }
-  .history-date { font-weight: bold; margin-bottom: 10px; font-size: 16px; color: #e94560; text-transform: capitalize; }
-  .history-line { display: flex; justify-content: space-between; padding: 6px 0; font-size: 16px; }
+  .history-date { font-weight: 600; margin-bottom: 10px; font-size: 15px; color: #e94560; text-transform: capitalize; }
+  .history-line { display: flex; justify-content: space-between; padding: 5px 0; font-size: 15px; }
   .history-total {
-    border-top: 1px solid #0f3460;
-    margin-top: 10px; padding-top: 10px;
-    font-weight: bold;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    margin-top: 8px; padding-top: 8px;
+    font-weight: 600;
   }
   .empty { text-align: center; padding: 60px 20px; color: #888; }
 
@@ -119,8 +200,8 @@
     text-align: center; animation: pulse 1s infinite;
     max-width: 90%;
   }
-  .alert-box h2 { font-size: 32px; margin-bottom: 20px; color: #fff; }
-  .alert-box .btn { background: #fff; color: #e94560; padding: 16px 50px; }
+  .alert-box h2 { font-size: 28px; margin-bottom: 20px; color: #fff; }
+  .alert-box .btn { background: #fff; color: #e94560; padding: 14px 40px; flex: none; }
 </style>
 </head>
 <body>
@@ -133,30 +214,40 @@
   </div>
 
   <div class="panel active" id="timer-panel">
-    <div class="label">Categoria</div>
-    <div class="category-select">
-      <button class="category-btn active" data-category="CFA">CFA</button>
-      <button class="category-btn" data-category="Trabalho">Trabalho</button>
+    <div class="focus-card" id="focusIdle">
+      <div class="focus-title">Prepare-se para se concentrar</div>
+      <div class="focus-desc">Defina o tempo, mantenha o foco até o fim e a sessão entra na sua jornada do dia.</div>
+
+      <div class="picker">
+        <button class="picker-arrow" id="durationUp" aria-label="Aumentar">▲</button>
+        <div class="picker-value" id="durationValue">50</div>
+        <div class="picker-label">min</div>
+        <button class="picker-arrow" id="durationDown" aria-label="Diminuir">▼</button>
+      </div>
+
+      <button class="category-chip" id="categoryChip" type="button">
+        <span id="categoryLabel">CFA</span>
+        <span class="chip-arrow">⇄</span>
+      </button>
+
+      <button class="btn-primary" id="startBtn">▶ Iniciar sessão</button>
     </div>
 
-    <div class="label">Duração</div>
-    <div class="duration-presets">
-      <button class="duration-btn" data-minutes="25">25 min</button>
-      <button class="duration-btn active" data-minutes="50">50 min</button>
-      <button class="duration-btn" data-minutes="60">1 h</button>
-      <button class="duration-btn" data-minutes="90">1h30</button>
-    </div>
-    <input type="number" class="custom-duration" placeholder="Ou personalizado (minutos)" min="1" id="customMinutes" inputmode="numeric">
-
-    <div class="timer-display" id="display">50:00</div>
-
-    <div class="controls">
-      <button class="btn btn-start" id="startBtn">Iniciar</button>
-      <button class="btn btn-pause" id="pauseBtn" disabled>Pausar</button>
-      <button class="btn btn-stop" id="stopBtn" disabled>Parar</button>
+    <div class="focus-card" id="focusRunning" style="display:none">
+      <div class="running-cat" id="runningCat">CFA</div>
+      <div class="timer-display" id="display">50:00</div>
+      <div class="controls">
+        <button class="btn btn-pause" id="pauseBtn">Pausar</button>
+        <button class="btn btn-stop" id="stopBtn">Parar</button>
+      </div>
+      <button class="btn btn-pip" id="pipBtn" style="display:none">📱 Modo flutuante</button>
     </div>
 
-    <button class="btn btn-pip" id="pipBtn" style="display:none; margin-bottom: 20px;">📱 Modo flutuante</button>
+    <div class="today-card">
+      <div class="today-title">Hoje</div>
+      <div class="today-total" id="todayTotal">0min</div>
+      <div class="today-breakdown" id="todayBreakdown"></div>
+    </div>
 
     <div class="options">
       <div class="option">
@@ -394,32 +485,29 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
-document.querySelectorAll('.category-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (state.running) return;
-    document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    state.category = btn.dataset.category;
-  });
-});
-
-document.querySelectorAll('.duration-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (state.running) return;
-    document.querySelectorAll('.duration-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    setDuration(parseInt(btn.dataset.minutes) * 60 * 1000);
-    $('#customMinutes').value = '';
-  });
-});
-
-$('#customMinutes').addEventListener('input', (e) => {
+// Categoria — chip que alterna CFA / Trabalho
+const categoryChip = $('#categoryChip');
+const categoryLabel = $('#categoryLabel');
+categoryChip.addEventListener('click', () => {
   if (state.running) return;
-  const mins = parseInt(e.target.value);
-  if (mins > 0) {
-    document.querySelectorAll('.duration-btn').forEach(b => b.classList.remove('active'));
-    setDuration(mins * 60 * 1000);
-  }
+  state.category = state.category === 'CFA' ? 'Trabalho' : 'CFA';
+  categoryLabel.textContent = state.category;
+});
+
+// Duração — picker com setinhas (incrementos de 5 min, mín 5, máx 240)
+const durationValue = $('#durationValue');
+function setDurationMinutes(mins) {
+  mins = Math.max(5, Math.min(240, mins));
+  durationValue.textContent = mins;
+  setDuration(mins * 60 * 1000);
+}
+$('#durationUp').addEventListener('click', () => {
+  if (state.running) return;
+  setDurationMinutes(parseInt(durationValue.textContent) + 5);
+});
+$('#durationDown').addEventListener('click', () => {
+  if (state.running) return;
+  setDurationMinutes(parseInt(durationValue.textContent) - 5);
 });
 
 function setDuration(ms) {
@@ -454,47 +542,55 @@ startBtn.addEventListener('click', () => {
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission();
   }
-  if (state.paused) {
-    state.paused = false;
-    state.startedAt = Date.now();
-    state.intervalId = setInterval(tick, 250);
-    display.classList.remove('paused');
-    startBtn.textContent = 'Iniciar';
-    startBtn.disabled = true;
-    pauseBtn.disabled = false;
-  } else {
-    state.running = true;
-    state.paused = false;
-    state.startedAt = Date.now();
-    state.totalElapsedMs = 0;
-    state.remainingMs = state.durationMs;
-    state.intervalId = setInterval(tick, 250);
-    startBtn.disabled = true;
-    pauseBtn.disabled = false;
-    stopBtn.disabled = false;
-  }
+  state.running = true;
+  state.paused = false;
+  state.startedAt = Date.now();
+  state.totalElapsedMs = 0;
+  state.remainingMs = state.durationMs;
+  state.intervalId = setInterval(tick, 250);
+  // Troca pra view de sessão em andamento
+  $('#focusIdle').style.display = 'none';
+  $('#focusRunning').style.display = 'block';
+  $('#runningCat').textContent = state.category;
+  pauseBtn.textContent = 'Pausar';
+  pauseBtn.classList.remove('btn-resume');
+  pauseBtn.classList.add('btn-pause');
+  display.classList.remove('paused');
   requestWakeLock();
   syncPip();
   updatePipMediaState();
 });
 
+// pauseBtn agora alterna entre Pausar e Retomar
 pauseBtn.addEventListener('click', () => {
-  if (!state.running || state.paused) return;
-  state.paused = true;
-  clearInterval(state.intervalId);
-  state.totalElapsedMs += Date.now() - state.startedAt;
-  display.classList.add('paused');
-  startBtn.textContent = 'Retomar';
-  startBtn.disabled = false;
-  pauseBtn.disabled = true;
-  releaseWakeLock();
+  if (!state.running) return;
+  if (state.paused) {
+    // Retomar
+    state.paused = false;
+    state.startedAt = Date.now();
+    state.intervalId = setInterval(tick, 250);
+    display.classList.remove('paused');
+    pauseBtn.textContent = 'Pausar';
+    pauseBtn.classList.remove('btn-resume');
+    pauseBtn.classList.add('btn-pause');
+    requestWakeLock();
+  } else {
+    // Pausar
+    state.paused = true;
+    clearInterval(state.intervalId);
+    state.totalElapsedMs += Date.now() - state.startedAt;
+    display.classList.add('paused');
+    pauseBtn.textContent = 'Retomar';
+    pauseBtn.classList.remove('btn-pause');
+    pauseBtn.classList.add('btn-resume');
+    releaseWakeLock();
+  }
   syncPip();
   updatePipMediaState();
 });
 
 stopBtn.addEventListener('click', () => {
   if (!state.running) return;
-  if (!confirm('Parar a sessão antes do fim? O tempo decorrido será salvo.')) return;
   finishSession(false);
 });
 
@@ -516,13 +612,13 @@ function finishSession(completed) {
   state.remainingMs = state.durationMs;
   state.totalElapsedMs = 0;
   display.classList.remove('paused');
-  startBtn.textContent = 'Iniciar';
-  startBtn.disabled = false;
-  pauseBtn.disabled = true;
-  stopBtn.disabled = true;
+  // Volta pra view inicial
+  $('#focusRunning').style.display = 'none';
+  $('#focusIdle').style.display = 'block';
   releaseWakeLock();
   updateDisplay();
   updatePipMediaState();
+  renderToday();
 }
 
 function triggerAlert() {
@@ -588,6 +684,23 @@ function formatDuration(ms) {
   return `${h}h${m.toString().padStart(2, '0')}`;
 }
 
+function renderToday() {
+  const history = loadHistory();
+  const today = new Date().toISOString().slice(0, 10);
+  const day = history[today] || {};
+  const total = Object.values(day).reduce((a, b) => a + b, 0);
+  $('#todayTotal').textContent = total > 0 ? formatDuration(total) : '0min';
+  const breakdown = $('#todayBreakdown');
+  const entries = Object.entries(day);
+  if (entries.length === 0) {
+    breakdown.innerHTML = '<div class="today-empty">Nenhuma sessão hoje ainda.</div>';
+  } else {
+    breakdown.innerHTML = entries.map(([cat, ms]) =>
+      `<div class="today-cat"><span class="today-cat-name">${cat}</span>${formatDuration(ms)}</div>`
+    ).join('');
+  }
+}
+
 function renderHistory() {
   const list = $('#historyList');
   const history = loadHistory();
@@ -617,6 +730,7 @@ function renderHistory() {
 }
 
 updateDisplay();
+renderToday();
 </script>
 </body>
 </html>

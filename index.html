@@ -11,6 +11,19 @@
 <meta name="apple-mobile-web-app-title" content="Timer">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
+<script src="firebase-config.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+  if (window.firebaseConfig && window.firebaseConfig.apiKey) {
+    try {
+      const app = initializeApp(window.firebaseConfig);
+      const db = getFirestore(app);
+      window._fb = { db, doc, setDoc, getDoc, onSnapshot };
+      window.dispatchEvent(new Event('firebase-ready'));
+    } catch (e) { console.warn('Firebase init falhou:', e); }
+  }
+</script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -331,6 +344,60 @@
     color: #ccc; font-size: 14px; cursor: pointer;
   }
   .modal-close:hover { background: rgba(255,255,255,0.1); }
+
+  /* Sync UI */
+  .sync-trigger {
+    background: rgba(196,181,253,0.15);
+    border: none; border-radius: 8px;
+    color: #c4b5fd; font-size: 13px; font-weight: 500;
+    padding: 7px 14px; cursor: pointer;
+  }
+  .sync-trigger:hover { background: rgba(196,181,253,0.25); }
+  .sync-trigger.connected { background: rgba(39,174,96,0.15); color: #27ae60; }
+
+  .sync-status {
+    text-align: center; margin-bottom: 16px;
+    font-size: 13px;
+  }
+  .modal-divider {
+    text-align: center; margin: 18px 0;
+    color: #888; font-size: 12px;
+    position: relative;
+  }
+  .modal-divider span { background: #1f1f2e; padding: 0 12px; position: relative; z-index: 1; }
+  .modal-divider::before {
+    content: ''; position: absolute;
+    top: 50%; left: 0; right: 0;
+    height: 1px; background: rgba(255,255,255,0.08);
+  }
+  .sync-code-display {
+    background: rgba(255,255,255,0.04);
+    padding: 12px;
+    border-radius: 8px;
+    font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 12px;
+    color: #c4b5fd;
+    word-break: break-all;
+    text-align: center;
+    margin-bottom: 12px;
+    user-select: all;
+  }
+  .sync-secondary-btn {
+    width: 100%; padding: 12px;
+    background: rgba(255,255,255,0.05);
+    border: none; border-radius: 8px;
+    color: #ccc; font-size: 14px; cursor: pointer;
+    margin-top: 8px;
+  }
+  .sync-secondary-btn:hover { background: rgba(255,255,255,0.08); }
+  .sync-danger-btn {
+    width: 100%; padding: 12px;
+    background: rgba(233,69,96,0.1);
+    border: none; border-radius: 8px;
+    color: #e94560; font-size: 14px; cursor: pointer;
+    margin-top: 8px;
+  }
+  .sync-danger-btn:hover { background: rgba(233,69,96,0.2); }
   .alert-box {
     background: #c4b5fd; padding: 40px; border-radius: 16px;
     text-align: center; animation: pulse 1s infinite;
@@ -398,6 +465,10 @@
         <label for="keepScreenOn">🔆 Manter tela ligada</label>
         <input type="checkbox" id="keepScreenOn">
       </div>
+      <div class="option">
+        <label>🔄 Sincronização</label>
+        <button class="sync-trigger" id="syncBtn">Configurar</button>
+      </div>
     </div>
   </div>
 
@@ -446,6 +517,32 @@
   <div class="alert-box">
     <h2>⏰ Sessão concluída!</h2>
     <button class="btn" id="dismissAlert">OK</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="syncModal">
+  <div class="modal-content">
+    <div class="modal-title">Sincronização</div>
+    <div class="sync-status" id="syncStatus"></div>
+
+    <div id="syncDisconnected">
+      <button class="btn-primary" id="generateCodeBtn">Gerar novo código</button>
+      <div class="modal-divider"><span>ou</span></div>
+      <div class="add-cat-row">
+        <input type="text" class="new-cat-input" id="syncCodeInput" placeholder="Cole código de outro dispositivo...">
+        <button class="add-cat-btn" id="connectCodeBtn" aria-label="Conectar">→</button>
+      </div>
+    </div>
+
+    <div id="syncConnected" style="display:none">
+      <div style="font-size:12px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;">Seu código de sync</div>
+      <div class="sync-code-display" id="syncCodeDisplay"></div>
+      <button class="btn-primary" id="copyCodeBtn">📋 Copiar código</button>
+      <button class="sync-secondary-btn" id="syncNowBtn">🔄 Sincronizar agora</button>
+      <button class="sync-danger-btn" id="disconnectBtn">Desconectar</button>
+    </div>
+
+    <button class="modal-close" id="syncModalClose">Fechar</button>
   </div>
 </div>
 
@@ -1158,6 +1255,222 @@ document.addEventListener('click', (e) => {
   if (!bar) return;
   selectedDate = selectedDate === bar.dataset.date ? null : bar.dataset.date;
   renderHistory();
+});
+
+// ====== Sync com Firebase ======
+const DEVICE_ID = (() => {
+  let id = localStorage.getItem('timerDeviceId');
+  if (!id) {
+    id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'd-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+    localStorage.setItem('timerDeviceId', id);
+  }
+  return id;
+})();
+
+let syncCode = localStorage.getItem('timerSyncCode') || '';
+let syncUnsubscribe = null;
+let isApplyingRemote = false;
+let lastSyncedAt = null;
+let syncDebounceTimer = null;
+
+function generateSyncCode() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'sync-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+}
+
+function buildSyncPayload() {
+  return {
+    history: loadHistory(),
+    categories: loadCategories(),
+    selectedCategory: loadSelectedCategory(),
+    keepScreenOn: keepScreenOn,
+    device: DEVICE_ID,
+    updatedAt: Date.now()
+  };
+}
+
+async function pushToCloud() {
+  if (!window._fb || !syncCode || isApplyingRemote) return;
+  try {
+    const { db, doc, setDoc } = window._fb;
+    await setDoc(doc(db, 'syncs', syncCode), buildSyncPayload());
+    lastSyncedAt = new Date();
+    updateSyncUI();
+  } catch (e) { console.warn('pushToCloud:', e); }
+}
+
+async function pullFromCloud() {
+  if (!window._fb || !syncCode) return;
+  try {
+    const { db, doc, getDoc } = window._fb;
+    const snap = await getDoc(doc(db, 'syncs', syncCode));
+    if (snap.exists()) applyCloudData(snap.data());
+    lastSyncedAt = new Date();
+    updateSyncUI();
+  } catch (e) { console.warn('pullFromCloud:', e); }
+}
+
+function applyCloudData(data) {
+  if (!data || data.device === DEVICE_ID) return;
+  isApplyingRemote = true;
+  try {
+    if (data.history) localStorage.setItem('timerHistory', JSON.stringify(data.history));
+    if (Array.isArray(data.categories) && data.categories.length > 0) {
+      localStorage.setItem('timerCategories', JSON.stringify(data.categories));
+    }
+    if (data.selectedCategory) localStorage.setItem('timerSelectedCategory', data.selectedCategory);
+    if (typeof data.keepScreenOn === 'boolean') {
+      keepScreenOn = data.keepScreenOn;
+      localStorage.setItem('timerKeepScreenOn', keepScreenOn ? '1' : '0');
+      const t = $('#keepScreenOn');
+      if (t) t.checked = keepScreenOn;
+      syncWakeLock();
+    }
+    state.category = loadSelectedCategory();
+    categoryLabel.textContent = state.category;
+    renderToday();
+    if ($('#history-panel').classList.contains('active')) renderHistory();
+    lastSyncedAt = new Date();
+  } finally {
+    isApplyingRemote = false;
+  }
+}
+
+function startSyncListener() {
+  if (!window._fb || !syncCode) return;
+  if (syncUnsubscribe) syncUnsubscribe();
+  const { db, doc, onSnapshot } = window._fb;
+  syncUnsubscribe = onSnapshot(doc(db, 'syncs', syncCode), (snap) => {
+    if (!snap.exists()) return;
+    if (snap.metadata.hasPendingWrites) return;
+    applyCloudData(snap.data());
+  }, (err) => console.warn('onSnapshot:', err));
+}
+
+function stopSyncListener() {
+  if (syncUnsubscribe) { syncUnsubscribe(); syncUnsubscribe = null; }
+}
+
+async function connectSync(code) {
+  if (!code) return;
+  syncCode = code.trim();
+  localStorage.setItem('timerSyncCode', syncCode);
+  await pullFromCloud();
+  await pushToCloud();
+  startSyncListener();
+  updateSyncUI();
+}
+
+function disconnectSync() {
+  stopSyncListener();
+  syncCode = '';
+  localStorage.removeItem('timerSyncCode');
+  updateSyncUI();
+}
+
+// Debounced push: agrupa mudanças rápidas em um só write
+function triggerSync() {
+  if (!syncCode || !window._fb || isApplyingRemote) return;
+  if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
+  syncDebounceTimer = setTimeout(() => {
+    pushToCloud();
+    syncDebounceTimer = null;
+  }, 600);
+}
+
+function updateSyncUI() {
+  const trigger = $('#syncBtn');
+  const status = $('#syncStatus');
+  const disc = $('#syncDisconnected');
+  const conn = $('#syncConnected');
+  const codeDisplay = $('#syncCodeDisplay');
+
+  if (!window._fb) {
+    if (trigger) { trigger.textContent = 'Indisponível'; trigger.classList.remove('connected'); }
+    if (status) status.innerHTML = '<div style="color:#f5a623">Firebase ainda carregando ou offline.</div>';
+    if (disc) disc.style.display = 'none';
+    if (conn) conn.style.display = 'none';
+    return;
+  }
+  if (syncCode) {
+    if (trigger) { trigger.textContent = 'Conectado'; trigger.classList.add('connected'); }
+    if (status) {
+      const last = lastSyncedAt ? `Última sync: ${lastSyncedAt.toLocaleTimeString('pt-BR')}` : 'Conectado';
+      status.innerHTML = `<div style="color:#27ae60">${last}</div>`;
+    }
+    if (disc) disc.style.display = 'none';
+    if (conn) conn.style.display = 'block';
+    if (codeDisplay) codeDisplay.textContent = syncCode;
+  } else {
+    if (trigger) { trigger.textContent = 'Configurar'; trigger.classList.remove('connected'); }
+    if (status) status.innerHTML = '<div style="color:#888">Não conectado</div>';
+    if (disc) disc.style.display = 'block';
+    if (conn) conn.style.display = 'none';
+  }
+}
+
+$('#syncBtn').addEventListener('click', () => {
+  $('#syncModal').classList.add('active');
+  updateSyncUI();
+});
+$('#syncModalClose').addEventListener('click', () => $('#syncModal').classList.remove('active'));
+$('#syncModal').addEventListener('click', (e) => {
+  if (e.target.id === 'syncModal') $('#syncModal').classList.remove('active');
+});
+$('#generateCodeBtn').addEventListener('click', () => connectSync(generateSyncCode()));
+$('#connectCodeBtn').addEventListener('click', async () => {
+  const code = $('#syncCodeInput').value.trim();
+  if (!code) return;
+  await connectSync(code);
+  $('#syncCodeInput').value = '';
+});
+$('#syncCodeInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); $('#connectCodeBtn').click(); }
+});
+$('#copyCodeBtn').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(syncCode);
+    const btn = $('#copyCodeBtn');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copiado!';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  } catch {}
+});
+$('#syncNowBtn').addEventListener('click', async () => {
+  await pullFromCloud();
+  await pushToCloud();
+});
+$('#disconnectBtn').addEventListener('click', () => {
+  if (confirm('Desconectar o sync? Os dados locais ficam, mas não vão mais sincronizar.')) {
+    disconnectSync();
+  }
+});
+
+// Adiciona triggerSync nas funções de save existentes
+const _origSaveSession = saveSession;
+saveSession = function(category, elapsedMs) { _origSaveSession(category, elapsedMs); triggerSync(); };
+const _origSaveCategories = saveCategories;
+saveCategories = function(cats) { _origSaveCategories(cats); triggerSync(); };
+const _origSaveSelectedCategory = saveSelectedCategory;
+saveSelectedCategory = function(cat) { _origSaveSelectedCategory(cat); triggerSync(); };
+
+// Sync no toggle de manter tela ligada
+keepScreenOnToggle.addEventListener('change', triggerSync);
+
+// Inicia sync quando Firebase tiver pronto
+function initSync() {
+  if (syncCode) {
+    pullFromCloud();
+    startSyncListener();
+  }
+  updateSyncUI();
+}
+if (window._fb) initSync();
+else window.addEventListener('firebase-ready', initSync);
+
+// Pull ao voltar para o app
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && syncCode && window._fb) pullFromCloud();
 });
 
 updateDisplay();

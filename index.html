@@ -176,25 +176,161 @@
   .option label { font-size: 15px; cursor: pointer; }
   .option input[type="checkbox"] { width: 22px; height: 22px; cursor: pointer; accent-color: #c4b5fd; }
 
-  .history-day {
-    background: #1f1f2e; padding: 18px 22px; border-radius: 12px;
-    margin-bottom: 10px;
-  }
-  .history-date { font-weight: 600; margin-bottom: 10px; font-size: 15px; color: #c4b5fd; text-transform: capitalize; }
-  .history-line { display: flex; justify-content: space-between; padding: 5px 0; font-size: 15px; }
-  .history-total {
-    border-top: 1px solid rgba(255,255,255,0.08);
-    margin-top: 8px; padding-top: 8px;
-    font-weight: 600;
-  }
   .empty { text-align: center; padding: 60px 20px; color: #888; }
 
-  .alert-overlay {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+  /* History — chart view */
+  .range-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+  .range-tab {
+    flex: 1; padding: 10px;
+    background: rgba(255,255,255,0.04);
+    border: none; border-radius: 8px;
+    color: #888; font-size: 13px; cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .range-tab:hover { background: rgba(255,255,255,0.08); color: #ccc; }
+  .range-tab.active { background: rgba(196,181,253,0.15); color: #c4b5fd; font-weight: 600; }
+
+  .chart-card {
+    background: #1f1f2e;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 14px;
+  }
+  .chart-header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 18px;
+  }
+  .chart-title { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1.5px; }
+  .chart-total { font-size: 22px; font-weight: 700; }
+
+  .chart {
+    display: flex; align-items: flex-end; gap: 3px;
+    height: 140px;
+    margin-bottom: 8px;
+  }
+  .bar-col {
+    flex: 1; min-width: 0;
+    height: 100%;
+    display: flex; flex-direction: column;
+    justify-content: flex-end;
+    background: rgba(255,255,255,0.025);
+    border-radius: 3px 3px 0 0;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .bar-col:hover { opacity: 0.85; }
+  .bar-col.selected { outline: 2px solid #c4b5fd; outline-offset: -2px; }
+  .bar-col.today { background: rgba(196,181,253,0.07); }
+  .bar-fill {
+    width: 100%;
+    border-radius: 3px 3px 0 0;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .bar-stack { width: 100%; }
+
+  .chart-labels {
+    display: flex; gap: 3px;
+    font-size: 10px; color: #888;
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .chart-label { flex: 1; min-width: 0; overflow: hidden; }
+  .chart-label.muted { visibility: hidden; }
+
+  .chart-detail {
+    background: rgba(255,255,255,0.03);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    font-size: 14px;
+    min-height: 48px;
+  }
+  .chart-detail-date { font-weight: 600; margin-bottom: 6px; color: #c4b5fd; text-transform: capitalize; font-size: 13px; }
+  .chart-detail-line { display: flex; justify-content: space-between; padding: 3px 0; color: #ccc; font-size: 14px; }
+  .chart-detail-empty { color: #666; font-size: 13px; }
+
+  .chart-legend {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    font-size: 12px; color: #aaa;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  .stats-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .stat-box {
+    background: #1f1f2e;
+    padding: 14px 16px;
+    border-radius: 12px;
+  }
+  .stat-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+  .stat-value { font-size: 17px; font-weight: 700; margin-top: 4px; }
+
+  .alert-overlay, .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
     display: none; align-items: center; justify-content: center;
     z-index: 100; padding: 20px;
   }
-  .alert-overlay.active { display: flex; }
+  .alert-overlay.active, .modal-overlay.active { display: flex; }
+  .alert-overlay { background: rgba(0,0,0,0.85); }
+
+  .modal-content {
+    background: #1f1f2e; padding: 24px; border-radius: 16px;
+    width: 100%; max-width: 380px;
+  }
+  .modal-title {
+    font-size: 17px; font-weight: 600; margin-bottom: 16px;
+    text-align: center;
+  }
+  .cat-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; max-height: 50vh; overflow-y: auto; }
+  .cat-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .cat-item:hover { background: rgba(255,255,255,0.08); }
+  .cat-item.active {
+    background: rgba(196,181,253,0.12);
+    border-color: #c4b5fd;
+  }
+  .cat-name { font-size: 15px; }
+  .cat-delete {
+    background: transparent; border: none;
+    color: #888; font-size: 20px; line-height: 1; cursor: pointer;
+    padding: 2px 8px; border-radius: 6px;
+  }
+  .cat-delete:hover { background: rgba(233,69,96,0.15); color: #e94560; }
+  .add-cat-row { display: flex; gap: 6px; margin-bottom: 12px; }
+  .new-cat-input {
+    flex: 1; padding: 12px 14px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: #eee; font-size: 15px;
+    -webkit-appearance: none; appearance: none;
+  }
+  .new-cat-input:focus { outline: none; border-color: #c4b5fd; background: rgba(255,255,255,0.06); }
+  .add-cat-btn {
+    padding: 12px 18px;
+    background: #c4b5fd; color: #1a1a25;
+    border: none; border-radius: 8px;
+    font-size: 20px; font-weight: bold; cursor: pointer; line-height: 1;
+  }
+  .add-cat-btn:hover { background: #d4c5fe; }
+  .modal-close {
+    width: 100%; padding: 12px;
+    background: rgba(255,255,255,0.05);
+    border: none; border-radius: 8px;
+    color: #ccc; font-size: 14px; cursor: pointer;
+  }
+  .modal-close:hover { background: rgba(255,255,255,0.1); }
   .alert-box {
     background: #c4b5fd; padding: 40px; border-radius: 16px;
     text-align: center; animation: pulse 1s infinite;
@@ -258,11 +394,51 @@
         <label for="visualOn">💡 Notificação visual</label>
         <input type="checkbox" id="visualOn" checked>
       </div>
+      <div class="option">
+        <label for="keepScreenOn">🔆 Manter tela ligada</label>
+        <input type="checkbox" id="keepScreenOn">
+      </div>
     </div>
   </div>
 
   <div class="panel" id="history-panel">
-    <div id="historyList"></div>
+    <div class="range-tabs">
+      <button class="range-tab active" data-range="7">7 dias</button>
+      <button class="range-tab" data-range="30">30 dias</button>
+      <button class="range-tab" data-range="60">2 meses</button>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title" id="chartTitle">Últimos 7 dias</div>
+        <div class="chart-total" id="chartTotal">0min</div>
+      </div>
+      <div class="chart" id="chart"></div>
+      <div class="chart-labels" id="chartLabels"></div>
+      <div class="chart-detail" id="chartDetail">
+        <div class="chart-detail-empty">Toque numa barra pra ver os detalhes do dia.</div>
+      </div>
+      <div class="chart-legend" id="chartLegend"></div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-label">Média / dia</div>
+        <div class="stat-value" id="statAvg">0min</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Maior dia</div>
+        <div class="stat-value" id="statMax">0min</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Dias com atividade</div>
+        <div class="stat-value" id="statActive">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Sequência</div>
+        <div class="stat-value" id="statStreak">0 dias</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -270,6 +446,18 @@
   <div class="alert-box">
     <h2>⏰ Sessão concluída!</h2>
     <button class="btn" id="dismissAlert">OK</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="categoryModal">
+  <div class="modal-content">
+    <div class="modal-title">Categorias</div>
+    <div class="cat-list" id="catList"></div>
+    <div class="add-cat-row">
+      <input type="text" class="new-cat-input" id="newCatInput" placeholder="Nova categoria..." maxlength="30">
+      <button class="add-cat-btn" id="addCatBtn" aria-label="Adicionar">+</button>
+    </div>
+    <button class="modal-close" id="modalClose">Fechar</button>
   </div>
 </div>
 
@@ -306,19 +494,36 @@ function ensureAudio() {
   } catch {}
 }
 
-// Wake Lock — mantém a tela ligada durante a sessão
+// Wake Lock — mantém a tela ligada
 let wakeLock = null;
-async function requestWakeLock() {
+let keepScreenOn = localStorage.getItem('timerKeepScreenOn') === '1';
+
+function shouldHoldWakeLock() {
+  return keepScreenOn || (state.running && !state.paused);
+}
+
+async function acquireWakeLock() {
   if (!('wakeLock' in navigator)) return;
-  try { wakeLock = await navigator.wakeLock.request('screen'); }
-  catch {}
+  if (wakeLock) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch {}
 }
 function releaseWakeLock() {
   if (wakeLock) { try { wakeLock.release(); } catch {} wakeLock = null; }
 }
+function syncWakeLock() {
+  if (shouldHoldWakeLock()) acquireWakeLock();
+  else releaseWakeLock();
+}
+
+// Aliases para compatibilidade com chamadas existentes
+const requestWakeLock = syncWakeLock;
+
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && state.running && !state.paused) {
-    requestWakeLock();
+  if (document.visibilityState === 'visible' && shouldHoldWakeLock()) {
+    acquireWakeLock();
   }
 });
 
@@ -478,13 +683,121 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
-// Categoria — chip que alterna CFA / Trabalho
+// Categorias — gerenciamento customizado
 const categoryChip = $('#categoryChip');
 const categoryLabel = $('#categoryLabel');
+const categoryModal = $('#categoryModal');
+const catList = $('#catList');
+const newCatInput = $('#newCatInput');
+
+function loadCategories() {
+  try {
+    const stored = JSON.parse(localStorage.getItem('timerCategories') || 'null');
+    if (Array.isArray(stored) && stored.length > 0) return stored;
+  } catch {}
+  return ['CFA', 'Trabalho'];
+}
+function saveCategories(cats) {
+  localStorage.setItem('timerCategories', JSON.stringify(cats));
+}
+function loadSelectedCategory() {
+  const stored = localStorage.getItem('timerSelectedCategory');
+  const cats = loadCategories();
+  return stored && cats.includes(stored) ? stored : cats[0];
+}
+function saveSelectedCategory(cat) {
+  localStorage.setItem('timerSelectedCategory', cat);
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderCatList() {
+  const cats = loadCategories();
+  catList.innerHTML = cats.map(cat => {
+    const safe = escapeHtml(cat);
+    return `
+      <div class="cat-item ${cat === state.category ? 'active' : ''}" data-cat="${safe}">
+        <span class="cat-name">${safe}</span>
+        ${cats.length > 1 ? `<button class="cat-delete" data-del="${safe}" aria-label="Excluir ${safe}">×</button>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function openCategoryModal() {
+  renderCatList();
+  categoryModal.classList.add('active');
+  newCatInput.value = '';
+  setTimeout(() => newCatInput.focus(), 50);
+}
+function closeCategoryModal() {
+  categoryModal.classList.remove('active');
+}
+
+function addCategory() {
+  const value = newCatInput.value.trim();
+  if (!value) return;
+  const cats = loadCategories();
+  if (cats.some(c => c.toLowerCase() === value.toLowerCase())) {
+    newCatInput.value = '';
+    return;
+  }
+  cats.push(value);
+  saveCategories(cats);
+  newCatInput.value = '';
+  renderCatList();
+}
+
 categoryChip.addEventListener('click', () => {
   if (state.running) return;
-  state.category = state.category === 'CFA' ? 'Trabalho' : 'CFA';
-  categoryLabel.textContent = state.category;
+  openCategoryModal();
+});
+
+catList.addEventListener('click', (e) => {
+  const delBtn = e.target.closest('.cat-delete');
+  if (delBtn) {
+    e.stopPropagation();
+    const cat = delBtn.dataset.del;
+    const cats = loadCategories().filter(c => c !== cat);
+    saveCategories(cats);
+    if (state.category === cat) {
+      state.category = cats[0];
+      categoryLabel.textContent = state.category;
+      saveSelectedCategory(state.category);
+    }
+    renderCatList();
+    return;
+  }
+  const item = e.target.closest('.cat-item');
+  if (item) {
+    state.category = item.dataset.cat;
+    categoryLabel.textContent = state.category;
+    saveSelectedCategory(state.category);
+    closeCategoryModal();
+  }
+});
+
+$('#addCatBtn').addEventListener('click', addCategory);
+newCatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); addCategory(); }
+});
+$('#modalClose').addEventListener('click', closeCategoryModal);
+categoryModal.addEventListener('click', (e) => {
+  if (e.target === categoryModal) closeCategoryModal();
+});
+
+// Inicializa categoria salva
+state.category = loadSelectedCategory();
+categoryLabel.textContent = state.category;
+
+// Toggle "Manter tela ligada"
+const keepScreenOnToggle = $('#keepScreenOn');
+keepScreenOnToggle.checked = keepScreenOn;
+keepScreenOnToggle.addEventListener('change', (e) => {
+  keepScreenOn = e.target.checked;
+  localStorage.setItem('timerKeepScreenOn', keepScreenOn ? '1' : '0');
+  syncWakeLock();
 });
 
 // Duração — picker com setinhas (incrementos de 5 min, mín 5, máx 240)
@@ -576,7 +889,7 @@ pauseBtn.addEventListener('click', () => {
     pauseBtn.textContent = 'Retomar';
     pauseBtn.classList.remove('btn-pause');
     pauseBtn.classList.add('btn-resume');
-    releaseWakeLock();
+    syncWakeLock();
   }
   syncPip();
   updatePipMediaState();
@@ -608,7 +921,7 @@ function finishSession(completed) {
   // Volta pra view inicial
   $('#focusRunning').style.display = 'none';
   $('#focusIdle').style.display = 'block';
-  releaseWakeLock();
+  syncWakeLock();
   updateDisplay();
   updatePipMediaState();
   renderToday();
@@ -663,7 +976,7 @@ function loadHistory() {
 }
 function saveSession(category, elapsedMs) {
   const history = loadHistory();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dateKey(new Date());
   if (!history[today]) history[today] = {};
   history[today][category] = (history[today][category] || 0) + elapsedMs;
   localStorage.setItem('timerHistory', JSON.stringify(history));
@@ -679,7 +992,7 @@ function formatDuration(ms) {
 
 function renderToday() {
   const history = loadHistory();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dateKey(new Date());
   const day = history[today] || {};
   const total = Object.values(day).reduce((a, b) => a + b, 0);
   $('#todayTotal').textContent = total > 0 ? formatDuration(total) : '0min';
@@ -694,33 +1007,158 @@ function renderToday() {
   }
 }
 
-function renderHistory() {
-  const list = $('#historyList');
+// Cores estáveis por categoria (hash do nome → paleta)
+const CATEGORY_COLORS = ['#c4b5fd', '#fbcfe8', '#fde68a', '#bbf7d0', '#bae6fd', '#fed7aa', '#f9a8d4', '#a5b4fc'];
+function getCategoryColor(category) {
+  let hash = 0;
+  for (let i = 0; i < category.length; i++) hash = (hash * 31 + category.charCodeAt(i)) | 0;
+  return CATEGORY_COLORS[Math.abs(hash) % CATEGORY_COLORS.length];
+}
+
+let currentRange = 7;
+let selectedDate = null;
+
+function dateKey(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function getRangeData(rangeDays) {
   const history = loadHistory();
-  const dates = Object.keys(history).sort().reverse();
-  if (dates.length === 0) {
-    list.innerHTML = '<div class="empty">Nenhuma sessão registrada ainda.<br>Comece um timer para popular o histórico.</div>';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = [];
+  for (let i = rangeDays - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const key = dateKey(d);
+    const data = history[key] || {};
+    days.push({
+      date: d, key, data,
+      total: Object.values(data).reduce((a, b) => a + b, 0)
+    });
+  }
+  return days;
+}
+
+function updateChartDetail() {
+  const detail = $('#chartDetail');
+  if (!selectedDate) {
+    detail.innerHTML = '<div class="chart-detail-empty">Toque numa barra pra ver os detalhes do dia.</div>';
     return;
   }
-  list.innerHTML = dates.map(date => {
-    const day = history[date];
-    const total = Object.values(day).reduce((a, b) => a + b, 0);
-    const formatted = new Date(date + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-    return `
-      <div class="history-day">
-        <div class="history-date">${formatted}</div>
-        ${Object.entries(day).map(([cat, ms]) => `
-          <div class="history-line">
-            <span>${cat}</span><span>${formatDuration(ms)}</span>
-          </div>
-        `).join('')}
-        <div class="history-line history-total">
-          <span>Total</span><span>${formatDuration(total)}</span>
-        </div>
-      </div>
-    `;
-  }).join('');
+  const history = loadHistory();
+  const day = history[selectedDate] || {};
+  const total = Object.values(day).reduce((a, b) => a + b, 0);
+  const date = new Date(selectedDate + 'T00:00:00');
+  const formatted = date.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+  if (total === 0) {
+    detail.innerHTML = `
+      <div class="chart-detail-date">${formatted}</div>
+      <div class="chart-detail-empty">Nenhuma sessão neste dia.</div>`;
+    return;
+  }
+  const lines = Object.entries(day)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat, ms]) =>
+      `<div class="chart-detail-line"><span>${escapeHtml(cat)}</span><span>${formatDuration(ms)}</span></div>`
+    ).join('');
+  detail.innerHTML = `
+    <div class="chart-detail-date">${formatted}</div>
+    ${lines}
+    <div class="chart-detail-line" style="border-top: 1px solid rgba(255,255,255,0.08); margin-top: 6px; padding-top: 6px; font-weight: 600; color: #fff;">
+      <span>Total</span><span>${formatDuration(total)}</span>
+    </div>`;
 }
+
+function renderHistory() {
+  const days = getRangeData(currentRange);
+  const total = days.reduce((s, d) => s + d.total, 0);
+  const activeDays = days.filter(d => d.total > 0).length;
+  const avg = activeDays > 0 ? total / activeDays : 0;
+  const max = Math.max(0, ...days.map(d => d.total));
+
+  // Streak: dias consecutivos terminando no último dia ativo
+  let streak = 0;
+  let i = days.length - 1;
+  if (days[i].total === 0) i--; // hoje sem atividade não quebra streak
+  while (i >= 0 && days[i].total > 0) { streak++; i--; }
+
+  // Header
+  $('#chartTitle').textContent =
+    currentRange === 7 ? 'Últimos 7 dias' :
+    currentRange === 30 ? 'Últimos 30 dias' : 'Últimos 60 dias';
+  $('#chartTotal').textContent = total > 0 ? formatDuration(total) : '0min';
+
+  // Bars
+  const todayK = dateKey(new Date());
+  $('#chart').innerHTML = days.map(d => {
+    const ratio = max > 0 ? d.total / max : 0;
+    const stacks = Object.entries(d.data)
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, ms]) => {
+        const pct = d.total > 0 ? (ms / d.total) * 100 : 0;
+        return `<div class="bar-stack" style="background: ${getCategoryColor(cat)}; height: ${pct}%"></div>`;
+      }).join('');
+    const cls = [
+      'bar-col',
+      d.key === todayK ? 'today' : '',
+      d.key === selectedDate ? 'selected' : ''
+    ].filter(Boolean).join(' ');
+    return `<div class="${cls}" data-date="${d.key}"><div class="bar-fill" style="height: ${ratio * 100}%">${stacks}</div></div>`;
+  }).join('');
+
+  // Labels
+  const dayNames = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+  const step = currentRange === 7 ? 1 : currentRange === 30 ? 5 : 10;
+  $('#chartLabels').innerHTML = days.map((d, idx) => {
+    let txt = '';
+    if (currentRange === 7) {
+      txt = dayNames[d.date.getDay()];
+    } else {
+      const fromEnd = days.length - 1 - idx;
+      if (fromEnd % step === 0) txt = `${d.date.getDate()}/${d.date.getMonth() + 1}`;
+    }
+    return `<div class="chart-label ${txt ? '' : 'muted'}">${txt || '.'}</div>`;
+  }).join('');
+
+  updateChartDetail();
+
+  // Legend
+  const catsInRange = new Set();
+  days.forEach(d => Object.keys(d.data).forEach(c => catsInRange.add(c)));
+  $('#chartLegend').innerHTML = [...catsInRange].length > 0 ?
+    [...catsInRange].map(cat => `
+      <div class="legend-item">
+        <div class="legend-dot" style="background: ${getCategoryColor(cat)}"></div>
+        <span>${escapeHtml(cat)}</span>
+      </div>`).join('') : '';
+
+  // Stats
+  $('#statAvg').textContent = avg > 0 ? formatDuration(avg) : '0min';
+  $('#statMax').textContent = max > 0 ? formatDuration(max) : '0min';
+  $('#statActive').textContent = `${activeDays} de ${currentRange}`;
+  $('#statStreak').textContent = streak === 1 ? '1 dia' : `${streak} dias`;
+}
+
+document.querySelectorAll('.range-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.range-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentRange = parseInt(tab.dataset.range);
+    selectedDate = null;
+    renderHistory();
+  });
+});
+
+document.addEventListener('click', (e) => {
+  const bar = e.target.closest('#chart .bar-col');
+  if (!bar) return;
+  selectedDate = selectedDate === bar.dataset.date ? null : bar.dataset.date;
+  renderHistory();
+});
 
 updateDisplay();
 renderToday();

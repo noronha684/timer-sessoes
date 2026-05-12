@@ -166,8 +166,13 @@
   }
   .today-total {
     font-size: 26px; font-weight: 700;
-    margin-bottom: 10px;
+    margin-bottom: 4px;
   }
+  .today-subtitle {
+    font-size: 13px; color: #888;
+    margin-bottom: 12px;
+  }
+  .today-subtitle.highlight { color: #c4b5fd; }
   .today-breakdown {
     display: flex; gap: 8px; flex-wrap: wrap;
   }
@@ -449,6 +454,7 @@
     <div class="today-card">
       <div class="today-title">Hoje</div>
       <div class="today-total" id="todayTotal">0min</div>
+      <div class="today-subtitle" id="todaySubtitle">0 sessões de 50min</div>
       <div class="today-breakdown" id="todayBreakdown"></div>
     </div>
 
@@ -1077,6 +1083,28 @@ function saveSession(category, elapsedMs) {
   if (!history[today]) history[today] = {};
   history[today][category] = (history[today][category] || 0) + elapsedMs;
   localStorage.setItem('timerHistory', JSON.stringify(history));
+
+  // Registra a sessão individual (pra contar sessões de 50min)
+  const sessions = loadSessions();
+  if (!sessions[today]) sessions[today] = [];
+  sessions[today].push({
+    category,
+    durationMs: elapsedMs,
+    at: Date.now()
+  });
+  localStorage.setItem('timerSessions', JSON.stringify(sessions));
+}
+
+function loadSessions() {
+  try { return JSON.parse(localStorage.getItem('timerSessions') || '{}'); }
+  catch { return {}; }
+}
+
+const POMO_MIN = 50; // duração de referência pra contagem
+function countSessionsForDate(dateKey, minMs = POMO_MIN * 60 * 1000) {
+  const sessions = loadSessions();
+  const list = sessions[dateKey] || [];
+  return list.filter(s => s.durationMs >= minMs).length;
 }
 
 function formatDuration(ms) {
@@ -1093,6 +1121,12 @@ function renderToday() {
   const day = history[today] || {};
   const total = Object.values(day).reduce((a, b) => a + b, 0);
   $('#todayTotal').textContent = total > 0 ? formatDuration(total) : '0min';
+
+  const count = countSessionsForDate(today);
+  const sub = $('#todaySubtitle');
+  sub.textContent = count === 1 ? '1 sessão de 50min ✓' : `${count} sessões de 50min`;
+  sub.classList.toggle('highlight', count > 0);
+
   const breakdown = $('#todayBreakdown');
   const entries = Object.entries(day);
   if (entries.length === 0) {
@@ -1162,12 +1196,17 @@ function updateChartDetail() {
     .map(([cat, ms]) =>
       `<div class="chart-detail-line"><span>${escapeHtml(cat)}</span><span>${formatDuration(ms)}</span></div>`
     ).join('');
+  const sessCount = countSessionsForDate(selectedDate);
+  const sessLine = sessCount > 0
+    ? `<div class="chart-detail-line" style="color:#c4b5fd; font-size:13px; margin-top:4px;"><span>${sessCount === 1 ? '1 sessão de 50min' : sessCount + ' sessões de 50min'}</span><span>✓</span></div>`
+    : '';
   detail.innerHTML = `
     <div class="chart-detail-date">${formatted}</div>
     ${lines}
     <div class="chart-detail-line" style="border-top: 1px solid rgba(255,255,255,0.08); margin-top: 6px; padding-top: 6px; font-weight: 600; color: #fff;">
       <span>Total</span><span>${formatDuration(total)}</span>
-    </div>`;
+    </div>
+    ${sessLine}`;
 }
 
 function renderHistory() {
@@ -1281,6 +1320,7 @@ function generateSyncCode() {
 function buildSyncPayload() {
   return {
     history: loadHistory(),
+    sessions: loadSessions(),
     categories: loadCategories(),
     selectedCategory: loadSelectedCategory(),
     keepScreenOn: keepScreenOn,
@@ -1315,6 +1355,7 @@ function applyCloudData(data) {
   isApplyingRemote = true;
   try {
     if (data.history) localStorage.setItem('timerHistory', JSON.stringify(data.history));
+    if (data.sessions) localStorage.setItem('timerSessions', JSON.stringify(data.sessions));
     if (Array.isArray(data.categories) && data.categories.length > 0) {
       localStorage.setItem('timerCategories', JSON.stringify(data.categories));
     }

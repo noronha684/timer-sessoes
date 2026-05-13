@@ -1606,6 +1606,12 @@ let syncUnsubscribe = null;
 let isApplyingRemote = false;
 let lastSyncedAt = null;
 let syncDebounceTimer = null;
+let localUpdatedAt = parseInt(localStorage.getItem('timerLocalUpdatedAt') || '0');
+
+function markLocalUpdate() {
+  localUpdatedAt = Date.now();
+  localStorage.setItem('timerLocalUpdatedAt', String(localUpdatedAt));
+}
 
 function recomputeSyncCode() {
   syncCode = currentUser ? currentUser.uid : manualSyncCode;
@@ -1652,10 +1658,24 @@ async function pullFromCloud() {
 
 function applyCloudData(data) {
   if (!data || data.device === DEVICE_ID) return;
+  // Proteção: se nosso local tem mudanças mais recentes que ainda não foram push, ignora cloud
+  if (data.updatedAt && localUpdatedAt > data.updatedAt + 1000) return;
+
   isApplyingRemote = true;
   try {
-    if (data.history) localStorage.setItem('timerHistory', JSON.stringify(data.history));
-    if (data.sessions) localStorage.setItem('timerSessions', JSON.stringify(data.sessions));
+    const localHistory = loadHistory();
+    const localSessions = loadSessions();
+    const cloudHist = data.history || {};
+    const cloudSess = data.sessions || {};
+
+    // Só sobrescreve history se cloud tem dados (não apaga local com vazio)
+    if (Object.keys(cloudHist).length > 0 || Object.keys(localHistory).length === 0) {
+      // Merge defensivo: usa cloud se tiver mais entradas OU se updatedAt é maior
+      localStorage.setItem('timerHistory', JSON.stringify(cloudHist));
+    }
+    if (Object.keys(cloudSess).length > 0 || Object.keys(localSessions).length === 0) {
+      localStorage.setItem('timerSessions', JSON.stringify(cloudSess));
+    }
     if (Array.isArray(data.categories) && data.categories.length > 0) {
       localStorage.setItem('timerCategories', JSON.stringify(data.categories));
     }
@@ -1672,6 +1692,10 @@ function applyCloudData(data) {
     renderToday();
     if ($('#history-panel').classList.contains('active')) renderHistory();
     lastSyncedAt = new Date();
+    if (data.updatedAt) {
+      localUpdatedAt = data.updatedAt;
+      localStorage.setItem('timerLocalUpdatedAt', String(localUpdatedAt));
+    }
   } finally {
     isApplyingRemote = false;
   }
@@ -1741,7 +1765,7 @@ function triggerSync() {
   syncDebounceTimer = setTimeout(() => {
     pushToCloud();
     syncDebounceTimer = null;
-  }, 600);
+  }, 300);
 }
 
 function updateSyncUI() {
@@ -1837,16 +1861,21 @@ $('#disconnectBtn').addEventListener('click', () => {
   }
 });
 
-// Adiciona triggerSync nas funções de save existentes
+// Adiciona markLocalUpdate + triggerSync nas funções de save existentes
 const _origSaveSession = saveSession;
-saveSession = function(category, elapsedMs) { _origSaveSession(category, elapsedMs); triggerSync(); };
+saveSession = function(category, elapsedMs) {
+  _origSaveSession(category, elapsedMs);
+  markLocalUpdate();
+  // Sessões são dado crítico: push imediato em vez de debounced
+  if (syncCode && window._fb && !isApplyingRemote) pushToCloud();
+};
 const _origSaveCategories = saveCategories;
-saveCategories = function(cats) { _origSaveCategories(cats); triggerSync(); };
+saveCategories = function(cats) { _origSaveCategories(cats); markLocalUpdate(); triggerSync(); };
 const _origSaveSelectedCategory = saveSelectedCategory;
-saveSelectedCategory = function(cat) { _origSaveSelectedCategory(cat); triggerSync(); };
+saveSelectedCategory = function(cat) { _origSaveSelectedCategory(cat); markLocalUpdate(); triggerSync(); };
 
 // Sync no toggle de manter tela ligada
-keepScreenOnToggle.addEventListener('change', triggerSync);
+keepScreenOnToggle.addEventListener('change', () => { markLocalUpdate(); triggerSync(); });
 
 // Inicia sync quando Firebase tiver pronto
 function initSync() {
@@ -1876,9 +1905,28 @@ function initSync() {
 if (window._fb) initSync();
 else window.addEventListener('firebase-ready', initSync);
 
-// Pull ao voltar para o app
+// Pull ao voltar para o app; force push ao sair pra não perder dados pendentes
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && syncCode && window._fb) pullFromCloud();
+  if (!window._fb || !syncCode) return;
+  if (document.visibilityState === 'visible') {
+    pullFromCloud();
+  } else {
+    // Saindo → se tem push debounced pendente, flush agora
+    if (syncDebounceTimer) {
+      clearTimeout(syncDebounceTimer);
+      syncDebounceTimer = null;
+      pushToCloud();
+    }
+  }
+});
+// Flush antes de descarregar a página (refresh, fechar tab, navegação)
+window.addEventListener('pagehide', () => {
+  if (!window._fb || !syncCode) return;
+  if (syncDebounceTimer) {
+    clearTimeout(syncDebounceTimer);
+    syncDebounceTimer = null;
+    pushToCloud();
+  }
 });
 
 updateDisplay();

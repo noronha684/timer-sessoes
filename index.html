@@ -1239,6 +1239,18 @@ function tick() {
   updateDisplay();
 }
 
+function persistTimerState() {
+  if (!state.running) { localStorage.removeItem('timerActiveState'); return; }
+  localStorage.setItem('timerActiveState', JSON.stringify({
+    running: true,
+    paused: state.paused,
+    startedAt: state.startedAt,
+    totalElapsedMs: state.totalElapsedMs,
+    durationMs: state.durationMs,
+    category: state.category,
+  }));
+}
+
 startBtn.addEventListener('click', () => {
   ensureAudio();
   if ('Notification' in window && Notification.permission === 'default') {
@@ -1261,6 +1273,7 @@ startBtn.addEventListener('click', () => {
   requestWakeLock();
   syncPip();
   updatePipMediaState();
+  persistTimerState();
 });
 
 // pauseBtn agora alterna entre Pausar e Retomar
@@ -1289,6 +1302,7 @@ pauseBtn.addEventListener('click', () => {
   }
   syncPip();
   updatePipMediaState();
+  persistTimerState();
 });
 
 stopBtn.addEventListener('click', () => {
@@ -1296,7 +1310,7 @@ stopBtn.addEventListener('click', () => {
   finishSession(false);
 });
 
-function finishSession(completed) {
+function finishSession(completed, opts = {}) {
   let elapsedMs = state.totalElapsedMs;
   if (!state.paused && state.running) {
     elapsedMs += Date.now() - state.startedAt;
@@ -1309,7 +1323,7 @@ function finishSession(completed) {
 
   if (elapsedMs >= 1000) saveSession(state.category, elapsedMs);
 
-  if (completed) triggerAlert();
+  if (completed && !opts.suppressAlert) triggerAlert();
 
   state.remainingMs = state.durationMs;
   state.totalElapsedMs = 0;
@@ -1321,6 +1335,7 @@ function finishSession(completed) {
   updateDisplay();
   updatePipMediaState();
   renderToday();
+  persistTimerState();
 }
 
 function triggerAlert() {
@@ -1929,8 +1944,63 @@ window.addEventListener('pagehide', () => {
   }
 });
 
+function restoreTimerState() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem('timerActiveState') || 'null'); } catch { return; }
+  if (!saved || !saved.running) return;
+
+  // Sessões "fantasmas" (muito antigas): descarta. Ex: timer iniciado e PC fechou por horas.
+  const wouldEndAt = saved.startedAt + saved.totalElapsedMs + saved.durationMs;
+  if (Date.now() > wouldEndAt + 60 * 60 * 1000) { // > 1h depois do fim previsto
+    localStorage.removeItem('timerActiveState');
+    return;
+  }
+
+  state.running = true;
+  state.paused = saved.paused;
+  state.startedAt = saved.startedAt;
+  state.totalElapsedMs = saved.totalElapsedMs;
+  state.durationMs = saved.durationMs;
+  state.category = saved.category;
+
+  // Calcula quanto tempo realmente passou
+  let elapsedTotal = saved.totalElapsedMs;
+  if (!saved.paused) elapsedTotal += Date.now() - saved.startedAt;
+  state.remainingMs = saved.durationMs - elapsedTotal;
+
+  // Se o tempo acabou enquanto a página estava fechada, finaliza silenciosamente
+  if (state.remainingMs <= 0) {
+    state.remainingMs = 0;
+    finishSession(true, { suppressAlert: true });
+    return;
+  }
+
+  // Sincroniza UI pra view de sessão em andamento
+  $('#focusIdle').style.display = 'none';
+  $('#focusRunning').style.display = 'block';
+  $('#runningCat').textContent = state.category;
+  categoryLabel.textContent = state.category;
+  durationValue.textContent = String(Math.round(state.durationMs / 60000));
+
+  if (saved.paused) {
+    display.classList.add('paused');
+    pauseBtn.textContent = 'Retomar';
+    pauseBtn.classList.remove('btn-pause');
+    pauseBtn.classList.add('btn-resume');
+  } else {
+    state.intervalId = setInterval(tick, 250);
+    pauseBtn.textContent = 'Pausar';
+    pauseBtn.classList.remove('btn-resume');
+    pauseBtn.classList.add('btn-pause');
+    requestWakeLock();
+  }
+  updateDisplay();
+  updatePipMediaState();
+}
+
 updateDisplay();
 renderToday();
+restoreTimerState();
 </script>
 </body>
 </html>

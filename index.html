@@ -304,6 +304,13 @@
   }
   .today-cat-name { color: var(--text-subtle); margin-right: 7px; font-weight: 400; }
   .today-empty { color: var(--text-subtle); font-size: 13px; }
+  .today-avg-row {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 16px; padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .today-avg-label { font-size: 13px; color: var(--text-subtle); font-weight: 500; }
+  .today-avg-value { font-size: 15px; font-weight: 700; color: var(--accent); letter-spacing: -0.01em; }
 
   .options {
     background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0) 100%), var(--card);
@@ -722,6 +729,10 @@
       <div class="today-total" id="todayTotal">0min</div>
       <div class="today-subtitle" id="todaySubtitle">0 sessões de 50min</div>
       <div class="today-breakdown" id="todayBreakdown"></div>
+      <div class="today-avg-row">
+        <span class="today-avg-label">Média diária</span>
+        <span class="today-avg-value" id="todayAvgValue">—</span>
+      </div>
     </div>
 
     <div class="options">
@@ -1443,6 +1454,19 @@ function renderToday() {
     breakdown.innerHTML = entries.map(([cat, ms]) =>
       `<div class="today-cat"><span class="today-cat-name">${cat}</span>${formatDuration(ms)}</div>`
     ).join('');
+  }
+
+  // Média diária geral (todo o histórico, sobre dias com atividade)
+  let allTotal = 0, activeDaysCount = 0;
+  for (const d in history) {
+    const dayTotal = Object.values(history[d]).reduce((a, b) => a + b, 0);
+    if (dayTotal > 0) { allTotal += dayTotal; activeDaysCount++; }
+  }
+  const avgValue = $('#todayAvgValue');
+  if (avgValue) {
+    avgValue.textContent = activeDaysCount > 0
+      ? `${formatDuration(allTotal / activeDaysCount)} · ${activeDaysCount} ${activeDaysCount === 1 ? 'dia' : 'dias'}`
+      : '—';
   }
 }
 

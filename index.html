@@ -11,6 +11,11 @@
 <meta name="apple-mobile-web-app-title" content="Timer">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
+<script>
+// ⚠️ Cole aqui a URL do seu Worker depois de deployar (sem barra no final).
+// Exemplo: "https://timer-sessoes.SEU-USUARIO.workers.dev"
+window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
+</script>
 <script src="firebase-config.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
@@ -1812,24 +1817,84 @@ function buildSyncPayload() {
 }
 
 async function pushToCloud() {
-  if (!window._fb || !syncCode || isApplyingRemote) return;
+  if (!window.API_BASE || !syncCode || isApplyingRemote) return;
   try {
-    const { db, doc, setDoc } = window._fb;
-    await setDoc(doc(db, 'syncs', syncCode), buildSyncPayload());
+    const payload = {
+      uid: syncCode,
+      sessions: loadSessions(),
+      categories: loadCategories(),
+      settings: {
+        selectedCategory: loadSelectedCategory(),
+        keepScreenOn: keepScreenOn,
+      },
+    };
+    const res = await fetch(`${window.API_BASE}/api/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('sync failed ' + res.status);
+    const merged = await res.json();
+    // O servidor já mesclou — aplica de volta como remoto (mas sem device check pois é nossa resposta)
+    applyServerSnapshot(merged);
     lastSyncedAt = new Date();
     updateSyncUI();
   } catch (e) { console.warn('pushToCloud:', e); }
 }
 
 async function pullFromCloud() {
-  if (!window._fb || !syncCode) return;
+  if (!window.API_BASE || !syncCode) return;
   try {
-    const { db, doc, getDoc } = window._fb;
-    const snap = await getDoc(doc(db, 'syncs', syncCode));
-    if (snap.exists()) applyCloudData(snap.data());
+    const res = await fetch(`${window.API_BASE}/api/snapshot?uid=${encodeURIComponent(syncCode)}`);
+    if (!res.ok) throw new Error('snapshot failed ' + res.status);
+    const snap = await res.json();
+    applyServerSnapshot(snap);
     lastSyncedAt = new Date();
     updateSyncUI();
   } catch (e) { console.warn('pullFromCloud:', e); }
+}
+
+function applyServerSnapshot(snap) {
+  if (!snap) return;
+  isApplyingRemote = true;
+  try {
+    const localSessions = loadSessions();
+    const serverSessions = snap.sessions || {};
+    // Mescla local com servidor (servidor já dedup mas pode haver writes locais não enviados ainda)
+    const mergedSessions = mergeSessions(localSessions, serverSessions);
+    localStorage.setItem('timerSessions', JSON.stringify(mergedSessions));
+    // History é recomputado a partir das sessões mescladas
+    const history = historyFromSessions(mergedSessions);
+    localStorage.setItem('timerHistory', JSON.stringify(history));
+    // Categorias: união
+    if (Array.isArray(snap.categories) && snap.categories.length > 0) {
+      const localCats = loadCategories();
+      const seen = new Set(localCats.map(c => c.toLowerCase()));
+      const merged = [...localCats];
+      for (const c of snap.categories) {
+        if (!seen.has(c.toLowerCase())) merged.push(c);
+      }
+      localStorage.setItem('timerCategories', JSON.stringify(merged));
+    }
+    if (snap.settings) {
+      if (snap.settings.selectedCategory) {
+        localStorage.setItem('timerSelectedCategory', snap.settings.selectedCategory);
+      }
+      if (typeof snap.settings.keepScreenOn === 'boolean') {
+        keepScreenOn = snap.settings.keepScreenOn;
+        localStorage.setItem('timerKeepScreenOn', keepScreenOn ? '1' : '0');
+        const t = $('#keepScreenOn');
+        if (t) t.checked = keepScreenOn;
+        syncWakeLock();
+      }
+    }
+    state.category = loadSelectedCategory();
+    categoryLabel.textContent = state.category;
+    renderToday();
+    if ($('#history-panel').classList.contains('active')) renderHistory();
+  } finally {
+    isApplyingRemote = false;
+  }
 }
 
 // Merge não-destrutivo: junta sessões dedupadas por (at, category, durationMs)
@@ -1936,19 +2001,18 @@ function applyCloudData(data) {
   }
 }
 
+let syncPollTimer = null;
 function startSyncListener() {
-  if (!window._fb || !syncCode) return;
-  if (syncUnsubscribe) syncUnsubscribe();
-  const { db, doc, onSnapshot } = window._fb;
-  syncUnsubscribe = onSnapshot(doc(db, 'syncs', syncCode), (snap) => {
-    if (!snap.exists()) return;
-    if (snap.metadata.hasPendingWrites) return;
-    applyCloudData(snap.data());
-  }, (err) => console.warn('onSnapshot:', err));
+  if (!window.API_BASE || !syncCode) return;
+  stopSyncListener();
+  // Polling enquanto a aba estiver visível (a cada 30s)
+  syncPollTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') pullFromCloud();
+  }, 30000);
 }
 
 function stopSyncListener() {
-  if (syncUnsubscribe) { syncUnsubscribe(); syncUnsubscribe = null; }
+  if (syncPollTimer) { clearInterval(syncPollTimer); syncPollTimer = null; }
 }
 
 async function connectSync(code) {
@@ -1995,7 +2059,7 @@ async function signInWithGoogle() {
 
 // Debounced push: agrupa mudanças rápidas em um só write
 function triggerSync() {
-  if (!syncCode || !window._fb || isApplyingRemote) return;
+  if (!syncCode || !window.API_BASE || isApplyingRemote) return;
   if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
   syncDebounceTimer = setTimeout(() => {
     pushToCloud();
@@ -2012,9 +2076,16 @@ function updateSyncUI() {
   const userInfo = $('#userInfo');
   const manualCodeInfo = $('#manualCodeInfo');
 
-  if (!window._fb) {
+  if (!window.API_BASE) {
     if (trigger) { trigger.textContent = 'Indisponível'; trigger.classList.remove('connected'); }
-    if (status) status.innerHTML = '<div style="color:var(--warn)">Firebase ainda carregando ou offline.</div>';
+    if (status) status.innerHTML = '<div style="color:var(--warn)">API_BASE não configurada. Edite no index.html.</div>';
+    if (disc) disc.style.display = 'none';
+    if (conn) conn.style.display = 'none';
+    return;
+  }
+  if (!window._fb) {
+    if (trigger) { trigger.textContent = 'Carregando...'; trigger.classList.remove('connected'); }
+    if (status) status.innerHTML = '<div style="color:var(--warn)">Firebase Auth carregando...</div>';
     if (disc) disc.style.display = 'none';
     if (conn) conn.style.display = 'none';
     return;
@@ -2142,7 +2213,7 @@ else window.addEventListener('firebase-ready', initSync);
 
 // Pull ao voltar para o app; force push ao sair pra não perder dados pendentes
 document.addEventListener('visibilitychange', () => {
-  if (!window._fb || !syncCode) return;
+  if (!window.API_BASE || !syncCode) return;
   if (document.visibilityState === 'visible') {
     pullFromCloud();
   } else {
@@ -2156,7 +2227,7 @@ document.addEventListener('visibilitychange', () => {
 });
 // Flush antes de descarregar a página (refresh, fechar tab, navegação)
 window.addEventListener('pagehide', () => {
-  if (!window._fb || !syncCode) return;
+  if (!window.API_BASE || !syncCode) return;
   if (syncDebounceTimer) {
     clearTimeout(syncDebounceTimer);
     syncDebounceTimer = null;

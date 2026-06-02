@@ -799,7 +799,7 @@ window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
         <button class="btn btn-pause" id="pauseBtn">Pausar</button>
         <button class="btn btn-stop" id="stopBtn">Parar</button>
       </div>
-      <button class="btn btn-pip" id="pipBtn" style="display:none">📱 Modo flutuante</button>
+      <button class="btn btn-pip" id="pipBtn" style="display:none">Modo flutuante</button>
     </div>
 
     <div class="today-card">
@@ -1094,7 +1094,7 @@ async function openVideoPiP() {
   updatePipMediaState();
   pipVideo.addEventListener('leavepictureinpicture', () => {
     if (pipDrawInterval) { clearInterval(pipDrawInterval); pipDrawInterval = null; }
-    pipBtn.textContent = '📱 Modo flutuante';
+    pipBtn.textContent = 'Modo flutuante';
   }, { once: true });
   pipBtn.textContent = '✕ Fechar flutuante';
 }
@@ -1139,7 +1139,7 @@ async function openDocPiP() {
   });
   pipWindow.addEventListener('pagehide', () => {
     pipWindow = null;
-    pipBtn.textContent = '📱 Modo flutuante';
+    pipBtn.textContent = 'Modo flutuante';
   });
   pipBtn.textContent = '✕ Fechar flutuante';
   syncPip();

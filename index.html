@@ -36,17 +36,17 @@ window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
 </script>
 <style>
   :root {
-    --bg: #0f0f17;
-    --card: #181826;
-    --card-elev: #1f1f30;
+    --bg: #0a0a14;
+    --card: #16162a;
+    --card-elev: #1d1d35;
     --border: rgba(255,255,255,0.06);
     --border-strong: rgba(255,255,255,0.1);
     --accent: #c4b5fd;
     --accent-2: #a78bfa;
-    --accent-glow: rgba(196,181,253,0.2);
-    --text: #ededf0;
-    --text-muted: #9d9db0;
-    --text-subtle: #6c6c80;
+    --accent-glow: rgba(196,181,253,0.25);
+    --text: #f0f0f5;
+    --text-muted: #9ca3b8;
+    --text-subtle: #6b7088;
     --danger: #f87171;
     --warn: #fbbf24;
     --success: #34d399;
@@ -54,64 +54,66 @@ window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', Roboto, system-ui, sans-serif;
-    background: var(--bg);
+    background:
+      radial-gradient(ellipse at top, rgba(196,181,253,0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom, rgba(167,139,250,0.04) 0%, transparent 50%),
+      var(--bg);
+    background-attachment: fixed;
     color: var(--text);
     min-height: 100vh;
-    padding: 24px 18px 40px;
+    padding: 20px 18px;
     -webkit-tap-highlight-color: transparent;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.005em;
   }
   .container { max-width: 640px; margin: 0 auto; }
   h1 {
-    text-align: center; margin-bottom: 24px;
-    font-size: 14px; font-weight: 500;
-    color: var(--text-subtle);
+    text-align: center; margin-bottom: 22px;
+    font-size: 17px; font-weight: 500;
+    color: var(--text-muted);
     letter-spacing: 0.3px;
   }
 
   .tabs {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    margin-bottom: 18px;
+    display: flex; gap: 4px; margin-bottom: 18px;
     background: var(--card);
     padding: 5px;
     border-radius: 12px;
     border: 1px solid var(--border);
-    position: relative;
   }
-  .tabs::before {
-    content: '';
-    position: absolute;
-    top: 5px; bottom: 5px; left: 5px;
-    width: calc(50% - 5px);
-    background: var(--card-elev);
-    border-radius: 8px;
-    transition: transform 0.25s ease;
-    z-index: 0;
-  }
-  .tabs.tab-history::before { transform: translateX(calc(100% + 0px)); }
   .tab {
-    padding: 10px; background: transparent;
+    flex: 1; padding: 10px; background: transparent;
     border: none; border-radius: 8px;
     text-align: center; cursor: pointer; font-size: 14px;
     color: var(--text-subtle); user-select: none; font-weight: 500;
-    transition: color 0.25s ease;
-    position: relative; z-index: 1;
+    transition: background 0.2s ease, color 0.2s ease;
   }
   .tab:hover { color: var(--text-muted); }
-  .tab.active { color: var(--text); }
+  .tab.active {
+    background: var(--card-elev);
+    color: var(--text);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
 
   .panel { display: none; }
-  .panel.active { display: block; }
+  .panel.active {
+    display: block;
+    animation: panelIn 0.3s ease;
+  }
+  @keyframes panelIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 
   .focus-card {
-    background: var(--card);
+    background: linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0) 100%), var(--card);
     border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 40px 28px;
-    margin-bottom: 12px;
+    border-radius: 20px;
+    padding: 38px 28px;
+    margin-bottom: 14px;
     text-align: center;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.18), 0 1px 2px rgba(0,0,0,0.4);
   }
   .focus-title {
     font-size: 22px; font-weight: 600;
@@ -127,56 +129,72 @@ window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
 
   .picker {
     display: flex; flex-direction: column; align-items: center;
-    gap: 0; margin-bottom: 28px;
+    gap: 2px; margin-bottom: 26px;
   }
   .picker-arrow {
     background: transparent; border: none;
-    color: var(--text-subtle); font-size: 13px; cursor: pointer;
-    width: 80px; height: 36px; border-radius: 10px;
+    color: var(--text-subtle); font-size: 16px; cursor: pointer;
+    width: 64px; height: 32px; border-radius: 8px;
     transition: background 0.2s ease, color 0.2s ease, transform 0.1s ease;
   }
-  .picker-arrow:hover { background: rgba(196,181,253,0.08); color: var(--accent); }
-  .picker-arrow:active { background: rgba(196,181,253,0.16); transform: scale(0.95); }
+  .picker-arrow:hover { background: rgba(255,255,255,0.05); color: var(--text-muted); }
+  .picker-arrow:active { background: rgba(255,255,255,0.1); transform: scale(0.96); }
   .picker-value {
-    font-size: 72px; font-weight: 600;
+    font-size: 68px; font-weight: 700;
     font-variant-numeric: tabular-nums;
-    line-height: 1; margin: 2px 0;
+    line-height: 1; margin: 4px 0;
     letter-spacing: -0.04em;
-    color: var(--text);
+    background: linear-gradient(180deg, var(--text) 0%, var(--text-muted) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
   .picker-label {
     font-size: 12px; color: var(--text-subtle);
-    text-transform: uppercase; letter-spacing: 2px;
-    font-weight: 600; margin-top: 4px;
+    text-transform: lowercase; letter-spacing: 1px;
+    font-weight: 500;
   }
 
   .category-chip {
-    display: inline-flex; align-items: center; gap: 8px;
+    display: inline-flex; align-items: center; gap: 9px;
     margin-bottom: 28px;
-    padding: 8px 14px;
-    background: transparent;
+    padding: 9px 18px;
+    background: rgba(255,255,255,0.04);
     border: 1px solid var(--border-strong);
     border-radius: 999px;
-    color: var(--text-muted);
-    font-size: 13px; font-weight: 500;
+    color: var(--text);
+    font-size: 14px; font-weight: 500;
     cursor: pointer;
-    transition: color 0.15s ease, border-color 0.15s ease;
+    transition: all 0.2s ease;
   }
-  .category-chip:hover { color: var(--text); border-color: var(--text-subtle); }
-  .chip-arrow { color: var(--text-subtle); font-size: 10px; }
+  .category-chip::before {
+    content: '';
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent-glow);
+  }
+  .category-chip:hover {
+    background: rgba(255,255,255,0.07);
+    border-color: rgba(255,255,255,0.16);
+    transform: translateY(-1px);
+  }
+  .chip-arrow { color: var(--text-subtle); font-size: 11px; }
 
   .btn-primary {
     width: 100%;
-    padding: 15px;
-    background: var(--accent);
-    border: none; border-radius: 10px;
+    padding: 17px;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+    border: none; border-radius: 12px;
     color: #1a1a25;
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.15s ease, transform 0.1s ease;
+    letter-spacing: 0.01em;
+    transition: transform 0.1s ease, box-shadow 0.2s ease, filter 0.2s ease;
+    box-shadow: 0 4px 20px rgba(196,181,253,0.2), inset 0 1px 0 rgba(255,255,255,0.2);
   }
-  .btn-primary:hover { background: var(--accent-2); }
+  .btn-primary:hover { filter: brightness(1.05); box-shadow: 0 6px 28px rgba(196,181,253,0.32), inset 0 1px 0 rgba(255,255,255,0.2); }
   .btn-primary:active { transform: scale(0.98); }
 
   .running-cat {
@@ -203,15 +221,19 @@ window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
   }
   .ring-progress {
     fill: none;
-    stroke: var(--accent);
-    stroke-width: 4;
+    stroke: url(#ringGradient);
+    stroke-width: 5;
     stroke-linecap: round;
     stroke-dasharray: 565.49;
     stroke-dashoffset: 0;
-    transition: stroke-dashoffset 0.35s linear, stroke 0.25s ease;
+    transition: stroke-dashoffset 0.35s linear;
+    filter: drop-shadow(0 0 6px var(--accent-glow));
   }
-  .ring-progress.paused { stroke: var(--warn); }
-  .ring-progress.urgent { stroke: #f59e0b; }
+  .ring-progress.paused { stroke: var(--warn); filter: drop-shadow(0 0 4px rgba(251,191,36,0.3)); }
+  .ring-progress.urgent {
+    stroke: #f59e0b;
+    filter: drop-shadow(0 0 6px rgba(245,158,11,0.35));
+  }
   .timer-display {
     position: absolute;
     top: 50%; left: 50%;
@@ -227,17 +249,18 @@ window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
     50% { transform: translate(-50%, -50%) scale(1.05); color: var(--accent); }
   }
 
-  .controls { display: flex; gap: 8px; margin-bottom: 12px; }
+  .controls { display: flex; gap: 10px; margin-bottom: 12px; }
   .btn {
-    flex: 1; padding: 13px; border: none; border-radius: 10px;
-    color: #fff; font-size: 14px; font-weight: 600; cursor: pointer;
-    transition: filter 0.15s ease, transform 0.1s ease;
+    flex: 1; padding: 15px; border: none; border-radius: 12px;
+    color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
+    transition: transform 0.1s ease, filter 0.2s ease;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
   }
   .btn:hover { filter: brightness(1.08); }
   .btn:active { transform: scale(0.98); }
-  .btn-pause { background: rgba(255,255,255,0.06); border: 1px solid var(--border-strong); color: var(--text); }
-  .btn-resume { background: var(--accent); color: #1a1a25; }
-  .btn-stop { background: rgba(255,255,255,0.06); border: 1px solid var(--border-strong); color: var(--danger); }
+  .btn-pause { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #1a1a25; }
+  .btn-resume { background: linear-gradient(135deg, #34d399, #10b981); color: #0a2818; }
+  .btn-stop { background: linear-gradient(135deg, #f87171, #ef4444); }
   .btn-pip {
     background: rgba(255,255,255,0.04);
     border: 1px solid var(--border);
@@ -249,16 +272,17 @@ window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
   .btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
   .today-card {
-    background: var(--card);
+    background: linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0) 100%), var(--card);
     border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 22px 24px;
-    margin-bottom: 12px;
+    border-radius: 18px;
+    padding: 20px 24px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
   }
   .today-title {
     font-size: 11px; color: var(--text-subtle);
-    text-transform: uppercase; letter-spacing: 1.8px;
-    margin-bottom: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    margin-bottom: 6px; font-weight: 600;
     display: flex; justify-content: space-between; align-items: center;
   }
   .streak-badge {
@@ -274,11 +298,13 @@ window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
     border-radius: 50%; background: var(--accent);
   }
   .today-total {
-    font-size: 34px; font-weight: 600;
-    margin-bottom: 6px;
-    line-height: 1;
+    font-size: 30px; font-weight: 700;
+    margin-bottom: 4px;
     letter-spacing: -0.025em;
-    color: var(--text);
+    background: linear-gradient(180deg, var(--text) 0%, var(--text-muted) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
   .today-subtitle {
     font-size: 13px; color: var(--text-subtle);
@@ -290,15 +316,14 @@ window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
     display: flex; gap: 8px; flex-wrap: wrap;
   }
   .today-cat {
-    font-size: 13px; color: var(--text-muted);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 13px; color: var(--text);
     font-weight: 500;
-    display: inline-flex; align-items: center; gap: 6px;
   }
-  .today-cat + .today-cat::before {
-    content: '·'; color: var(--text-subtle); margin: 0 4px;
-  }
-  .today-cat-name { color: var(--text-subtle); font-weight: 400; }
-  .today-cat-name::after { content: ' '; }
+  .today-cat-name { color: var(--text-subtle); margin-right: 7px; font-weight: 400; }
   .today-empty { color: var(--text-subtle); font-size: 13px; }
   .today-avg-row {
     display: flex; justify-content: space-between; align-items: center;
@@ -309,9 +334,9 @@ window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
   .today-avg-value { font-size: 15px; font-weight: 700; color: var(--accent); letter-spacing: -0.01em; }
 
   .options {
-    background: var(--card);
+    background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0) 100%), var(--card);
     border: 1px solid var(--border);
-    padding: 4px 22px; border-radius: 14px;
+    padding: 4px 22px; border-radius: 18px;
     margin-bottom: 20px;
   }
   .option { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; }
@@ -343,11 +368,12 @@ window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
   }
 
   .chart-card {
-    background: var(--card);
+    background: linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0) 100%), var(--card);
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 18px;
     padding: 22px;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
   }
   .chart-header {
     display: flex; justify-content: space-between; align-items: baseline;
@@ -447,11 +473,13 @@ window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
     gap: 10px;
   }
   .stat-box {
-    background: var(--card);
+    background: linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0) 100%), var(--card);
     border: 1px solid var(--border);
     padding: 14px 16px;
-    border-radius: 12px;
+    border-radius: 14px;
+    transition: transform 0.2s ease, border-color 0.2s ease;
   }
+  .stat-box:hover { border-color: var(--border-strong); transform: translateY(-1px); }
   .stat-label {
     font-size: 10px; color: var(--text-subtle);
     text-transform: uppercase; letter-spacing: 1.2px; font-weight: 600;
@@ -756,6 +784,12 @@ window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
       <div class="running-cat" id="runningCat">CFA</div>
       <div class="timer-ring-container">
         <svg class="timer-ring" viewBox="0 0 200 200">
+          <defs>
+            <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#c4b5fd"/>
+              <stop offset="100%" stop-color="#a78bfa"/>
+            </linearGradient>
+          </defs>
           <circle class="ring-bg" cx="100" cy="100" r="90"/>
           <circle class="ring-progress" id="ringProgress" cx="100" cy="100" r="90"/>
         </svg>
@@ -1145,9 +1179,6 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     tab.classList.add('active');
     $('#' + tab.dataset.panel + '-panel').classList.add('active');
-    // Atualiza o indicador deslizante do tabs
-    const tabsEl = document.querySelector('.tabs');
-    if (tabsEl) tabsEl.classList.toggle('tab-history', tab.dataset.panel === 'history');
     if (tab.dataset.panel === 'history') renderHistory();
   });
 });
@@ -1531,7 +1562,7 @@ function renderToday() {
     breakdown.innerHTML = '<div class="today-empty">Nenhuma sessão hoje ainda.</div>';
   } else {
     breakdown.innerHTML = entries.map(([cat, ms]) =>
-      `<div class="today-cat" style="--cat-color: ${getCategoryColor(cat)}"><span class="today-cat-name">${escapeHtml(cat)}</span>${formatDuration(ms)}</div>`
+      `<div class="today-cat"><span class="today-cat-name">${cat}</span>${formatDuration(ms)}</div>`
     ).join('');
   }
 

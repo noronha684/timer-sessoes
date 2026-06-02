@@ -1703,10 +1703,49 @@ async function pullFromCloud() {
   } catch (e) { console.warn('pullFromCloud:', e); }
 }
 
+// Merge não-destrutivo: junta sessões dedupadas por (at, category, durationMs)
+function mergeSessions(local, cloud) {
+  const merged = {};
+  const dates = new Set([...Object.keys(local || {}), ...Object.keys(cloud || {})]);
+  for (const date of dates) {
+    const map = new Map();
+    for (const s of [...(local?.[date] || []), ...(cloud?.[date] || [])]) {
+      const key = `${s.at}|${s.category}|${s.durationMs}`;
+      if (!map.has(key)) map.set(key, s);
+    }
+    merged[date] = [...map.values()].sort((a, b) => a.at - b.at);
+  }
+  return merged;
+}
+
+// Merge de history: pra cada (data, categoria), pega o MAIOR valor — totais só crescem
+function mergeHistory(local, cloud) {
+  const merged = {};
+  const dates = new Set([...Object.keys(local || {}), ...Object.keys(cloud || {})]);
+  for (const date of dates) {
+    const cats = new Set([...Object.keys(local[date] || {}), ...Object.keys(cloud[date] || {})]);
+    merged[date] = {};
+    for (const cat of cats) {
+      merged[date][cat] = Math.max(local[date]?.[cat] || 0, cloud[date]?.[cat] || 0);
+    }
+  }
+  return merged;
+}
+
+// Recompute history from sessions (mais correto quando ambos existem)
+function historyFromSessions(sessions) {
+  const h = {};
+  for (const date in sessions) {
+    h[date] = {};
+    for (const s of sessions[date]) {
+      h[date][s.category] = (h[date][s.category] || 0) + s.durationMs;
+    }
+  }
+  return h;
+}
+
 function applyCloudData(data) {
   if (!data || data.device === DEVICE_ID) return;
-  // Proteção: se nosso local tem mudanças mais recentes que ainda não foram push, ignora cloud
-  if (data.updatedAt && localUpdatedAt > data.updatedAt + 1000) return;
 
   isApplyingRemote = true;
   try {
@@ -1715,16 +1754,33 @@ function applyCloudData(data) {
     const cloudHist = data.history || {};
     const cloudSess = data.sessions || {};
 
-    // Só sobrescreve history se cloud tem dados (não apaga local com vazio)
-    if (Object.keys(cloudHist).length > 0 || Object.keys(localHistory).length === 0) {
-      // Merge defensivo: usa cloud se tiver mais entradas OU se updatedAt é maior
-      localStorage.setItem('timerHistory', JSON.stringify(cloudHist));
+    // Mescla sessões (fonte de verdade) e history
+    const mergedSessions = mergeSessions(localSessions, cloudSess);
+    let mergedHistory = mergeHistory(localHistory, cloudHist);
+
+    // Se tem sessões registradas, recomputa o history daquelas datas pra ficar consistente
+    const recomputed = historyFromSessions(mergedSessions);
+    for (const date in recomputed) {
+      // Só sobrescreve se a soma das sessões for >= history mesclado (pra não perder dados legacy)
+      const sessionTotal = Object.values(recomputed[date]).reduce((a, b) => a + b, 0);
+      const mergedTotal = Object.values(mergedHistory[date] || {}).reduce((a, b) => a + b, 0);
+      if (sessionTotal >= mergedTotal) {
+        mergedHistory[date] = recomputed[date];
+      }
     }
-    if (Object.keys(cloudSess).length > 0 || Object.keys(localSessions).length === 0) {
-      localStorage.setItem('timerSessions', JSON.stringify(cloudSess));
-    }
+
+    localStorage.setItem('timerSessions', JSON.stringify(mergedSessions));
+    localStorage.setItem('timerHistory', JSON.stringify(mergedHistory));
+
+    // Categorias: união (mantém as do local + adiciona novas do cloud)
     if (Array.isArray(data.categories) && data.categories.length > 0) {
-      localStorage.setItem('timerCategories', JSON.stringify(data.categories));
+      const localCats = loadCategories();
+      const seen = new Set(localCats.map(c => c.toLowerCase()));
+      const merged = [...localCats];
+      for (const c of data.categories) {
+        if (!seen.has(c.toLowerCase())) merged.push(c);
+      }
+      localStorage.setItem('timerCategories', JSON.stringify(merged));
     }
     if (data.selectedCategory) localStorage.setItem('timerSelectedCategory', data.selectedCategory);
     if (typeof data.keepScreenOn === 'boolean') {
@@ -1740,9 +1796,12 @@ function applyCloudData(data) {
     if ($('#history-panel').classList.contains('active')) renderHistory();
     lastSyncedAt = new Date();
     if (data.updatedAt) {
-      localUpdatedAt = data.updatedAt;
+      localUpdatedAt = Math.max(localUpdatedAt, data.updatedAt);
       localStorage.setItem('timerLocalUpdatedAt', String(localUpdatedAt));
     }
+
+    // Após mesclar, empurra a união pro cloud pra que o outro device também receba o que faltava
+    setTimeout(() => { if (!isApplyingRemote) pushToCloud(); }, 200);
   } finally {
     isApplyingRemote = false;
   }

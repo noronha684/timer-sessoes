@@ -841,6 +841,13 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
     min-height: 2px;
   }
   .tl-block.focus { background: var(--accent); }
+  .tl-block.focus.approx {
+    background: repeating-linear-gradient(
+      45deg, var(--accent), var(--accent) 4px,
+      rgba(196,181,253,0.45) 4px, rgba(196,181,253,0.45) 8px
+    );
+    opacity: 0.75;
+  }
   .tl-block.sleep { background: #6f8fff; opacity: 0.85; }
   .agenda-legend {
     display: flex; gap: 18px; justify-content: center;
@@ -3141,21 +3148,43 @@ function renderAgenda() {
   const blocksByDay = {};
   days.forEach(d => blocksByDay[dateKey(d)] = []);
 
-  // Foco (segmentos)
-  let totalFocusMs = 0;
+  // Foco: segmentos (precisos) por dia
   const segs = loadSegments();
+  const daysWithSegments = new Set();
   for (const dk in segs) {
     for (const seg of segs[dk]) {
       for (const piece of splitByDay(seg.start, seg.end)) {
         if (weekKeys.has(piece.key)) {
           blocksByDay[piece.key].push({ type: 'focus', ...piece, category: seg.category });
+          daysWithSegments.add(piece.key);
         }
       }
-      // soma o que cai na semana
-      const s = Math.max(seg.start, weekStart.getTime());
-      const e = Math.min(seg.end, weekStart.getTime() + 7 * 86400000);
-      if (e > s) totalFocusMs += (e - s);
     }
+  }
+
+  // Fallback: dias SEM segmentos (sessões antigas) → bloco aproximado (fim − duração até fim)
+  const sessions = loadSessions();
+  for (const dk of weekKeys) {
+    if (daysWithSegments.has(dk)) continue;
+    const list = sessions[dk] || [];
+    for (const s of list) {
+      if (!s.at || !s.durationMs) continue;
+      const end = s.at;
+      const start = s.at - s.durationMs;
+      for (const piece of splitByDay(start, end)) {
+        if (piece.key === dk) {
+          blocksByDay[dk].push({ type: 'focus', ...piece, category: s.category, approx: true });
+        }
+      }
+    }
+  }
+
+  // Total de foco da semana = soma do histórico (fonte de verdade p/ antigas e novas)
+  let totalFocusMs = 0;
+  const histForTotal = loadHistory();
+  for (const d of days) {
+    const dd = histForTotal[dateKey(d)] || {};
+    totalFocusMs += Object.values(dd).reduce((a, b) => a + b, 0);
   }
 
   // Sono
@@ -3213,8 +3242,8 @@ function renderAgenda() {
       .map(b => {
         const top = (b.top * 100).toFixed(2);
         const height = Math.max(0.4, (b.bottom - b.top) * 100).toFixed(2);
-        const label = b.type === 'focus' ? (b.category || 'Foco') : 'Sono';
-        return `<div class="tl-block ${b.type}" style="top:${top}%;height:${height}%" title="${escapeHtml(label)}"></div>`;
+        const label = b.type === 'focus' ? (b.category || 'Foco') + (b.approx ? ' (aprox.)' : '') : 'Sono';
+        return `<div class="tl-block ${b.type}${b.approx ? ' approx' : ''}" style="top:${top}%;height:${height}%" title="${escapeHtml(label)}"></div>`;
       }).join('');
     return `<div class="tl-day ${isToday ? 'today' : ''}">${blocks}</div>`;
   }).join('');

@@ -208,7 +208,13 @@ async function whoopSync(request, env) {
     if (stage && typeof stage.total_awake_time_milli === 'number') {
       durationMin -= Math.round(stage.total_awake_time_milli / 60000);
     }
-    if (durationMin > 0) sleepByDate[dateKey] = { durationMin, source: 'whoop', at: Date.now() };
+    if (durationMin > 0) sleepByDate[dateKey] = {
+      durationMin,
+      source: 'whoop',
+      at: Date.now(),
+      start: start.getTime(),
+      end: end.getTime(),
+    };
   }
 
   // Salva em settings.sleep (merge com o existente)

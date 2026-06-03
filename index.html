@@ -15,6 +15,7 @@
 // ⚠️ Cole aqui a URL do seu Worker depois de deployar (sem barra no final).
 // Exemplo: "https://timer-sessoes.SEU-USUARIO.workers.dev"
 window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
+window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
 </script>
 <script src="firebase-config.js"></script>
 <script type="module">
@@ -1114,13 +1115,14 @@ window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
 
     <div class="sono-section">
       <div class="sono-section-title">Whoop</div>
-      <div class="whoop-card">
-        <div class="whoop-status">Integração em construção</div>
-        <p class="whoop-info">
-          Quando ativada, sua duração de sono virá direto do Whoop (sem precisar registrar manual).
-          Requer configurar OAuth no portal do Whoop e ajustar o Worker.
+      <div class="whoop-card" id="whoopCard">
+        <div class="whoop-status" id="whoopStatus">Verificando...</div>
+        <p class="whoop-info" id="whoopInfo">
+          Conecte sua conta Whoop pra importar o sono automaticamente.
         </p>
-        <button class="sono-add-btn" disabled>Conectar Whoop (em breve)</button>
+        <button class="sono-add-btn" id="whoopConnectBtn">Conectar Whoop</button>
+        <button class="sono-add-btn" id="whoopSyncBtn" style="display:none">🔄 Sincronizar agora</button>
+        <button class="sync-danger-btn" id="whoopDisconnectBtn" style="display:none; margin-top: 8px;">Desconectar</button>
       </div>
     </div>
   </div>
@@ -2121,6 +2123,8 @@ async function pushToCloud() {
       settings: {
         selectedCategory: loadSelectedCategory(),
         keepScreenOn: keepScreenOn,
+        sleep: loadSleep(),
+        alarms: loadAlarms(),
       },
     };
     const res = await fetch(`${window.API_BASE}/api/sync`, {
@@ -2181,6 +2185,16 @@ function applyServerSnapshot(snap) {
         const t = $('#keepScreenOn');
         if (t) t.checked = keepScreenOn;
         syncWakeLock();
+      }
+      // Sono: mescla (Whoop/manual do servidor + local)
+      if (snap.settings.sleep && typeof snap.settings.sleep === 'object') {
+        const localSleep = loadSleep();
+        const merged = { ...localSleep, ...snap.settings.sleep };
+        localStorage.setItem('timerSleep', JSON.stringify(merged));
+      }
+      // Alarmes: usa do servidor se existir
+      if (Array.isArray(snap.settings.alarms)) {
+        localStorage.setItem('timerAlarms', JSON.stringify(snap.settings.alarms));
       }
     }
     state.category = loadSelectedCategory();
@@ -2591,6 +2605,7 @@ function loadAlarms() {
 }
 function saveAlarms(alarms) {
   localStorage.setItem('timerAlarms', JSON.stringify(alarms));
+  if (typeof triggerSync === 'function') triggerSync();
 }
 
 let editingAlarmId = null;
@@ -2757,6 +2772,7 @@ function loadSleep() {
 }
 function saveSleepData(data) {
   localStorage.setItem('timerSleep', JSON.stringify(data));
+  if (typeof triggerSync === 'function') triggerSync();
 }
 
 function openSleepModal() {
@@ -2793,8 +2809,104 @@ $('#saveSleepBtn').addEventListener('click', () => {
   renderSono();
 });
 
+// ====== Whoop (front) ======
+function whoopUid() {
+  // Usa o mesmo identificador do sync (uid do Google ou código manual)
+  return syncCode || null;
+}
+
+async function checkWhoopStatus() {
+  const uid = whoopUid();
+  const statusEl = $('#whoopStatus');
+  const infoEl = $('#whoopInfo');
+  const connectBtn = $('#whoopConnectBtn');
+  const syncBtn = $('#whoopSyncBtn');
+  const discBtn = $('#whoopDisconnectBtn');
+  if (!uid) {
+    statusEl.textContent = 'Login necessário';
+    infoEl.textContent = 'Entre com Google na aba Timer (Sincronização) antes de conectar o Whoop.';
+    connectBtn.style.display = 'none';
+    syncBtn.style.display = 'none';
+    discBtn.style.display = 'none';
+    return;
+  }
+  try {
+    const res = await fetch(`${window.API_BASE}/api/whoop/status?uid=${encodeURIComponent(uid)}`);
+    const data = await res.json();
+    if (data.connected) {
+      statusEl.textContent = '✓ Conectado';
+      infoEl.textContent = 'Seu sono é importado do Whoop. Sincronize pra puxar os dados mais recentes.';
+      connectBtn.style.display = 'none';
+      syncBtn.style.display = 'inline-block';
+      discBtn.style.display = 'block';
+    } else {
+      statusEl.textContent = 'Não conectado';
+      infoEl.textContent = 'Conecte sua conta Whoop pra importar o sono automaticamente.';
+      connectBtn.style.display = 'inline-block';
+      syncBtn.style.display = 'none';
+      discBtn.style.display = 'none';
+    }
+  } catch (e) {
+    statusEl.textContent = 'Erro ao verificar';
+    infoEl.textContent = e.message;
+  }
+}
+
+$('#whoopConnectBtn').addEventListener('click', () => {
+  const uid = whoopUid();
+  if (!uid) { alert('Entre com Google primeiro (aba Timer → Sincronização).'); return; }
+  // Abre o fluxo OAuth do Whoop via Worker
+  window.location.href = `${window.API_BASE}/oauth/whoop/login?uid=${encodeURIComponent(uid)}`;
+});
+
+$('#whoopSyncBtn').addEventListener('click', async () => {
+  const uid = whoopUid();
+  if (!uid) return;
+  const btn = $('#whoopSyncBtn');
+  const orig = btn.textContent;
+  btn.textContent = 'Sincronizando...';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${window.API_BASE}/api/whoop/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid }),
+    });
+    const data = await res.json();
+    if (data.ok && data.sleep) {
+      // Mescla sono do Whoop no local
+      const local = loadSleep();
+      Object.assign(local, data.sleep);
+      saveSleepData(local);
+      renderSono();
+      btn.textContent = `✓ ${data.synced} noites`;
+    } else if (data.error === 'not_connected') {
+      btn.textContent = 'Reconectar';
+      checkWhoopStatus();
+    } else {
+      btn.textContent = 'Erro';
+    }
+  } catch (e) {
+    btn.textContent = 'Erro';
+  }
+  setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
+});
+
+$('#whoopDisconnectBtn').addEventListener('click', async () => {
+  const uid = whoopUid();
+  if (!uid) return;
+  if (!confirm('Desconectar o Whoop?')) return;
+  await fetch(`${window.API_BASE}/api/whoop/disconnect`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uid }),
+  });
+  checkWhoopStatus();
+});
+
 function renderSono() {
   renderAlarms();
+  checkWhoopStatus();
   const sleep = loadSleep();
   // Ontem
   const yest = new Date();

@@ -76,25 +76,39 @@ window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
   }
 
   .tabs {
-    display: flex; gap: 4px; margin-bottom: 18px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    margin-bottom: 18px;
     background: var(--card);
     padding: 5px;
     border-radius: 12px;
     border: 1px solid var(--border);
+    position: relative;
   }
+  .tabs::before {
+    content: '';
+    position: absolute;
+    top: 5px; bottom: 5px; left: 5px;
+    width: calc((100% - 10px) / 3);
+    background: var(--card-elev);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    transition: transform 0.32s cubic-bezier(0.4, 0.0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    z-index: 0;
+  }
+  .tabs.tab-history::before { transform: translateX(100%); }
+  .tabs.tab-sono::before { transform: translateX(200%); }
   .tab {
-    flex: 1; padding: 10px; background: transparent;
+    padding: 10px; background: transparent;
     border: none; border-radius: 8px;
     text-align: center; cursor: pointer; font-size: 14px;
     color: var(--text-subtle); user-select: none; font-weight: 500;
-    transition: background 0.2s ease, color 0.2s ease;
+    transition: color 0.25s ease;
+    position: relative; z-index: 1;
   }
   .tab:hover { color: var(--text-muted); }
-  .tab.active {
-    background: var(--card-elev);
-    color: var(--text);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-  }
+  .tab.active { color: var(--text); }
 
   .panel { display: none; }
   .panel.active {
@@ -569,6 +583,196 @@ window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
   }
   .modal-close:hover { background: rgba(255,255,255,0.1); }
 
+  /* ====== Sono panel ====== */
+  .sono-section {
+    background: linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0) 100%), var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 20px 22px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+  }
+  .sono-section-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px;
+  }
+  .sono-section-title {
+    font-size: 11px; color: var(--text-subtle);
+    text-transform: uppercase; letter-spacing: 1.5px;
+    font-weight: 600;
+  }
+  .sono-add-btn {
+    background: rgba(196,181,253,0.12);
+    border: 1px solid rgba(196,181,253,0.2);
+    border-radius: 999px;
+    color: var(--accent); font-size: 12px; font-weight: 600;
+    padding: 5px 12px; cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .sono-add-btn:hover:not(:disabled) {
+    background: rgba(196,181,253,0.2);
+    border-color: rgba(196,181,253,0.35);
+  }
+  .sono-add-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Alarmes */
+  .alarms-list { display: flex; flex-direction: column; gap: 8px; }
+  .alarm-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+  .alarm-item:hover { border-color: var(--border-strong); background: rgba(255,255,255,0.06); }
+  .alarm-item.disabled { opacity: 0.4; }
+  .alarm-info { flex: 1; min-width: 0; }
+  .alarm-time {
+    font-size: 28px; font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--text); line-height: 1;
+  }
+  .alarm-meta {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 6px;
+    font-size: 12px; color: var(--text-subtle);
+  }
+  .alarm-label { font-weight: 500; color: var(--text-muted); }
+  .alarm-days-display { letter-spacing: 1px; }
+  .alarm-empty { text-align: center; padding: 30px 10px; color: var(--text-subtle); font-size: 13px; }
+
+  /* Toggle switch */
+  .toggle {
+    position: relative;
+    display: inline-block;
+    width: 44px; height: 24px;
+    flex-shrink: 0;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,0.1);
+    border-radius: 999px;
+    transition: background 0.2s ease;
+    cursor: pointer;
+  }
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    height: 18px; width: 18px;
+    left: 3px; top: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s ease;
+  }
+  .toggle input:checked + .toggle-slider { background: var(--accent); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+  /* Alarm modal */
+  .alarm-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; padding: 20px;
+  }
+  .alarm-overlay.active { display: flex; }
+  .alarm-modal { max-width: 340px; }
+  .alarm-time-input {
+    width: 100%; padding: 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    color: var(--text);
+    font-size: 36px; font-weight: 700;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    -webkit-appearance: none; appearance: none;
+  }
+  .alarm-time-input:focus { outline: none; border-color: var(--accent); }
+  .alarm-time-input::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+  .alarm-days { display: flex; gap: 6px; }
+  .day-btn {
+    flex: 1; padding: 10px 0;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-subtle);
+    font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .day-btn.active {
+    background: rgba(196,181,253,0.18);
+    border-color: rgba(196,181,253,0.35);
+    color: var(--accent);
+  }
+
+  /* Sleep cards + chart */
+  .sleep-cards {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; margin-bottom: 16px;
+  }
+  .sleep-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+  }
+  .sleep-card-label {
+    font-size: 11px; color: var(--text-subtle);
+    text-transform: uppercase; letter-spacing: 1.2px;
+    font-weight: 600;
+  }
+  .sleep-card-value {
+    font-size: 22px; font-weight: 700;
+    margin-top: 4px; letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .sleep-chart-wrap { margin-top: 4px; }
+  .sleep-chart {
+    display: flex; align-items: flex-end; gap: 4px;
+    height: 100px;
+  }
+  .sleep-bar {
+    flex: 1; min-width: 0;
+    background: rgba(196,181,253,0.18);
+    border-radius: 4px 4px 0 0;
+    position: relative;
+    transition: background 0.2s ease;
+  }
+  .sleep-bar.empty { background: rgba(255,255,255,0.04); }
+  .sleep-bar:hover { background: rgba(196,181,253,0.32); }
+  .sleep-chart-labels {
+    display: flex; gap: 4px;
+    margin-top: 6px;
+    font-size: 10px; color: var(--text-subtle);
+    text-align: center;
+  }
+  .sleep-chart-labels span { flex: 1; }
+
+  /* Whoop */
+  .whoop-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px dashed var(--border-strong);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+  }
+  .whoop-status {
+    font-size: 11px; color: var(--text-subtle);
+    text-transform: uppercase; letter-spacing: 1.2px;
+    font-weight: 600; margin-bottom: 10px;
+  }
+  .whoop-info {
+    font-size: 13px; color: var(--text-muted);
+    line-height: 1.5; margin-bottom: 14px;
+  }
+
   /* Sync UI */
   .sync-trigger {
     background: rgba(196,181,253,0.12);
@@ -758,6 +962,7 @@ window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
   <div class="tabs">
     <div class="tab active" data-panel="timer">Timer</div>
     <div class="tab" data-panel="history">Histórico</div>
+    <div class="tab" data-panel="sono">Sono</div>
   </div>
 
   <div class="panel active" id="timer-panel">
@@ -874,6 +1079,91 @@ window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
         <div class="stat-value" id="statStreak">0 dias</div>
       </div>
     </div>
+  </div>
+
+  <div class="panel" id="sono-panel">
+    <div class="sono-section">
+      <div class="sono-section-header">
+        <div class="sono-section-title">Alarmes</div>
+        <button class="sono-add-btn" id="addAlarmBtn">+ Novo</button>
+      </div>
+      <div id="alarmsList" class="alarms-list"></div>
+    </div>
+
+    <div class="sono-section">
+      <div class="sono-section-header">
+        <div class="sono-section-title">Sono</div>
+        <button class="sono-add-btn" id="logSleepBtn">+ Registrar</button>
+      </div>
+      <div class="sleep-cards">
+        <div class="sleep-card">
+          <div class="sleep-card-label">Ontem</div>
+          <div class="sleep-card-value" id="sleepYesterday">—</div>
+        </div>
+        <div class="sleep-card">
+          <div class="sleep-card-label">Média 7 dias</div>
+          <div class="sleep-card-value" id="sleepAvg7">—</div>
+        </div>
+      </div>
+      <div class="sleep-chart-wrap">
+        <div class="sono-section-title" style="font-size: 11px; margin-bottom: 10px;">Últimos 7 dias</div>
+        <div class="sleep-chart" id="sleepChart"></div>
+        <div class="sleep-chart-labels" id="sleepChartLabels"></div>
+      </div>
+    </div>
+
+    <div class="sono-section">
+      <div class="sono-section-title">Whoop</div>
+      <div class="whoop-card">
+        <div class="whoop-status">Integração em construção</div>
+        <p class="whoop-info">
+          Quando ativada, sua duração de sono virá direto do Whoop (sem precisar registrar manual).
+          Requer configurar OAuth no portal do Whoop e ajustar o Worker.
+        </p>
+        <button class="sono-add-btn" disabled>Conectar Whoop (em breve)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="alarm-overlay" id="alarmModal">
+  <div class="modal-content alarm-modal">
+    <div class="modal-title" id="alarmModalTitle">Novo alarme</div>
+    <input type="time" class="alarm-time-input" id="alarmTimeInput" value="07:00">
+    <input type="text" class="new-cat-input" id="alarmLabelInput" placeholder="Rótulo (ex: Acordar)" maxlength="40" style="margin-top: 12px;">
+    <div class="alarm-days-label" style="margin: 14px 0 6px; font-size: 11px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 1.2px;">Repetir</div>
+    <div class="alarm-days" id="alarmDays">
+      <button class="day-btn" data-day="1">S</button>
+      <button class="day-btn" data-day="2">T</button>
+      <button class="day-btn" data-day="3">Q</button>
+      <button class="day-btn" data-day="4">Q</button>
+      <button class="day-btn" data-day="5">S</button>
+      <button class="day-btn" data-day="6">S</button>
+      <button class="day-btn" data-day="0">D</button>
+    </div>
+    <button class="btn-primary" id="saveAlarmBtn" style="margin-top: 16px;">Salvar</button>
+    <button class="sync-danger-btn" id="deleteAlarmBtn" style="display:none">Excluir alarme</button>
+    <button class="modal-close" id="alarmModalClose">Fechar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="sleepModal">
+  <div class="modal-content">
+    <div class="modal-title">Registrar sono</div>
+    <div style="font-size: 11px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 6px;">Data</div>
+    <input type="date" class="new-cat-input" id="sleepDateInput">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px;">
+      <div>
+        <div style="font-size: 11px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 6px;">Horas</div>
+        <input type="number" class="new-cat-input" id="sleepHoursInput" min="0" max="24" value="7" inputmode="numeric">
+      </div>
+      <div>
+        <div style="font-size: 11px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 6px;">Minutos</div>
+        <input type="number" class="new-cat-input" id="sleepMinsInput" min="0" max="59" value="30" inputmode="numeric">
+      </div>
+    </div>
+    <button class="btn-primary" id="saveSleepBtn" style="margin-top: 16px;">Salvar</button>
+    <button class="modal-close" id="sleepModalClose">Fechar</button>
   </div>
 </div>
 
@@ -1179,7 +1469,12 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     tab.classList.add('active');
     $('#' + tab.dataset.panel + '-panel').classList.add('active');
+    const tabsEl = document.querySelector('.tabs');
+    tabsEl.classList.remove('tab-history', 'tab-sono');
+    if (tab.dataset.panel === 'history') tabsEl.classList.add('tab-history');
+    if (tab.dataset.panel === 'sono') tabsEl.classList.add('tab-sono');
     if (tab.dataset.panel === 'history') renderHistory();
+    if (tab.dataset.panel === 'sono') renderSono();
   });
 });
 
@@ -2289,8 +2584,259 @@ function restoreTimerState() {
   updatePipMediaState();
 }
 
+// ====== Alarmes ======
+function loadAlarms() {
+  try { return JSON.parse(localStorage.getItem('timerAlarms') || '[]'); }
+  catch { return []; }
+}
+function saveAlarms(alarms) {
+  localStorage.setItem('timerAlarms', JSON.stringify(alarms));
+}
+
+let editingAlarmId = null;
+function openAlarmModal(alarmId = null) {
+  editingAlarmId = alarmId;
+  const modal = $('#alarmModal');
+  const title = $('#alarmModalTitle');
+  const timeInput = $('#alarmTimeInput');
+  const labelInput = $('#alarmLabelInput');
+  const deleteBtn = $('#deleteAlarmBtn');
+  const days = $('#alarmDays').querySelectorAll('.day-btn');
+  if (alarmId) {
+    const alarm = loadAlarms().find(a => a.id === alarmId);
+    if (!alarm) return;
+    title.textContent = 'Editar alarme';
+    timeInput.value = alarm.time;
+    labelInput.value = alarm.label || '';
+    days.forEach(b => b.classList.toggle('active', alarm.days.includes(parseInt(b.dataset.day))));
+    deleteBtn.style.display = 'block';
+  } else {
+    title.textContent = 'Novo alarme';
+    timeInput.value = '07:00';
+    labelInput.value = '';
+    days.forEach(b => b.classList.add('active'));
+    deleteBtn.style.display = 'none';
+  }
+  modal.classList.add('active');
+}
+function closeAlarmModal() { $('#alarmModal').classList.remove('active'); }
+
+$('#alarmModal').querySelectorAll('.day-btn').forEach(btn => {
+  btn.addEventListener('click', () => btn.classList.toggle('active'));
+});
+
+$('#addAlarmBtn').addEventListener('click', () => openAlarmModal());
+$('#alarmModalClose').addEventListener('click', closeAlarmModal);
+$('#alarmModal').addEventListener('click', (e) => { if (e.target.id === 'alarmModal') closeAlarmModal(); });
+
+$('#saveAlarmBtn').addEventListener('click', () => {
+  const time = $('#alarmTimeInput').value;
+  if (!time) return;
+  const label = $('#alarmLabelInput').value.trim();
+  const days = [...$('#alarmDays').querySelectorAll('.day-btn.active')].map(b => parseInt(b.dataset.day));
+  const alarms = loadAlarms();
+  if (editingAlarmId) {
+    const idx = alarms.findIndex(a => a.id === editingAlarmId);
+    if (idx >= 0) {
+      alarms[idx] = { ...alarms[idx], time, label, days };
+    }
+  } else {
+    alarms.push({
+      id: (crypto.randomUUID ? crypto.randomUUID() : 'a-' + Date.now()),
+      time, label, days, enabled: true, lastFired: null,
+    });
+  }
+  saveAlarms(alarms);
+  closeAlarmModal();
+  renderAlarms();
+});
+
+$('#deleteAlarmBtn').addEventListener('click', () => {
+  if (!editingAlarmId) return;
+  if (!confirm('Excluir este alarme?')) return;
+  const alarms = loadAlarms().filter(a => a.id !== editingAlarmId);
+  saveAlarms(alarms);
+  closeAlarmModal();
+  renderAlarms();
+});
+
+function renderAlarms() {
+  const list = $('#alarmsList');
+  if (!list) return;
+  const alarms = loadAlarms();
+  if (alarms.length === 0) {
+    list.innerHTML = '<div class="alarm-empty">Nenhum alarme configurado.</div>';
+    return;
+  }
+  const dayLabels = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+  list.innerHTML = alarms.map(a => {
+    const safeLabel = escapeHtml(a.label || 'Alarme');
+    const daysStr = (a.days && a.days.length > 0)
+      ? a.days.sort().map(d => dayLabels[d]).join(' ')
+      : 'Uma vez';
+    return `
+      <div class="alarm-item ${a.enabled ? '' : 'disabled'}" data-alarm-id="${a.id}">
+        <div class="alarm-info">
+          <div class="alarm-time">${a.time}</div>
+          <div class="alarm-meta">
+            <span class="alarm-label">${safeLabel}</span>
+            <span class="alarm-days-display">${daysStr}</span>
+          </div>
+        </div>
+        <label class="toggle" onclick="event.stopPropagation()">
+          <input type="checkbox" ${a.enabled ? 'checked' : ''} data-alarm-toggle="${a.id}">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    `;
+  }).join('');
+}
+
+$('#alarmsList').addEventListener('click', (e) => {
+  const toggle = e.target.closest('input[data-alarm-toggle]');
+  if (toggle) {
+    const id = toggle.dataset.alarmToggle;
+    const alarms = loadAlarms();
+    const a = alarms.find(x => x.id === id);
+    if (a) {
+      a.enabled = toggle.checked;
+      saveAlarms(alarms);
+      renderAlarms();
+    }
+    return;
+  }
+  const item = e.target.closest('.alarm-item');
+  if (item) openAlarmModal(item.dataset.alarmId);
+});
+
+function checkAlarms() {
+  const now = new Date();
+  const time = now.toTimeString().slice(0, 5);
+  const day = now.getDay();
+  const today = dateKey(now);
+  const alarms = loadAlarms();
+  let changed = false;
+  for (const a of alarms) {
+    if (!a.enabled) continue;
+    if (a.lastFired === today) continue;
+    if (a.days && a.days.length > 0 && !a.days.includes(day)) continue;
+    if (a.time === time) {
+      fireAlarm(a);
+      a.lastFired = today;
+      changed = true;
+    }
+  }
+  if (changed) saveAlarms(alarms);
+}
+
+function fireAlarm(alarm) {
+  ensureAudio();
+  // Som contínuo (3 ciclos de beeps)
+  playSound();
+  setTimeout(playSound, 2500);
+  setTimeout(playSound, 5000);
+  // Visual via alert overlay
+  $('#alertCategory').textContent = alarm.label || 'Alarme';
+  $('#alertDuration').textContent = alarm.time;
+  $('#alertTime').textContent = 'Toque pra silenciar';
+  $('.alert-title') && (document.querySelector('.alert-title').textContent = '⏰ Alarme');
+  overlay.classList.add('active');
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try { new Notification('⏰ ' + (alarm.label || 'Alarme'), { body: alarm.time, requireInteraction: true }); }
+    catch {}
+  }
+}
+
+// Checa todos os 20s — pega o minuto exato com folga
+setInterval(checkAlarms, 20000);
+
+// ====== Sono ======
+function loadSleep() {
+  try { return JSON.parse(localStorage.getItem('timerSleep') || '{}'); }
+  catch { return {}; }
+}
+function saveSleepData(data) {
+  localStorage.setItem('timerSleep', JSON.stringify(data));
+}
+
+function openSleepModal() {
+  // Default: ontem (hora local)
+  const yest = new Date();
+  yest.setDate(yest.getDate() - 1);
+  $('#sleepDateInput').value = dateKey(yest);
+  const sleep = loadSleep();
+  const entry = sleep[dateKey(yest)];
+  if (entry) {
+    $('#sleepHoursInput').value = Math.floor(entry.durationMin / 60);
+    $('#sleepMinsInput').value = entry.durationMin % 60;
+  } else {
+    $('#sleepHoursInput').value = 7;
+    $('#sleepMinsInput').value = 30;
+  }
+  $('#sleepModal').classList.add('active');
+}
+
+$('#logSleepBtn').addEventListener('click', openSleepModal);
+$('#sleepModalClose').addEventListener('click', () => $('#sleepModal').classList.remove('active'));
+$('#sleepModal').addEventListener('click', (e) => { if (e.target.id === 'sleepModal') $('#sleepModal').classList.remove('active'); });
+
+$('#saveSleepBtn').addEventListener('click', () => {
+  const date = $('#sleepDateInput').value;
+  const hours = Math.max(0, Math.min(24, parseInt($('#sleepHoursInput').value) || 0));
+  const mins = Math.max(0, Math.min(59, parseInt($('#sleepMinsInput').value) || 0));
+  if (!date) return;
+  const totalMin = hours * 60 + mins;
+  const sleep = loadSleep();
+  sleep[date] = { durationMin: totalMin, source: 'manual', at: Date.now() };
+  saveSleepData(sleep);
+  $('#sleepModal').classList.remove('active');
+  renderSono();
+});
+
+function renderSono() {
+  renderAlarms();
+  const sleep = loadSleep();
+  // Ontem
+  const yest = new Date();
+  yest.setDate(yest.getDate() - 1);
+  const yKey = dateKey(yest);
+  const yEntry = sleep[yKey];
+  $('#sleepYesterday').textContent = yEntry ? formatDuration(yEntry.durationMin * 60000) : '—';
+
+  // Média 7 dias
+  let sum = 0, count = 0;
+  const today = new Date();
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const e = sleep[dateKey(d)];
+    if (e && e.durationMin > 0) { sum += e.durationMin; count++; }
+  }
+  $('#sleepAvg7').textContent = count > 0 ? formatDuration((sum / count) * 60000) : '—';
+
+  // Mini chart 7 dias
+  const chart = $('#sleepChart');
+  const labels = $('#sleepChartLabels');
+  if (!chart || !labels) return;
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const e = sleep[dateKey(d)];
+    days.push({ date: d, min: e ? e.durationMin : 0 });
+  }
+  const maxMin = Math.max(60, ...days.map(d => d.min));
+  const dayNames = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+  chart.innerHTML = days.map(d => {
+    const h = d.min > 0 ? (d.min / maxMin) * 100 : 0;
+    return `<div class="sleep-bar ${d.min === 0 ? 'empty' : ''}" style="height:${h}%" title="${formatDuration(d.min * 60000)}"></div>`;
+  }).join('');
+  labels.innerHTML = days.map(d => `<span>${dayNames[d.date.getDay()]}</span>`).join('');
+}
+
 updateDisplay();
 renderToday();
+renderAlarms();
 restoreTimerState();
 </script>
 </body>

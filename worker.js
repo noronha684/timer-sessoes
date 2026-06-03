@@ -177,13 +177,20 @@ async function whoopSync(request, env) {
   const token = await getValidWhoopToken(env, uid);
   if (!token) return json({ error: 'not_connected' }, 401);
 
-  // Pega últimos 25 sleeps
-  const res = await fetch(`${WHOOP_API}/v1/activity/sleep?limit=25`, {
+  // Tenta v2 (atual); se falhar, cai pra v1 (legado)
+  let res = await fetch(`${WHOOP_API}/v2/activity/sleep?limit=25`, {
     headers: { Authorization: `Bearer ${token}` },
   });
+  let apiVersion = 'v2';
+  if (res.status === 404) {
+    res = await fetch(`${WHOOP_API}/v1/activity/sleep?limit=25`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    apiVersion = 'v1';
+  }
   if (!res.ok) {
     const txt = await res.text();
-    return json({ error: 'whoop_api_failed', detail: txt }, 502);
+    return json({ error: 'whoop_api_failed', status: res.status, version: apiVersion, detail: txt }, 502);
   }
   const data = await res.json();
   const records = data.records || [];

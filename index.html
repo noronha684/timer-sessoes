@@ -2885,9 +2885,11 @@ $('#whoopSyncBtn').addEventListener('click', async () => {
       checkWhoopStatus();
     } else {
       btn.textContent = 'Erro';
+      $('#whoopInfo').textContent = 'Erro: ' + (data.detail || data.error || 'desconhecido') + (data.status ? ' (HTTP ' + data.status + ')' : '');
     }
   } catch (e) {
     btn.textContent = 'Erro';
+    $('#whoopInfo').textContent = 'Erro: ' + e.message;
   }
   setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
 });

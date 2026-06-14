@@ -1,4 +1,4 @@
-const CACHE_NAME = 'timer-sessoes-v34';
+const CACHE_NAME = 'timer-sessoes-v35';
 const ASSETS = [
   './',
   './index.html',
@@ -23,18 +23,23 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Network-first: tenta a versão nova da rede; usa cache só se estiver offline.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  // Só intervém em requisições do próprio app (mesma origem). API externa (Worker/Firebase) passa direto.
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        if (response && response.status === 200 && response.type === 'basic') {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        }
-        return response;
-      }).catch(() => cached);
-    })
+    fetch(event.request).then((response) => {
+      if (response && response.status === 200 && response.type === 'basic') {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+      }
+      return response;
+    }).catch(() =>
+      // Offline → cai pro cache (ou index.html como fallback de navegação)
+      caches.match(event.request).then((cached) => cached || caches.match('./index.html'))
+    )
   );
 });

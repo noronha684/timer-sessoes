@@ -417,7 +417,7 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
   .goal-progress-text .done { color: var(--accent); font-weight: 700; }
   .goal-bar {
     height: 8px; background: rgba(255,255,255,0.06);
-    border-radius: 999px; overflow: hidden; position: relative;
+    border-radius: 999px; position: relative;
   }
   .goal-bar-fill {
     height: 100%; border-radius: 999px;
@@ -425,6 +425,16 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
     transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
   }
   .goal-bar-fill.complete { background: var(--success); }
+  .goal-marker {
+    position: absolute; top: 50%;
+    width: 3px; height: 16px;
+    border-radius: 2px;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+    box-shadow: 0 0 0 2px var(--card);
+  }
+  .goal-marker.behind { background: var(--warn); }
+  .goal-marker.ahead { background: var(--success); }
   .goal-remove {
     background: transparent; border: none; color: var(--text-subtle);
     font-size: 16px; cursor: pointer; padding: 0 4px; line-height: 1;
@@ -3753,6 +3763,13 @@ function renderGoals() {
   // Metas
   const goals = loadGoals();
   const totals = getMonthTotalsByCategory();
+  // Dias úteis pra o marcador "onde eu deveria estar"
+  const _now = new Date();
+  const _first = new Date(_now.getFullYear(), _now.getMonth(), 1);
+  const _last = new Date(_now.getFullYear(), _now.getMonth() + 1, 0);
+  const _hoje = new Date(_now.getFullYear(), _now.getMonth(), _now.getDate());
+  const diasUteisMesG = weekdaysBetween(_first, _last);
+  const diasUteisDecorridosG = weekdaysBetween(_first, _hoje); // inclui hoje se útil
   const list = $('#goalsList');
   const entries = Object.entries(goals);
   if (entries.length === 0) {
@@ -3764,6 +3781,11 @@ function renderGoals() {
       const pct = targetMs > 0 ? Math.min(100, (doneMs / targetMs) * 100) : 0;
       const complete = doneMs >= targetMs;
       const color = getCategoryColor(cat);
+      // Onde deveria estar: meta diária da categoria × dias úteis decorridos
+      const esperadoH = (targetHours / diasUteisMesG) * diasUteisDecorridosG;
+      const markerPct = Math.min(100, (esperadoH / targetHours) * 100);
+      const atras = doneMs < esperadoH * 3600000;
+      const marker = `<div class="goal-marker ${atras ? 'behind' : 'ahead'}" style="left:${markerPct}%" title="Esperado até hoje: ${formatDuration(esperadoH * 3600000)}"></div>`;
       return `
         <div class="goal-item" style="--goal-color:${color}">
           <div class="goal-item-head">
@@ -3773,7 +3795,7 @@ function renderGoals() {
               <button class="goal-remove" data-goal="${escapeHtml(cat)}" aria-label="Remover">×</button>
             </span>
           </div>
-          <div class="goal-bar"><div class="goal-bar-fill ${complete ? 'complete' : ''}" style="width:${pct}%"></div></div>
+          <div class="goal-bar"><div class="goal-bar-fill ${complete ? 'complete' : ''}" style="width:${pct}%"></div>${marker}</div>
         </div>`;
     }).join('');
   }

@@ -372,6 +372,40 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
   .goals-body { padding: 0 22px 18px; }
   .goals-card.collapsed .goals-body { display: none; }
 
+  /* Anel da meta mensal (estilo focus sessions) */
+  .month-goal {
+    display: grid; grid-template-columns: 1fr auto 1fr;
+    align-items: center; gap: 8px;
+    margin-bottom: 12px;
+  }
+  .mg-side { text-align: center; }
+  .mg-side-label { font-size: 11px; color: var(--text-subtle); margin-bottom: 4px; }
+  .mg-side-value { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; line-height: 1; }
+  .mg-side-value.behind { color: var(--warn); }
+  .mg-side-value.ahead { color: var(--success); }
+  .mg-side-sub { font-size: 10px; color: var(--text-subtle); margin-top: 4px; }
+  .mg-ring-wrap { position: relative; width: 150px; height: 150px; }
+  .mg-ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .mg-ring-bg { fill: none; stroke: rgba(255,255,255,0.07); stroke-width: 12; }
+  .mg-ring-fill {
+    fill: none; stroke: var(--accent); stroke-width: 12; stroke-linecap: round;
+    stroke-dasharray: 540.35; stroke-dashoffset: 540.35;
+    transition: stroke-dashoffset 0.5s cubic-bezier(0.4,0,0.2,1), stroke 0.3s ease;
+  }
+  .mg-ring-fill.complete { stroke: var(--success); }
+  .mg-ring-center {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .mg-ring-label { font-size: 10px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+  .mg-ring-value { font-size: 26px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; line-height: 1; }
+  .mg-footer {
+    text-align: center; font-size: 12px; color: var(--text-muted);
+    margin-bottom: 16px; padding-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mg-footer .accent { color: var(--accent); font-weight: 600; }
+
   .goal-item { margin-bottom: 14px; }
   .goal-item-head {
     display: flex; justify-content: space-between; align-items: baseline;
@@ -1318,6 +1352,30 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
         <span class="goals-chevron" id="goalsChevron">▾</span>
       </div>
       <div class="goals-body" id="goalsBody">
+        <div class="month-goal" id="monthGoalWidget" style="display:none">
+          <div class="mg-side">
+            <div class="mg-side-label">Esperado</div>
+            <div class="mg-side-value" id="mgExpected">—</div>
+            <div class="mg-side-sub">até hoje</div>
+          </div>
+          <div class="mg-ring-wrap">
+            <svg class="mg-ring" viewBox="0 0 200 200">
+              <circle class="mg-ring-bg" cx="100" cy="100" r="86"/>
+              <circle class="mg-ring-fill" id="mgRingFill" cx="100" cy="100" r="86"/>
+            </svg>
+            <div class="mg-ring-center">
+              <div class="mg-ring-label">Meta do mês</div>
+              <div class="mg-ring-value" id="mgTarget">—</div>
+            </div>
+          </div>
+          <div class="mg-side">
+            <div class="mg-side-label">Faltam</div>
+            <div class="mg-side-value" id="mgRemaining">—</div>
+            <div class="mg-side-sub">restante</div>
+          </div>
+        </div>
+        <div class="mg-footer" id="mgFooter" style="display:none"></div>
+
         <div id="goalsList"></div>
         <button class="goals-add-btn" id="addGoalBtn">+ Meta de horas por categoria</button>
 
@@ -3615,9 +3673,84 @@ function getMonthTotalsByCategory() {
   return totals;
 }
 
+// Conta dias úteis (seg–sex) entre duas datas, inclusive
+function weekdaysBetween(start, end) {
+  let c = 0;
+  const d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  while (d <= end) {
+    const dow = d.getDay();
+    if (dow >= 1 && dow <= 5) c++;
+    d.setDate(d.getDate() + 1);
+  }
+  return c;
+}
+
+const MG_CIRC = 2 * Math.PI * 86; // ≈ 540.35
+function renderMonthGoal() {
+  const widget = $('#monthGoalWidget');
+  const footer = $('#mgFooter');
+  const goals = loadGoals();
+  const metaHoras = Object.values(goals).reduce((a, b) => a + b, 0);
+
+  if (metaHoras <= 0) {
+    widget.style.display = 'none';
+    footer.style.display = 'none';
+    return;
+  }
+  widget.style.display = 'grid';
+  footer.style.display = 'block';
+
+  // Horas feitas no mês (só categorias com meta)
+  const totals = getMonthTotalsByCategory();
+  let feitoMs = 0;
+  for (const cat in goals) feitoMs += (totals[cat] || 0);
+  const metaMs = metaHoras * 3600000;
+  const feitoHoras = feitoMs / 3600000;
+
+  // Dias úteis
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  const firstDay = new Date(y, m, 1);
+  const lastDay = new Date(y, m + 1, 0);
+  const hoje = new Date(y, m, now.getDate());
+  const diasUteisMes = weekdaysBetween(firstDay, lastDay);
+  const diasUteisAteHoje = weekdaysBetween(firstDay, hoje);       // inclui hoje
+  const diasUteisRestantes = weekdaysBetween(hoje, lastDay);      // inclui hoje
+  const metaPorDiaUtil = metaHoras / diasUteisMes;
+  const esperadoMs = metaPorDiaUtil * diasUteisAteHoje * 3600000;
+  const faltamMs = Math.max(0, metaMs - feitoMs);
+  const ritmoMs = (faltamMs / Math.max(1, diasUteisRestantes));
+  const pct = Math.min(100, (feitoMs / metaMs) * 100);
+
+  // Anel
+  const ring = $('#mgRingFill');
+  ring.style.strokeDashoffset = MG_CIRC * (1 - pct / 100);
+  ring.classList.toggle('complete', feitoMs >= metaMs);
+
+  // Centro: meta total
+  $('#mgTarget').textContent = metaHoras + 'h';
+
+  // Esquerda: esperado (colorido conforme ritmo)
+  const expEl = $('#mgExpected');
+  expEl.textContent = formatDuration(esperadoMs);
+  expEl.classList.toggle('ahead', feitoMs >= esperadoMs);
+  expEl.classList.toggle('behind', feitoMs < esperadoMs);
+
+  // Direita: faltam
+  $('#mgRemaining').textContent = faltamMs > 0 ? formatDuration(faltamMs) : '0min';
+
+  // Rodapé
+  if (faltamMs <= 0) {
+    footer.innerHTML = `Concluído: <span class="accent">${formatDuration(feitoMs)}</span> de ${metaHoras}h — meta batida! 🎯`;
+  } else {
+    footer.innerHTML = `Concluído: <span class="accent">${formatDuration(feitoMs)}</span> de ${metaHoras}h · precisa de <span class="accent">${formatDuration(ritmoMs)}</span>/dia útil`;
+  }
+}
+
 function renderGoals() {
   const monthName = new Date().toLocaleDateString('pt-BR', { month: 'long' });
   $('#goalsMonth').textContent = monthName;
+  renderMonthGoal();
 
   // Metas
   const goals = loadGoals();

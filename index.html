@@ -951,6 +951,45 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
   .agenda-dot.sleep { background: #6f8fff; }
 
   /* ====== Calendário (planner mensal) ====== */
+  .cal-view-toggle {
+    display: flex; gap: 4px;
+    background: var(--card); padding: 4px;
+    border-radius: 10px; border: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+  .cal-view-toggle button {
+    flex: 1; padding: 8px; background: transparent;
+    border: none; border-radius: 7px;
+    color: var(--text-subtle); font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .cal-view-toggle button.active { background: var(--card-elev); color: var(--text); }
+
+  .cal-week-list { display: flex; flex-direction: column; gap: 8px; }
+  .cal-week-day {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 16px; cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .cal-week-day:hover { background: var(--card-elev); border-color: var(--border-strong); }
+  .cal-week-day.today { border-color: var(--accent); }
+  .cal-week-day-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .cal-week-dayname { font-size: 14px; font-weight: 600; color: var(--text); text-transform: capitalize; }
+  .cal-week-day.today .cal-week-dayname { color: var(--accent); }
+  .cal-week-summary { font-size: 11px; color: var(--text-subtle); display: flex; gap: 10px; }
+  .cal-week-summary i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  .cal-week-summary i.focus { background: var(--accent); }
+  .cal-week-summary i.sleep { background: #6f8fff; }
+  .cal-week-events { display: flex; flex-direction: column; gap: 5px; }
+  .cal-week-event { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+  .cal-week-event::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .cal-week-event.done { color: var(--text-subtle); text-decoration: line-through; }
+  .cal-week-event.done::before { background: var(--text-subtle); }
+  .cal-week-empty { font-size: 12px; color: var(--text-subtle); }
+
   .cal-weekdays {
     display: grid; grid-template-columns: repeat(7, 1fr);
     gap: 4px; margin-bottom: 6px;
@@ -1420,15 +1459,20 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
   </div>
 
   <div class="panel" id="cal-panel">
+    <div class="cal-view-toggle">
+      <button data-view="month" class="active" id="calViewMonth">Mês</button>
+      <button data-view="week" id="calViewWeek">Semana</button>
+    </div>
     <div class="agenda-nav">
       <button class="agenda-nav-btn" id="calPrev">‹</button>
       <div class="agenda-range" id="calRange">—</div>
       <button class="agenda-nav-btn" id="calNext">›</button>
     </div>
-    <div class="cal-weekdays">
+    <div class="cal-weekdays" id="calWeekdays">
       <span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span><span>Dom</span>
     </div>
     <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-week-list" id="calWeekList" style="display:none"></div>
   </div>
 </div>
 
@@ -3694,6 +3738,8 @@ $('#todosList').addEventListener('click', (e) => {
 
 // ====== Calendário (planner por dia) ======
 let calMonthOffset = 0; // 0 = mês atual
+let calWeekOffset = 0;  // 0 = semana atual
+let calView = 'month';  // 'month' | 'week'
 let dayModalKey = null;
 
 function loadEvents() {
@@ -3716,6 +3762,17 @@ function sleepForDay(key) {
 }
 
 function renderCalendar() {
+  // Mostra/esconde os containers conforme a visão
+  $('#calGrid').style.display = calView === 'month' ? 'grid' : 'none';
+  $('#calWeekdays').style.display = calView === 'month' ? 'grid' : 'none';
+  $('#calWeekList').style.display = calView === 'week' ? 'flex' : 'none';
+  $('#calViewMonth').classList.toggle('active', calView === 'month');
+  $('#calViewWeek').classList.toggle('active', calView === 'week');
+  if (calView === 'week') { renderCalWeek(); return; }
+  renderCalMonth();
+}
+
+function renderCalMonth() {
   const base = new Date();
   base.setDate(1);
   base.setMonth(base.getMonth() + calMonthOffset);
@@ -3813,11 +3870,62 @@ function addEvent() {
   renderCalendar();
 }
 
-$('#calPrev').addEventListener('click', () => { calMonthOffset--; renderCalendar(); });
-$('#calNext').addEventListener('click', () => { calMonthOffset++; renderCalendar(); });
+// Visão semanal (lista de 7 dias com eventos por extenso)
+function renderCalWeek() {
+  const weekStart = startOfWeek(calWeekOffset);
+  const days = [];
+  for (let i = 0; i < 7; i++) { const d = new Date(weekStart); d.setDate(d.getDate() + i); days.push(d); }
+
+  const fmt = (d) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  $('#calRange').textContent = calWeekOffset === 0 ? 'Esta semana' : `${fmt(days[0])} – ${fmt(days[6])}`;
+
+  const events = loadEvents();
+  const todayKey = dateKey(new Date());
+  $('#calWeekList').innerHTML = days.map(d => {
+    const key = dateKey(d);
+    const dayEvents = events[key] || [];
+    const focusMs = focusTotalForDay(key);
+    const sleepMs = sleepForDay(key);
+    const dayName = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'short' });
+
+    const summaryParts = [];
+    if (focusMs > 0) summaryParts.push(`<span><i class="focus"></i>${formatDuration(focusMs)}</span>`);
+    if (sleepMs > 0) summaryParts.push(`<span><i class="sleep"></i>${formatDuration(sleepMs)}</span>`);
+
+    const evHtml = dayEvents.length
+      ? dayEvents.map(e => `<div class="cal-week-event ${e.done ? 'done' : ''}">${escapeHtml(e.text)}</div>`).join('')
+      : '<div class="cal-week-empty">Sem tarefas</div>';
+
+    return `
+      <div class="cal-week-day ${key === todayKey ? 'today' : ''}" data-key="${key}">
+        <div class="cal-week-day-head">
+          <span class="cal-week-dayname">${dayName}</span>
+          <span class="cal-week-summary">${summaryParts.join('')}</span>
+        </div>
+        <div class="cal-week-events">${evHtml}</div>
+      </div>`;
+  }).join('');
+}
+
+// Toggle de visão
+$('#calViewMonth').addEventListener('click', () => { calView = 'month'; renderCalendar(); });
+$('#calViewWeek').addEventListener('click', () => { calView = 'week'; renderCalendar(); });
+
+$('#calPrev').addEventListener('click', () => {
+  if (calView === 'week') calWeekOffset--; else calMonthOffset--;
+  renderCalendar();
+});
+$('#calNext').addEventListener('click', () => {
+  if (calView === 'week') calWeekOffset++; else calMonthOffset++;
+  renderCalendar();
+});
 $('#calGrid').addEventListener('click', (e) => {
   const cell = e.target.closest('.cal-cell');
   if (cell) openDayModal(cell.dataset.key);
+});
+$('#calWeekList').addEventListener('click', (e) => {
+  const day = e.target.closest('.cal-week-day');
+  if (day) openDayModal(day.dataset.key);
 });
 $('#addEventBtn').addEventListener('click', addEvent);
 $('#newEventInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addEvent(); } });

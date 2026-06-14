@@ -349,6 +349,94 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
   .today-avg-label { font-size: 13px; color: var(--text-subtle); font-weight: 500; }
   .today-avg-value { font-size: 15px; font-weight: 700; color: var(--accent); letter-spacing: -0.01em; }
 
+  /* ====== Metas do mês ====== */
+  .goals-card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0) 100%), var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 4px 0;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .goals-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 22px; cursor: pointer; user-select: none;
+  }
+  .goals-title {
+    font-size: 11px; color: var(--text-subtle);
+    text-transform: uppercase; letter-spacing: 1.8px; font-weight: 600;
+  }
+  .goals-chevron { color: var(--text-subtle); font-size: 14px; transition: transform 0.25s ease; }
+  .goals-card.collapsed .goals-chevron { transform: rotate(-90deg); }
+  .goals-body { padding: 0 22px 18px; }
+  .goals-card.collapsed .goals-body { display: none; }
+
+  .goal-item { margin-bottom: 14px; }
+  .goal-item-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 7px;
+  }
+  .goal-name { font-size: 14px; font-weight: 600; color: var(--text); display: inline-flex; align-items: center; gap: 7px; }
+  .goal-name::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--goal-color, var(--accent)); }
+  .goal-progress-text { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .goal-progress-text .done { color: var(--accent); font-weight: 700; }
+  .goal-bar {
+    height: 8px; background: rgba(255,255,255,0.06);
+    border-radius: 999px; overflow: hidden; position: relative;
+  }
+  .goal-bar-fill {
+    height: 100%; border-radius: 999px;
+    background: var(--goal-color, var(--accent));
+    transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
+  }
+  .goal-bar-fill.complete { background: var(--success); }
+  .goal-remove {
+    background: transparent; border: none; color: var(--text-subtle);
+    font-size: 16px; cursor: pointer; padding: 0 4px; line-height: 1;
+  }
+  .goal-remove:hover { color: var(--danger); }
+
+  .goals-add-btn {
+    width: 100%; padding: 11px;
+    background: rgba(255,255,255,0.04);
+    border: 1px dashed var(--border-strong);
+    border-radius: 10px;
+    color: var(--text-muted); font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .goals-add-btn:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+
+  .goals-divider { height: 1px; background: var(--border); margin: 18px 0 14px; }
+  .goals-subtitle {
+    font-size: 11px; color: var(--text-subtle);
+    text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  .todo-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0;
+  }
+  .todo-item + .todo-item { border-top: 1px solid var(--border); }
+  .todo-check {
+    width: 20px; height: 20px; flex-shrink: 0;
+    border: 1.5px solid var(--border-strong); border-radius: 6px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .todo-check.done { background: var(--accent); border-color: var(--accent); }
+  .todo-check.done::after { content: '✓'; color: #1a1a25; font-size: 13px; font-weight: 700; }
+  .todo-text { flex: 1; font-size: 14px; color: var(--text); }
+  .todo-item.done .todo-text { color: var(--text-subtle); text-decoration: line-through; }
+  .todo-remove {
+    background: transparent; border: none; color: var(--text-subtle);
+    font-size: 18px; cursor: pointer; padding: 0 4px; line-height: 1;
+  }
+  .todo-remove:hover { color: var(--danger); }
+  .todo-add-row { display: flex; gap: 6px; margin-top: 10px; }
+  .todo-empty { color: var(--text-subtle); font-size: 13px; padding: 4px 0; }
+  .goal-form-label { font-size: 12px; color: var(--text-subtle); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+
   .options {
     background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0) 100%), var(--card);
     border: 1px solid var(--border);
@@ -1110,6 +1198,26 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
       </div>
     </div>
 
+    <div class="goals-card">
+      <div class="goals-header" id="goalsToggle">
+        <span class="goals-title">Metas de <span id="goalsMonth">—</span></span>
+        <span class="goals-chevron" id="goalsChevron">▾</span>
+      </div>
+      <div class="goals-body" id="goalsBody">
+        <div id="goalsList"></div>
+        <button class="goals-add-btn" id="addGoalBtn">+ Meta de horas por categoria</button>
+
+        <div class="goals-divider"></div>
+
+        <div class="goals-subtitle">Tarefas do mês</div>
+        <div id="todosList"></div>
+        <div class="todo-add-row">
+          <input type="text" class="new-cat-input" id="newTodoInput" placeholder="Nova tarefa..." maxlength="80">
+          <button class="add-cat-btn" id="addTodoBtn" aria-label="Adicionar">+</button>
+        </div>
+      </div>
+    </div>
+
     <div class="options">
       <div class="option">
         <label for="soundOn">🔊 Notificação sonora</label>
@@ -1355,6 +1463,18 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
       <button class="add-cat-btn" id="addCatBtn" aria-label="Adicionar">+</button>
     </div>
     <button class="modal-close" id="modalClose">Fechar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="goalModal">
+  <div class="modal-content">
+    <div class="modal-title">Meta de horas</div>
+    <div class="goal-form-label">Categoria</div>
+    <select class="new-cat-input" id="goalCategorySelect" style="width:100%; margin-bottom:14px;"></select>
+    <div class="goal-form-label">Horas no mês</div>
+    <input type="number" class="new-cat-input" id="goalHoursInput" placeholder="ex: 80" min="1" max="744" inputmode="numeric" style="width:100%; margin-bottom:16px;">
+    <button class="btn-primary" id="saveGoalBtn">Salvar meta</button>
+    <button class="modal-close" id="goalModalClose" style="margin-top:8px;">Cancelar</button>
   </div>
 </div>
 
@@ -1882,6 +2002,7 @@ function finishSession(completed, opts = {}) {
   updateDisplay();
   updatePipMediaState();
   renderToday();
+  if (typeof renderGoals === 'function') renderGoals();
   persistTimerState();
 }
 
@@ -2266,6 +2387,8 @@ async function pushToCloud() {
         sleep: loadSleep(),
         alarms: loadAlarms(),
         segments: loadSegments(),
+        goals: loadGoals(),
+        todos: loadTodos(),
       },
     };
     const res = await fetch(`${window.API_BASE}/api/sync`, {
@@ -2351,10 +2474,26 @@ function applyServerSnapshot(snap) {
         }
         localStorage.setItem('timerSegments', JSON.stringify(merged));
       }
+      // Metas: usa do servidor se existir
+      if (snap.settings.goals && typeof snap.settings.goals === 'object') {
+        localStorage.setItem('timerGoals', JSON.stringify(snap.settings.goals));
+      }
+      // Tarefas: mescla por mês (dedupe por id, servidor ganha no done)
+      if (snap.settings.todos && typeof snap.settings.todos === 'object') {
+        const local = loadTodos();
+        const merged = { ...local };
+        for (const mk in snap.settings.todos) {
+          const byId = new Map((merged[mk] || []).map(t => [t.id, t]));
+          for (const t of snap.settings.todos[mk]) byId.set(t.id, t);
+          merged[mk] = [...byId.values()];
+        }
+        localStorage.setItem('timerTodos', JSON.stringify(merged));
+      }
     }
     state.category = loadSelectedCategory();
     categoryLabel.textContent = state.category;
     renderToday();
+    if (typeof renderGoals === 'function') renderGoals();
     if ($('#history-panel').classList.contains('active')) renderHistory();
   } finally {
     isApplyingRemote = false;
@@ -3266,8 +3405,167 @@ function renderAgenda() {
 $('#agendaPrev').addEventListener('click', () => { agendaWeekOffset--; renderAgenda(); });
 $('#agendaNext').addEventListener('click', () => { if (agendaWeekOffset < 0) { agendaWeekOffset++; renderAgenda(); } });
 
+// ====== Metas do mês + checklist ======
+function monthKey(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function loadGoals() {
+  try { return JSON.parse(localStorage.getItem('timerGoals') || '{}'); }
+  catch { return {}; }
+}
+function saveGoals(g) {
+  localStorage.setItem('timerGoals', JSON.stringify(g));
+  if (typeof triggerSync === 'function') triggerSync();
+}
+function loadTodos() {
+  try { return JSON.parse(localStorage.getItem('timerTodos') || '{}'); }
+  catch { return {}; }
+}
+function saveTodos(t) {
+  localStorage.setItem('timerTodos', JSON.stringify(t));
+  if (typeof triggerSync === 'function') triggerSync();
+}
+
+// Total de cada categoria no mês atual (ms)
+function getMonthTotalsByCategory() {
+  const history = loadHistory();
+  const mk = monthKey();
+  const totals = {};
+  for (const date in history) {
+    if (date.slice(0, 7) === mk) {
+      for (const cat in history[date]) {
+        totals[cat] = (totals[cat] || 0) + history[date][cat];
+      }
+    }
+  }
+  return totals;
+}
+
+function renderGoals() {
+  const monthName = new Date().toLocaleDateString('pt-BR', { month: 'long' });
+  $('#goalsMonth').textContent = monthName;
+
+  // Metas
+  const goals = loadGoals();
+  const totals = getMonthTotalsByCategory();
+  const list = $('#goalsList');
+  const entries = Object.entries(goals);
+  if (entries.length === 0) {
+    list.innerHTML = '<div class="todo-empty" style="margin-bottom:10px;">Nenhuma meta definida.</div>';
+  } else {
+    list.innerHTML = entries.map(([cat, targetHours]) => {
+      const doneMs = totals[cat] || 0;
+      const targetMs = targetHours * 3600000;
+      const pct = targetMs > 0 ? Math.min(100, (doneMs / targetMs) * 100) : 0;
+      const complete = doneMs >= targetMs;
+      const color = getCategoryColor(cat);
+      return `
+        <div class="goal-item" style="--goal-color:${color}">
+          <div class="goal-item-head">
+            <span class="goal-name">${escapeHtml(cat)}</span>
+            <span>
+              <span class="goal-progress-text"><span class="${complete ? 'done' : ''}">${formatDuration(doneMs)}</span> / ${targetHours}h</span>
+              <button class="goal-remove" data-goal="${escapeHtml(cat)}" aria-label="Remover">×</button>
+            </span>
+          </div>
+          <div class="goal-bar"><div class="goal-bar-fill ${complete ? 'complete' : ''}" style="width:${pct}%"></div></div>
+        </div>`;
+    }).join('');
+  }
+
+  // Tarefas do mês
+  const todos = loadTodos();
+  const mk = monthKey();
+  const monthTodos = todos[mk] || [];
+  const todosList = $('#todosList');
+  if (monthTodos.length === 0) {
+    todosList.innerHTML = '<div class="todo-empty">Nenhuma tarefa ainda.</div>';
+  } else {
+    todosList.innerHTML = monthTodos.map(t => `
+      <div class="todo-item ${t.done ? 'done' : ''}">
+        <div class="todo-check ${t.done ? 'done' : ''}" data-toggle="${t.id}"></div>
+        <span class="todo-text">${escapeHtml(t.text)}</span>
+        <button class="todo-remove" data-del="${t.id}" aria-label="Remover">×</button>
+      </div>`).join('');
+  }
+}
+
+// Collapse/expand
+const goalsCard = document.querySelector('.goals-card');
+if (localStorage.getItem('timerGoalsCollapsed') === '1') goalsCard.classList.add('collapsed');
+$('#goalsToggle').addEventListener('click', () => {
+  goalsCard.classList.toggle('collapsed');
+  localStorage.setItem('timerGoalsCollapsed', goalsCard.classList.contains('collapsed') ? '1' : '0');
+});
+
+// Modal de meta
+const goalModal = $('#goalModal');
+$('#addGoalBtn').addEventListener('click', () => {
+  const sel = $('#goalCategorySelect');
+  const cats = loadCategories();
+  sel.innerHTML = cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  $('#goalHoursInput').value = '';
+  goalModal.classList.add('active');
+});
+$('#goalModalClose').addEventListener('click', () => goalModal.classList.remove('active'));
+goalModal.addEventListener('click', (e) => { if (e.target === goalModal) goalModal.classList.remove('active'); });
+$('#saveGoalBtn').addEventListener('click', () => {
+  const cat = $('#goalCategorySelect').value;
+  const hours = parseInt($('#goalHoursInput').value);
+  if (!cat || !hours || hours <= 0) return;
+  const goals = loadGoals();
+  goals[cat] = hours;
+  saveGoals(goals);
+  goalModal.classList.remove('active');
+  renderGoals();
+});
+
+$('#goalsList').addEventListener('click', (e) => {
+  const rm = e.target.closest('.goal-remove');
+  if (rm) {
+    const goals = loadGoals();
+    delete goals[rm.dataset.goal];
+    saveGoals(goals);
+    renderGoals();
+  }
+});
+
+// Tarefas
+function addTodo() {
+  const input = $('#newTodoInput');
+  const text = input.value.trim();
+  if (!text) return;
+  const todos = loadTodos();
+  const mk = monthKey();
+  if (!todos[mk]) todos[mk] = [];
+  const id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 't-' + Date.now();
+  todos[mk].push({ id, text, done: false });
+  saveTodos(todos);
+  input.value = '';
+  renderGoals();
+}
+$('#addTodoBtn').addEventListener('click', addTodo);
+$('#newTodoInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addTodo(); } });
+$('#todosList').addEventListener('click', (e) => {
+  const toggle = e.target.closest('.todo-check');
+  const del = e.target.closest('.todo-remove');
+  const todos = loadTodos();
+  const mk = monthKey();
+  if (!todos[mk]) return;
+  if (toggle) {
+    const t = todos[mk].find(x => x.id === toggle.dataset.toggle);
+    if (t) { t.done = !t.done; saveTodos(todos); renderGoals(); }
+  } else if (del) {
+    todos[mk] = todos[mk].filter(x => x.id !== del.dataset.del);
+    saveTodos(todos);
+    renderGoals();
+  }
+});
+
 updateDisplay();
 renderToday();
+renderGoals();
 renderAlarms();
 restoreTimerState();
 </script>

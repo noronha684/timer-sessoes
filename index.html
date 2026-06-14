@@ -1354,9 +1354,9 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
       <div class="goals-body" id="goalsBody">
         <div class="month-goal" id="monthGoalWidget" style="display:none">
           <div class="mg-side">
-            <div class="mg-side-label">Esperado</div>
+            <div class="mg-side-label">Feito hoje</div>
             <div class="mg-side-value" id="mgExpected">—</div>
-            <div class="mg-side-sub">até hoje</div>
+            <div class="mg-side-sub" id="mgTodaySub">&nbsp;</div>
           </div>
           <div class="mg-ring-wrap">
             <svg class="mg-ring" viewBox="0 0 200 200">
@@ -1364,14 +1364,14 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
               <circle class="mg-ring-fill" id="mgRingFill" cx="100" cy="100" r="86"/>
             </svg>
             <div class="mg-ring-center">
-              <div class="mg-ring-label">Meta do mês</div>
+              <div class="mg-ring-label">Meta diária</div>
               <div class="mg-ring-value" id="mgTarget">—</div>
             </div>
           </div>
           <div class="mg-side">
-            <div class="mg-side-label">Faltam</div>
+            <div class="mg-side-label">No mês</div>
             <div class="mg-side-value" id="mgRemaining">—</div>
-            <div class="mg-side-sub">restante</div>
+            <div class="mg-side-sub" id="mgMonthSub">&nbsp;</div>
           </div>
         </div>
         <div class="mg-footer" id="mgFooter" style="display:none"></div>
@@ -3705,46 +3705,44 @@ function renderMonthGoal() {
   let feitoMs = 0;
   for (const cat in goals) feitoMs += (totals[cat] || 0);
   const metaMs = metaHoras * 3600000;
-  const feitoHoras = feitoMs / 3600000;
 
-  // Dias úteis
+  // Horas feitas HOJE (só categorias com meta)
+  const todayKey = dateKey(new Date());
+  const todayHist = loadHistory()[todayKey] || {};
+  let feitoHojeMs = 0;
+  for (const cat in goals) feitoHojeMs += (todayHist[cat] || 0);
+
+  // Dias úteis do mês → meta diária (fds = 0)
   const now = new Date();
   const y = now.getFullYear(), m = now.getMonth();
   const firstDay = new Date(y, m, 1);
   const lastDay = new Date(y, m + 1, 0);
-  const hoje = new Date(y, m, now.getDate());
   const diasUteisMes = weekdaysBetween(firstDay, lastDay);
-  const diasUteisAteHoje = weekdaysBetween(firstDay, hoje);       // inclui hoje
-  const diasUteisRestantes = weekdaysBetween(hoje, lastDay);      // inclui hoje
-  const metaPorDiaUtil = metaHoras / diasUteisMes;
-  const esperadoMs = metaPorDiaUtil * diasUteisAteHoje * 3600000;
-  const faltamMs = Math.max(0, metaMs - feitoMs);
-  const ritmoMs = (faltamMs / Math.max(1, diasUteisRestantes));
-  const pct = Math.min(100, (feitoMs / metaMs) * 100);
+  const metaDiariaMs = (metaHoras / diasUteisMes) * 3600000;
+  const isWeekend = (now.getDay() === 0 || now.getDay() === 6);
 
-  // Anel
+  // Anel = progresso de HOJE contra a meta diária
+  const pct = metaDiariaMs > 0 ? Math.min(100, (feitoHojeMs / metaDiariaMs) * 100) : 0;
   const ring = $('#mgRingFill');
   ring.style.strokeDashoffset = MG_CIRC * (1 - pct / 100);
-  ring.classList.toggle('complete', feitoMs >= metaMs);
+  ring.classList.toggle('complete', feitoHojeMs >= metaDiariaMs);
 
-  // Centro: meta total
-  $('#mgTarget').textContent = metaHoras + 'h';
+  // Centro: meta diária
+  $('#mgTarget').textContent = formatDuration(metaDiariaMs);
 
-  // Esquerda: esperado (colorido conforme ritmo)
+  // Esquerda: feito hoje (verde se bateu a meta do dia)
   const expEl = $('#mgExpected');
-  expEl.textContent = formatDuration(esperadoMs);
-  expEl.classList.toggle('ahead', feitoMs >= esperadoMs);
-  expEl.classList.toggle('behind', feitoMs < esperadoMs);
+  expEl.textContent = feitoHojeMs > 0 ? formatDuration(feitoHojeMs) : '0min';
+  expEl.classList.toggle('ahead', feitoHojeMs >= metaDiariaMs);
+  expEl.classList.remove('behind');
+  $('#mgTodaySub').textContent = isWeekend ? 'fim de semana 🌴' : `meta ${formatDuration(metaDiariaMs)}`;
 
-  // Direita: faltam
-  $('#mgRemaining').textContent = faltamMs > 0 ? formatDuration(faltamMs) : '0min';
+  // Direita: progresso no mês
+  $('#mgRemaining').textContent = formatDuration(feitoMs);
+  $('#mgMonthSub').textContent = `de ${metaHoras}h`;
 
-  // Rodapé
-  if (faltamMs <= 0) {
-    footer.innerHTML = `Concluído: <span class="accent">${formatDuration(feitoMs)}</span> de ${metaHoras}h — meta batida! 🎯`;
-  } else {
-    footer.innerHTML = `Concluído: <span class="accent">${formatDuration(feitoMs)}</span> de ${metaHoras}h · precisa de <span class="accent">${formatDuration(ritmoMs)}</span>/dia útil`;
-  }
+  // Rodapé: explica o cálculo
+  footer.innerHTML = `<span class="accent">${metaHoras}h</span> ÷ ${diasUteisMes} dias úteis = <span class="accent">${formatDuration(metaDiariaMs)}</span>/dia · sáb e dom livres`;
 }
 
 function renderGoals() {

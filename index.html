@@ -804,7 +804,7 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
 
   /* Sleep cards + chart */
   .sleep-cards {
-    display: grid; grid-template-columns: 1fr 1fr;
+    display: grid; grid-template-columns: repeat(3, 1fr);
     gap: 10px; margin-bottom: 16px;
   }
   .sleep-card {
@@ -1300,6 +1300,10 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
         <div class="sleep-card">
           <div class="sleep-card-label">Média 7 dias</div>
           <div class="sleep-card-value" id="sleepAvg7">—</div>
+        </div>
+        <div class="sleep-card">
+          <div class="sleep-card-label">Média 30 dias</div>
+          <div class="sleep-card-value" id="sleepAvg30">—</div>
         </div>
       </div>
       <div class="sleep-chart-wrap">
@@ -3223,6 +3227,17 @@ function renderSono() {
     if (e && e.durationMin > 0) { sum += e.durationMin; count++; }
   }
   $('#sleepAvg7').textContent = count > 0 ? formatDuration((sum / count) * 60000) : '—';
+
+  // Média 30 dias (só noites com registro)
+  let sum30 = 0, count30 = 0;
+  for (let i = 1; i <= 30; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const e = sleep[dateKey(d)];
+    if (e && e.durationMin > 0) { sum30 += e.durationMin; count30++; }
+  }
+  const avg30El = $('#sleepAvg30');
+  if (avg30El) avg30El.textContent = count30 > 0 ? formatDuration((sum30 / count30) * 60000) : '—';
 
   // Mini chart 7 dias
   const chart = $('#sleepChart');

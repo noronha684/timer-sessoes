@@ -482,6 +482,58 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
   .todo-empty { color: var(--text-subtle); font-size: 13px; padding: 4px 0; }
   .goal-form-label { font-size: 12px; color: var(--text-subtle); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
 
+  /* ====== Burn-down / Reta final ====== */
+  .burndown-card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0) 100%), var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 4px 0;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .burndown-card.collapsed .goals-chevron { transform: rotate(-90deg); }
+  .burndown-card.collapsed .goals-body { display: none; }
+  .bd-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 4px;
+  }
+  .bd-cat { font-size: 15px; font-weight: 700; color: var(--text); display: inline-flex; align-items: center; gap: 7px; }
+  .bd-cat::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--bd-color, var(--accent)); }
+  .bd-countdown { font-size: 13px; color: var(--accent); font-weight: 600; }
+  .bd-countdown.urgent { color: var(--warn); }
+  .bd-date { font-size: 11px; color: var(--text-subtle); margin-bottom: 14px; }
+  .bd-bar {
+    height: 10px; background: rgba(255,255,255,0.06);
+    border-radius: 999px; position: relative; margin-bottom: 6px;
+  }
+  .bd-bar-fill { height: 100%; border-radius: 999px; background: var(--bd-color, var(--accent)); transition: width 0.4s ease; }
+  .bd-bar-fill.complete { background: var(--success); }
+  .bd-progress-text { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+  .bd-progress-text .accent { color: var(--accent); font-weight: 600; }
+  .bd-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .bd-stat {
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 14px;
+  }
+  .bd-stat-label { font-size: 10px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 5px; }
+  .bd-stat-value { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+  .bd-stat-value.behind { color: var(--warn); }
+  .bd-stat-value.ahead { color: var(--success); }
+  .bd-projection {
+    border-radius: 12px; padding: 12px 14px;
+    font-size: 13px; line-height: 1.5;
+    border: 1px solid var(--border);
+  }
+  .bd-projection.ahead { background: rgba(52,211,153,0.08); border-color: rgba(52,211,153,0.2); }
+  .bd-projection.behind { background: rgba(251,191,36,0.08); border-color: rgba(251,191,36,0.2); }
+  .bd-projection .accent { font-weight: 700; }
+  .bd-edit-btn {
+    width: 100%; margin-top: 12px; padding: 9px;
+    background: transparent; border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text-subtle); font-size: 12px; cursor: pointer;
+  }
+  .bd-edit-btn:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+
   .options {
     background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0) 100%), var(--card);
     border: 1px solid var(--border);
@@ -602,6 +654,7 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
   }
   .chart-detail-date { font-weight: 600; margin-bottom: 8px; color: var(--accent); text-transform: capitalize; font-size: 13px; letter-spacing: 0.2px; }
   .chart-detail-line { display: flex; justify-content: space-between; padding: 3px 0; color: var(--text); font-size: 14px; }
+  .chart-detail-line.subline { padding: 1px 0 1px 12px; color: var(--text-subtle); font-size: 12px; }
   .chart-detail-empty { color: var(--text-subtle); font-size: 13px; }
 
   .chart-legend {
@@ -686,13 +739,46 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
     background: rgba(196,181,253,0.12);
     border-color: #c4b5fd;
   }
-  .cat-name { font-size: 15px; }
+  .cat-name { font-size: 15px; flex: 1; cursor: pointer; }
+  .cat-subcount {
+    font-size: 11px; color: var(--accent);
+    background: rgba(196,181,253,0.15); border-radius: 999px;
+    padding: 1px 7px; margin-left: 4px; vertical-align: middle;
+  }
+  .cat-actions { display: flex; align-items: center; gap: 2px; }
+  .cat-expand {
+    background: transparent; border: none; color: var(--text-subtle);
+    font-size: 14px; cursor: pointer; padding: 4px 8px; border-radius: 6px;
+  }
+  .cat-expand:hover { background: rgba(255,255,255,0.06); color: var(--text); }
   .cat-delete {
     background: transparent; border: none;
     color: #888; font-size: 20px; line-height: 1; cursor: pointer;
     padding: 2px 8px; border-radius: 6px;
   }
   .cat-delete:hover { background: rgba(233,69,96,0.15); color: #e94560; }
+
+  /* Subcategorias dentro do modal */
+  .subcat-panel {
+    margin: -2px 0 8px 12px;
+    padding: 8px 10px 10px;
+    border-left: 2px solid var(--border-strong);
+  }
+  .subcat-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 12px; border-radius: 8px; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .subcat-item:hover { background: rgba(255,255,255,0.05); }
+  .subcat-item.geral { color: var(--text-subtle); font-style: italic; }
+  .subcat-name { font-size: 14px; }
+  .subcat-del {
+    background: transparent; border: none; color: var(--text-subtle);
+    font-size: 17px; line-height: 1; cursor: pointer; padding: 0 6px; border-radius: 6px;
+  }
+  .subcat-del:hover { background: rgba(233,69,96,0.15); color: var(--danger); }
+  .subcat-add-row { display: flex; gap: 6px; margin-top: 8px; }
+  .subcat-input { padding: 9px 12px !important; font-size: 13px !important; }
   .add-cat-row { display: flex; gap: 6px; margin-bottom: 12px; }
   .new-cat-input {
     flex: 1; padding: 12px 14px;
@@ -1400,6 +1486,17 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
       </div>
     </div>
 
+    <div class="burndown-card" id="burndownCard">
+      <div class="goals-header" id="burndownToggle">
+        <span class="goals-title">Reta final</span>
+        <span class="goals-chevron" id="burndownChevron">▾</span>
+      </div>
+      <div class="goals-body" id="burndownBody">
+        <div id="burndownContent"></div>
+        <button class="goals-add-btn" id="setTargetBtn">🎯 Definir prova / meta de horas</button>
+      </div>
+    </div>
+
     <div class="options">
       <div class="option">
         <label for="soundOn">🔊 Notificação sonora</label>
@@ -1681,6 +1778,23 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
   </div>
 </div>
 
+<div class="modal-overlay" id="targetModal">
+  <div class="modal-content">
+    <div class="modal-title">Prova / meta de horas</div>
+    <div class="goal-form-label">Categoria</div>
+    <select class="new-cat-input" id="targetCategorySelect" style="width:100%; margin-bottom:14px;"></select>
+    <div class="goal-form-label">Data da prova</div>
+    <input type="date" class="new-cat-input" id="targetDateInput" style="width:100%; margin-bottom:14px;">
+    <div class="goal-form-label">Meta total de horas até a prova</div>
+    <input type="number" class="new-cat-input" id="targetHoursInput" placeholder="ex: 300" min="1" max="5000" inputmode="numeric" style="width:100%; margin-bottom:14px;">
+    <div class="goal-form-label">Contar horas desde (opcional)</div>
+    <input type="date" class="new-cat-input" id="targetStartInput" style="width:100%; margin-bottom:16px;">
+    <button class="btn-primary" id="saveTargetBtn">Salvar</button>
+    <button class="sync-danger-btn" id="removeTargetBtn" style="display:none; margin-top:8px;">Remover alvo</button>
+    <button class="modal-close" id="targetModalClose" style="margin-top:8px;">Cancelar</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="dayModal">
   <div class="modal-content">
     <div class="modal-title" id="dayModalTitle">—</div>
@@ -1951,27 +2065,80 @@ function saveSelectedCategory(cat) {
   localStorage.setItem('timerSelectedCategory', cat);
 }
 
+// ===== Subcategorias =====
+function loadSubcats() {
+  try { return JSON.parse(localStorage.getItem('timerSubcategories') || '{}'); }
+  catch { return {}; }
+}
+function saveSubcats(s) {
+  localStorage.setItem('timerSubcategories', JSON.stringify(s));
+  if (typeof triggerSync === 'function') triggerSync();
+}
+function subcatsFor(cat) {
+  const all = loadSubcats();
+  return Array.isArray(all[cat]) ? all[cat] : [];
+}
+function loadSelectedSubcategory() {
+  const sub = localStorage.getItem('timerSelectedSubcategory');
+  // só é válida se pertencer à categoria atual
+  return (sub && subcatsFor(loadSelectedCategory()).includes(sub)) ? sub : null;
+}
+function saveSelectedSubcategory(sub) {
+  if (sub) localStorage.setItem('timerSelectedSubcategory', sub);
+  else localStorage.removeItem('timerSelectedSubcategory');
+}
+function updateCategoryLabel() {
+  categoryLabel.textContent = state.subcategory
+    ? `${state.category} · ${state.subcategory}`
+    : state.category;
+}
+
 function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+let expandedCat = null;
 function renderCatList() {
   const cats = loadCategories();
   catList.innerHTML = cats.map(cat => {
     const safe = escapeHtml(cat);
-    return `
+    const subs = subcatsFor(cat);
+    const isExpanded = expandedCat === cat;
+    let html = `
       <div class="cat-item ${cat === state.category ? 'active' : ''}" data-cat="${safe}">
-        <span class="cat-name">${safe}</span>
-        ${cats.length > 1 ? `<button class="cat-delete" data-del="${safe}" aria-label="Excluir ${safe}">×</button>` : ''}
+        <span class="cat-name" data-select="${safe}">${safe}${subs.length ? ` <span class="cat-subcount">${subs.length}</span>` : ''}</span>
+        <span class="cat-actions">
+          <button class="cat-expand" data-expand="${safe}" aria-label="Subcategorias">${isExpanded ? '▾' : '›'}</button>
+          ${cats.length > 1 ? `<button class="cat-delete" data-del="${safe}" aria-label="Excluir ${safe}">×</button>` : ''}
+        </span>
       </div>`;
+    if (isExpanded) {
+      html += `<div class="subcat-panel">
+        <div class="subcat-item geral" data-cat="${safe}" data-sub="">
+          <span class="subcat-name">Geral (sem subcategoria)</span>
+        </div>
+        ${subs.map(sub => {
+          const ss = escapeHtml(sub);
+          return `<div class="subcat-item" data-cat="${safe}" data-sub="${ss}">
+            <span class="subcat-name">${ss}</span>
+            <button class="subcat-del" data-delsub="${ss}" data-subcat="${safe}" aria-label="Excluir">×</button>
+          </div>`;
+        }).join('')}
+        <div class="subcat-add-row">
+          <input type="text" class="new-cat-input subcat-input" data-forcat="${safe}" placeholder="Nova subcategoria..." maxlength="30">
+          <button class="add-cat-btn subcat-add-btn" data-addsub="${safe}" aria-label="Adicionar">+</button>
+        </div>
+      </div>`;
+    }
+    return html;
   }).join('');
 }
 
 function openCategoryModal() {
+  expandedCat = state.subcategory ? state.category : null; // já abre expandido se tem sub ativa
   renderCatList();
   categoryModal.classList.add('active');
   newCatInput.value = '';
-  setTimeout(() => newCatInput.focus(), 50);
 }
 function closeCategoryModal() {
   categoryModal.classList.remove('active');
@@ -1996,27 +2163,100 @@ categoryChip.addEventListener('click', () => {
   openCategoryModal();
 });
 
+function selectCategory(cat, sub) {
+  state.category = cat;
+  state.subcategory = sub || null;
+  saveSelectedCategory(cat);
+  saveSelectedSubcategory(state.subcategory);
+  updateCategoryLabel();
+  closeCategoryModal();
+}
+
 catList.addEventListener('click', (e) => {
+  // Excluir categoria
   const delBtn = e.target.closest('.cat-delete');
   if (delBtn) {
     e.stopPropagation();
     const cat = delBtn.dataset.del;
     const cats = loadCategories().filter(c => c !== cat);
     saveCategories(cats);
+    if (expandedCat === cat) expandedCat = null;
     if (state.category === cat) {
       state.category = cats[0];
-      categoryLabel.textContent = state.category;
+      state.subcategory = null;
       saveSelectedCategory(state.category);
+      saveSelectedSubcategory(null);
+      updateCategoryLabel();
     }
     renderCatList();
     return;
   }
-  const item = e.target.closest('.cat-item');
-  if (item) {
-    state.category = item.dataset.cat;
-    categoryLabel.textContent = state.category;
-    saveSelectedCategory(state.category);
-    closeCategoryModal();
+  // Expandir/recolher subcategorias
+  const expBtn = e.target.closest('.cat-expand');
+  if (expBtn) {
+    e.stopPropagation();
+    const cat = expBtn.dataset.expand;
+    expandedCat = (expandedCat === cat) ? null : cat;
+    renderCatList();
+    return;
+  }
+  // Remover subcategoria
+  const delSub = e.target.closest('.subcat-del');
+  if (delSub) {
+    e.stopPropagation();
+    const cat = delSub.dataset.subcat;
+    const sub = delSub.dataset.delsub;
+    const all = loadSubcats();
+    all[cat] = (all[cat] || []).filter(s => s !== sub);
+    if (all[cat].length === 0) delete all[cat];
+    saveSubcats(all);
+    if (state.category === cat && state.subcategory === sub) {
+      state.subcategory = null;
+      saveSelectedSubcategory(null);
+      updateCategoryLabel();
+    }
+    renderCatList();
+    return;
+  }
+  // Adicionar subcategoria
+  const addSub = e.target.closest('.subcat-add-btn');
+  if (addSub) {
+    e.stopPropagation();
+    const cat = addSub.dataset.addsub;
+    const input = catList.querySelector(`.subcat-input[data-forcat="${CSS.escape(cat)}"]`);
+    const val = input ? input.value.trim() : '';
+    if (val) {
+      const all = loadSubcats();
+      if (!all[cat]) all[cat] = [];
+      if (!all[cat].some(s => s.toLowerCase() === val.toLowerCase())) {
+        all[cat].push(val);
+        saveSubcats(all);
+      }
+      renderCatList();
+    }
+    return;
+  }
+  // Selecionar subcategoria (inclui "Geral")
+  const subItem = e.target.closest('.subcat-item');
+  if (subItem) {
+    selectCategory(subItem.dataset.cat, subItem.dataset.sub || null);
+    return;
+  }
+  // Selecionar categoria pelo nome (sem subcategoria)
+  const nameEl = e.target.closest('.cat-name');
+  if (nameEl) {
+    selectCategory(nameEl.dataset.select, null);
+    return;
+  }
+});
+
+// Enter no campo de subcategoria
+catList.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.classList.contains('subcat-input')) {
+    e.preventDefault();
+    const cat = e.target.dataset.forcat;
+    const btn = catList.querySelector(`.subcat-add-btn[data-addsub="${CSS.escape(cat)}"]`);
+    if (btn) btn.click();
   }
 });
 
@@ -2029,9 +2269,10 @@ categoryModal.addEventListener('click', (e) => {
   if (e.target === categoryModal) closeCategoryModal();
 });
 
-// Inicializa categoria salva
+// Inicializa categoria + subcategoria salvas
 state.category = loadSelectedCategory();
-categoryLabel.textContent = state.category;
+state.subcategory = loadSelectedSubcategory();
+updateCategoryLabel();
 
 // Toggle "Manter tela ligada"
 const keepScreenOnToggle = $('#keepScreenOn');
@@ -2127,6 +2368,7 @@ function persistTimerState() {
     totalElapsedMs: state.totalElapsedMs,
     durationMs: state.durationMs,
     category: state.category,
+    subcategory: state.subcategory,
     currentSegStart: currentSegStart,
   }));
 }
@@ -2145,7 +2387,7 @@ startBtn.addEventListener('click', () => {
   // Troca pra view de sessão em andamento
   $('#focusIdle').style.display = 'none';
   $('#focusRunning').style.display = 'block';
-  $('#runningCat').textContent = state.category;
+  $('#runningCat').textContent = state.subcategory ? `${state.category} · ${state.subcategory}` : state.category;
   pauseBtn.textContent = 'Pausar';
   pauseBtn.classList.remove('btn-resume');
   pauseBtn.classList.add('btn-pause');
@@ -2206,7 +2448,7 @@ function finishSession(completed, opts = {}) {
   state.paused = false;
   state.intervalId = null;
 
-  if (elapsedMs >= 1000) saveSession(state.category, elapsedMs);
+  if (elapsedMs >= 1000) saveSession(state.category, elapsedMs, state.subcategory);
 
   if (completed && !opts.suppressAlert) triggerAlert();
 
@@ -2221,6 +2463,7 @@ function finishSession(completed, opts = {}) {
   updatePipMediaState();
   renderToday();
   if (typeof renderGoals === 'function') renderGoals();
+  if (typeof renderBurndown === 'function') renderBurndown();
   persistTimerState();
 }
 
@@ -2279,21 +2522,19 @@ function loadHistory() {
   try { return JSON.parse(localStorage.getItem('timerHistory') || '{}'); }
   catch { return {}; }
 }
-function saveSession(category, elapsedMs) {
+function saveSession(category, elapsedMs, subcategory) {
   const history = loadHistory();
   const today = dateKey(new Date());
   if (!history[today]) history[today] = {};
   history[today][category] = (history[today][category] || 0) + elapsedMs;
   localStorage.setItem('timerHistory', JSON.stringify(history));
 
-  // Registra a sessão individual (pra contar sessões de 50min)
+  // Registra a sessão individual (pra contar sessões de 50min e breakdown por sub)
   const sessions = loadSessions();
   if (!sessions[today]) sessions[today] = [];
-  sessions[today].push({
-    category,
-    durationMs: elapsedMs,
-    at: Date.now()
-  });
+  const rec = { category, durationMs: elapsedMs, at: Date.now() };
+  if (subcategory) rec.subcategory = subcategory;
+  sessions[today].push(rec);
   localStorage.setItem('timerSessions', JSON.stringify(sessions));
 }
 
@@ -2438,11 +2679,27 @@ function updateChartDetail() {
       <div class="chart-detail-empty">Nenhuma sessão neste dia.</div>`;
     return;
   }
+  // Breakdown por subcategoria (das sessões do dia)
+  const daySessions = loadSessions()[selectedDate] || [];
+  const subByCat = {};
+  for (const s of daySessions) {
+    if (!s.subcategory) continue;
+    if (!subByCat[s.category]) subByCat[s.category] = {};
+    subByCat[s.category][s.subcategory] = (subByCat[s.category][s.subcategory] || 0) + s.durationMs;
+  }
   const lines = Object.entries(day)
     .sort((a, b) => b[1] - a[1])
-    .map(([cat, ms]) =>
-      `<div class="chart-detail-line"><span>${escapeHtml(cat)}</span><span>${formatDuration(ms)}</span></div>`
-    ).join('');
+    .map(([cat, ms]) => {
+      let line = `<div class="chart-detail-line"><span>${escapeHtml(cat)}</span><span>${formatDuration(ms)}</span></div>`;
+      if (subByCat[cat]) {
+        line += Object.entries(subByCat[cat])
+          .sort((a, b) => b[1] - a[1])
+          .map(([sub, sms]) =>
+            `<div class="chart-detail-line subline"><span>↳ ${escapeHtml(sub)}</span><span>${formatDuration(sms)}</span></div>`
+          ).join('');
+      }
+      return line;
+    }).join('');
   const sessCount = countSessionsForDate(selectedDate);
   const sessLine = sessCount > 0
     ? `<div class="chart-detail-line" style="color:#c4b5fd; font-size:13px; margin-top:4px;"><span>${sessCount === 1 ? '1 sessão de 50min' : sessCount + ' sessões de 50min'}</span><span>✓</span></div>`
@@ -2601,6 +2858,8 @@ async function pushToCloud() {
       categories: loadCategories(),
       settings: {
         selectedCategory: loadSelectedCategory(),
+        selectedSubcategory: loadSelectedSubcategory(),
+        subcategories: loadSubcats(),
         keepScreenOn: keepScreenOn,
         sleep: loadSleep(),
         alarms: loadAlarms(),
@@ -2608,6 +2867,7 @@ async function pushToCloud() {
         goals: loadGoals(),
         todos: loadTodos(),
         events: loadEvents(),
+        target: loadTarget(),
       },
     };
     const res = await fetch(`${window.API_BASE}/api/sync`, {
@@ -2662,6 +2922,19 @@ function applyServerSnapshot(snap) {
       if (snap.settings.selectedCategory) {
         localStorage.setItem('timerSelectedCategory', snap.settings.selectedCategory);
       }
+      // Subcategorias (mescla por categoria, união)
+      if (snap.settings.subcategories && typeof snap.settings.subcategories === 'object') {
+        const local = loadSubcats();
+        const merged = { ...local };
+        for (const cat in snap.settings.subcategories) {
+          const set = new Set([...(merged[cat] || []), ...snap.settings.subcategories[cat]]);
+          merged[cat] = [...set];
+        }
+        localStorage.setItem('timerSubcategories', JSON.stringify(merged));
+      }
+      if (snap.settings.selectedSubcategory !== undefined) {
+        if (snap.settings.selectedSubcategory) localStorage.setItem('timerSelectedSubcategory', snap.settings.selectedSubcategory);
+      }
       if (typeof snap.settings.keepScreenOn === 'boolean') {
         keepScreenOn = snap.settings.keepScreenOn;
         localStorage.setItem('timerKeepScreenOn', keepScreenOn ? '1' : '0');
@@ -2697,6 +2970,10 @@ function applyServerSnapshot(snap) {
       if (snap.settings.goals && typeof snap.settings.goals === 'object') {
         localStorage.setItem('timerGoals', JSON.stringify(snap.settings.goals));
       }
+      // Alvo da prova (burn-down)
+      if (snap.settings.target !== undefined) {
+        if (snap.settings.target) localStorage.setItem('timerTarget', JSON.stringify(snap.settings.target));
+      }
       // Tarefas: mescla por mês (dedupe por id, servidor ganha no done)
       if (snap.settings.todos && typeof snap.settings.todos === 'object') {
         const local = loadTodos();
@@ -2721,9 +2998,11 @@ function applyServerSnapshot(snap) {
       }
     }
     state.category = loadSelectedCategory();
-    categoryLabel.textContent = state.category;
+    state.subcategory = loadSelectedSubcategory();
+    updateCategoryLabel();
     renderToday();
     if (typeof renderGoals === 'function') renderGoals();
+    if (typeof renderBurndown === 'function') renderBurndown();
     if ($('#history-panel').classList.contains('active')) renderHistory();
   } finally {
     isApplyingRemote = false;
@@ -2818,7 +3097,8 @@ function applyCloudData(data) {
       syncWakeLock();
     }
     state.category = loadSelectedCategory();
-    categoryLabel.textContent = state.category;
+    state.subcategory = loadSelectedSubcategory();
+    updateCategoryLabel();
     renderToday();
     if ($('#history-panel').classList.contains('active')) renderHistory();
     lastSyncedAt = new Date();
@@ -3002,11 +3282,11 @@ $('#disconnectBtn').addEventListener('click', () => {
 
 // Adiciona markLocalUpdate + triggerSync nas funções de save existentes
 const _origSaveSession = saveSession;
-saveSession = function(category, elapsedMs) {
-  _origSaveSession(category, elapsedMs);
+saveSession = function(category, elapsedMs, subcategory) {
+  _origSaveSession(category, elapsedMs, subcategory);
   markLocalUpdate();
   // Sessões são dado crítico: push imediato em vez de debounced
-  if (syncCode && window._fb && !isApplyingRemote) pushToCloud();
+  if (syncCode && window.API_BASE && !isApplyingRemote) pushToCloud();
 };
 const _origSaveCategories = saveCategories;
 saveCategories = function(cats) { _origSaveCategories(cats); markLocalUpdate(); triggerSync(); };
@@ -3086,6 +3366,7 @@ function restoreTimerState() {
   state.totalElapsedMs = saved.totalElapsedMs;
   state.durationMs = saved.durationMs;
   state.category = saved.category;
+  state.subcategory = saved.subcategory || null;
   // Restaura o segmento de foco aberto (se estava rodando)
   currentSegStart = saved.paused ? null : (saved.currentSegStart || saved.startedAt);
 
@@ -3104,8 +3385,8 @@ function restoreTimerState() {
   // Sincroniza UI pra view de sessão em andamento
   $('#focusIdle').style.display = 'none';
   $('#focusRunning').style.display = 'block';
-  $('#runningCat').textContent = state.category;
-  categoryLabel.textContent = state.category;
+  $('#runningCat').textContent = state.subcategory ? `${state.category} · ${state.subcategory}` : state.category;
+  updateCategoryLabel();
   durationValue.textContent = String(Math.round(state.durationMs / 60000));
 
   if (saved.paused) {
@@ -3889,6 +4170,163 @@ $('#todosList').addEventListener('click', (e) => {
   }
 });
 
+// ====== Burn-down / Reta final ======
+function loadTarget() {
+  try { return JSON.parse(localStorage.getItem('timerTarget') || 'null'); }
+  catch { return null; }
+}
+function saveTarget(t) {
+  if (t) localStorage.setItem('timerTarget', JSON.stringify(t));
+  else localStorage.removeItem('timerTarget');
+  if (typeof triggerSync === 'function') triggerSync();
+}
+
+// Soma horas (ms) de uma categoria no histórico, entre datas (inclusive)
+function categoryTotalBetween(category, startKey, endKey) {
+  const history = loadHistory();
+  let sum = 0;
+  for (const date in history) {
+    if (startKey && date < startKey) continue;
+    if (endKey && date > endKey) continue;
+    sum += (history[date][category] || 0);
+  }
+  return sum;
+}
+
+const bdCard = document.querySelector('.burndown-card');
+if (localStorage.getItem('timerBurndownCollapsed') === '1' && bdCard) bdCard.classList.add('collapsed');
+
+function renderBurndown() {
+  const content = $('#burndownContent');
+  const setBtn = $('#setTargetBtn');
+  const target = loadTarget();
+  if (!target || !target.category || !target.examDate || !target.targetHours) {
+    content.innerHTML = '';
+    setBtn.style.display = 'block';
+    setBtn.textContent = '🎯 Definir prova / meta de horas';
+    return;
+  }
+  setBtn.style.display = 'none';
+
+  const todayKey = dateKey(new Date());
+  const feitoMs = categoryTotalBetween(target.category, target.startDate || null, todayKey);
+  const feitoH = feitoMs / 3600000;
+  const targetH = target.targetHours;
+  const restanteH = Math.max(0, targetH - feitoH);
+  const pct = Math.min(100, (feitoH / targetH) * 100);
+  const color = getCategoryColor(target.category);
+
+  // Dias até a prova
+  const exam = new Date(target.examDate + 'T00:00:00');
+  const today0 = new Date(); today0.setHours(0, 0, 0, 0);
+  const msPerDay = 86400000;
+  const diasRestantes = Math.round((exam - today0) / msPerDay);
+  const semanasRestantes = Math.max(0.1, diasRestantes / 7);
+
+  // Ritmo necessário e ritmo atual (últimos 28 dias)
+  const ritmoNecessarioH = diasRestantes > 0 ? restanteH / semanasRestantes : 0;
+  const d28 = new Date(today0); d28.setDate(d28.getDate() - 27);
+  const ult28Ms = categoryTotalBetween(target.category, dateKey(d28), todayKey);
+  const ritmoAtualH = (ult28Ms / 3600000) / 4; // por semana
+
+  // Projeção: no ritmo atual, quando chega na meta
+  let projHtml = '';
+  if (restanteH <= 0) {
+    projHtml = `<div class="bd-projection ahead">🎯 <span class="accent">Meta batida!</span> Você já cumpriu ${formatDuration(feitoMs)} de ${targetH}h.</div>`;
+  } else if (diasRestantes < 0) {
+    projHtml = `<div class="bd-projection behind">A data da prova já passou. Faltaram <span class="accent">${restanteH.toFixed(0)}h</span> pra meta.</div>`;
+  } else if (ritmoAtualH <= 0.1) {
+    projHtml = `<div class="bd-projection behind">Sem ritmo recente (últimas 4 semanas). Precisa de <span class="accent">${ritmoNecessarioH.toFixed(1)}h/semana</span> pra bater até a prova.</div>`;
+  } else {
+    const semanasPraCompletar = restanteH / ritmoAtualH;
+    const dataProj = new Date(today0); dataProj.setDate(dataProj.getDate() + Math.round(semanasPraCompletar * 7));
+    const noCaminho = dataProj <= exam;
+    const projFmt = dataProj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+    const diffDias = Math.round((exam - dataProj) / msPerDay);
+    if (noCaminho) {
+      projHtml = `<div class="bd-projection ahead">No seu ritmo atual (<span class="accent">${ritmoAtualH.toFixed(1)}h/sem</span>), você chega na meta em <span class="accent">${projFmt}</span> — ${diffDias} dia(s) <span class="accent">antes</span> da prova. 👏</div>`;
+    } else {
+      projHtml = `<div class="bd-projection behind">No seu ritmo atual (<span class="accent">${ritmoAtualH.toFixed(1)}h/sem</span>), você só chega na meta em <span class="accent">${projFmt}</span> — ${Math.abs(diffDias)} dia(s) <span class="accent">depois</span> da prova. Precisa subir pra <span class="accent">${ritmoNecessarioH.toFixed(1)}h/sem</span>.</div>`;
+    }
+  }
+
+  const examFmt = exam.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+  const countdownClass = diasRestantes <= 14 ? 'urgent' : '';
+  const ritmoAtrasado = ritmoAtualH < ritmoNecessarioH;
+
+  content.innerHTML = `
+    <div class="bd-head" style="--bd-color:${color}">
+      <span class="bd-cat">${escapeHtml(target.category)}</span>
+      <span class="bd-countdown ${countdownClass}">${diasRestantes >= 0 ? diasRestantes + ' dias' : 'encerrada'}</span>
+    </div>
+    <div class="bd-date">Prova: ${examFmt}</div>
+    <div class="bd-bar" style="--bd-color:${color}"><div class="bd-bar-fill ${restanteH <= 0 ? 'complete' : ''}" style="width:${pct}%"></div></div>
+    <div class="bd-progress-text"><span class="accent">${formatDuration(feitoMs)}</span> de ${targetH}h · faltam <span class="accent">${restanteH.toFixed(0)}h</span></div>
+    <div class="bd-stats">
+      <div class="bd-stat">
+        <div class="bd-stat-label">Precisa de</div>
+        <div class="bd-stat-value">${ritmoNecessarioH > 0 ? ritmoNecessarioH.toFixed(1) + 'h/sem' : '—'}</div>
+      </div>
+      <div class="bd-stat">
+        <div class="bd-stat-label">Seu ritmo</div>
+        <div class="bd-stat-value ${ritmoAtrasado ? 'behind' : 'ahead'}">${ritmoAtualH.toFixed(1)}h/sem</div>
+      </div>
+    </div>
+    ${projHtml}
+    <button class="bd-edit-btn" id="editTargetBtn">Editar alvo</button>`;
+
+  const editBtn = document.getElementById('editTargetBtn');
+  if (editBtn) editBtn.addEventListener('click', openTargetModal);
+}
+
+function openTargetModal() {
+  const sel = $('#targetCategorySelect');
+  const cats = loadCategories();
+  sel.innerHTML = cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  const target = loadTarget();
+  if (target) {
+    sel.value = target.category;
+    $('#targetDateInput').value = target.examDate || '';
+    $('#targetHoursInput').value = target.targetHours || '';
+    $('#targetStartInput').value = target.startDate || '';
+    $('#removeTargetBtn').style.display = 'block';
+  } else {
+    $('#targetDateInput').value = '';
+    $('#targetHoursInput').value = '';
+    $('#targetStartInput').value = '';
+    $('#removeTargetBtn').style.display = 'none';
+  }
+  $('#targetModal').classList.add('active');
+}
+
+$('#setTargetBtn').addEventListener('click', openTargetModal);
+$('#targetModalClose').addEventListener('click', () => $('#targetModal').classList.remove('active'));
+$('#targetModal').addEventListener('click', (e) => { if (e.target.id === 'targetModal') $('#targetModal').classList.remove('active'); });
+$('#saveTargetBtn').addEventListener('click', () => {
+  const category = $('#targetCategorySelect').value;
+  const examDate = $('#targetDateInput').value;
+  const targetHours = parseInt($('#targetHoursInput').value);
+  const startDate = $('#targetStartInput').value || null;
+  if (!category || !examDate || !targetHours || targetHours <= 0) {
+    alert('Preencha categoria, data da prova e meta de horas.');
+    return;
+  }
+  saveTarget({ category, examDate, targetHours, startDate });
+  $('#targetModal').classList.remove('active');
+  renderBurndown();
+});
+$('#removeTargetBtn').addEventListener('click', () => {
+  if (confirm('Remover o alvo da prova?')) {
+    saveTarget(null);
+    $('#targetModal').classList.remove('active');
+    renderBurndown();
+  }
+});
+$('#burndownToggle').addEventListener('click', () => {
+  bdCard.classList.toggle('collapsed');
+  localStorage.setItem('timerBurndownCollapsed', bdCard.classList.contains('collapsed') ? '1' : '0');
+});
+
 // ====== Calendário (planner por dia) ======
 let calMonthOffset = 0; // 0 = mês atual
 let calWeekOffset = 0;  // 0 = semana atual
@@ -4104,6 +4542,7 @@ $('#dayEventsList').addEventListener('click', (e) => {
 updateDisplay();
 renderToday();
 renderGoals();
+renderBurndown();
 renderAlarms();
 restoreTimerState();
 </script>

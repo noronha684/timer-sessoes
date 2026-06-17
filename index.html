@@ -2011,7 +2011,7 @@ async function openVideoPiP() {
   if ('mediaSession' in navigator) {
     try {
       navigator.mediaSession.setActionHandler('pause', () => { if (state.running && !state.paused) pauseBtn.click(); });
-      navigator.mediaSession.setActionHandler('play', () => { if (state.paused) startBtn.click(); });
+      navigator.mediaSession.setActionHandler('play', () => { if (state.paused) pauseBtn.click(); });
       navigator.mediaSession.setActionHandler('stop', () => { if (state.running) stopBtn.click(); });
     } catch {}
   }
@@ -2077,7 +2077,7 @@ async function openDocPiP() {
     </div>`;
   pipWindow.document.getElementById('pipPauseBtn').addEventListener('click', () => {
     if (!state.running) return;
-    if (state.paused) startBtn.click(); else pauseBtn.click();
+    pauseBtn.click(); // pauseBtn já alterna pausar ↔ retomar (sem reiniciar)
   });
   pipWindow.document.getElementById('pipStopBtn').addEventListener('click', () => {
     if (state.running) stopBtn.click();

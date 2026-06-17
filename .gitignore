@@ -1,0 +1,5 @@
+# Código da API (vai no Worker timer-sessoes, deployado separadamente — não no Pages do frontend)
+worker.js
+
+# Configs locais do Claude Code / preview
+.claude/

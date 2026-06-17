@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Antecipa as conexões de rede (DNS+TLS) usadas no carregamento -->
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://timer-sessoes.gabriel-noronha-o-p.workers.dev">
+<link rel="dns-prefetch" href="https://www.gstatic.com">
 <title>Timer de Sessões</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0e0e1a">
@@ -12,12 +16,18 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
 <script>
-// ⚠️ Cole aqui a URL do seu Worker depois de deployar (sem barra no final).
-// Exemplo: "https://timer-sessoes.SEU-USUARIO.workers.dev"
 window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
 window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
+// Config do Firebase inline (evita uma requisição bloqueante no carregamento)
+window.firebaseConfig = {
+  apiKey: "AIzaSyBylkeEsWQYwOWMpDxFidBHejuE1PJCMNQ",
+  authDomain: "timer-sessoes.firebaseapp.com",
+  projectId: "timer-sessoes",
+  storageBucket: "timer-sessoes.firebasestorage.app",
+  messagingSenderId: "479492010362",
+  appId: "1:479492010362:web:4fdfbedd7789dcc4aee6c3"
+};
 </script>
-<script src="firebase-config.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, browserLocalPersistence, setPersistence } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";

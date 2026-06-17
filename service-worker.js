@@ -1,10 +1,9 @@
-const CACHE_NAME = 'timer-sessoes-v43';
+const CACHE_NAME = 'timer-sessoes-v44';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './icon.svg',
-  './firebase-config.js'
+  './icon.svg'
 ];
 
 self.addEventListener('install', (event) => {

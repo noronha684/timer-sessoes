@@ -1,4 +1,4 @@
-const CACHE_NAME = 'timer-sessoes-v44';
+const CACHE_NAME = 'timer-sessoes-v45';
 const ASSETS = [
   './',
   './index.html',
@@ -14,12 +14,18 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
+  event.waitUntil((async () => {
+    // Apaga caches de versões antigas
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)));
+    await self.clients.claim();
+    // Destrava dispositivos presos em versões antigas: força reload das telas abertas.
+    // (a primeira vez que esta versão ativar; depois o app já tem auto-reload próprio)
+    const clients = await self.clients.matchAll({ type: 'window' });
+    for (const client of clients) {
+      try { await client.navigate(client.url); } catch {}
+    }
+  })());
 });
 
 // Stale-while-revalidate: serve do cache na hora (rápido) e atualiza em background.

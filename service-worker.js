@@ -1,4 +1,4 @@
-const CACHE_NAME = 'timer-sessoes-v40';
+const CACHE_NAME = 'timer-sessoes-v41';
 const ASSETS = [
   './',
   './index.html',
@@ -23,7 +23,8 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Network-first: tenta a versão nova da rede; usa cache só se estiver offline.
+// Stale-while-revalidate: serve do cache na hora (rápido) e atualiza em background.
+// A versão nova aparece na próxima abertura — sem espera de rede no carregamento.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   // Só intervém em requisições do próprio app (mesma origem). API externa (Worker/Firebase) passa direto.
@@ -31,15 +32,16 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(
-    fetch(event.request).then((response) => {
-      if (response && response.status === 200 && response.type === 'basic') {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-      }
-      return response;
-    }).catch(() =>
-      // Offline → cai pro cache (ou index.html como fallback de navegação)
-      caches.match(event.request).then((cached) => cached || caches.match('./index.html'))
-    )
+    caches.match(event.request).then((cached) => {
+      const fetchPromise = fetch(event.request).then((response) => {
+        if (response && response.status === 200 && response.type === 'basic') {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
+        return response;
+      }).catch(() => cached || caches.match('./index.html'));
+      // Cache primeiro (instantâneo); rede em background. Sem cache → espera a rede.
+      return cached || fetchPromise;
+    })
   );
 });

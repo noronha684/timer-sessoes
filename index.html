@@ -20,17 +20,15 @@ window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
 <script src="firebase-config.js"></script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, browserLocalPersistence, setPersistence } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
   if (window.firebaseConfig && window.firebaseConfig.apiKey) {
     try {
       const app = initializeApp(window.firebaseConfig);
-      const db = getFirestore(app);
       const auth = getAuth(app);
       await setPersistence(auth, browserLocalPersistence).catch(() => {});
       // Captura resultado de redirect (caso popup não tenha funcionado e usamos redirect)
       try { await getRedirectResult(auth); } catch {}
-      window._fb = { db, auth, doc, setDoc, getDoc, onSnapshot, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut };
+      window._fb = { auth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut };
       window.dispatchEvent(new Event('firebase-ready'));
     } catch (e) { console.warn('Firebase init falhou:', e); }
   }

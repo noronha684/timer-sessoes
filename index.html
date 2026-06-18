@@ -491,6 +491,15 @@ window.firebaseConfig = {
   .todo-add-row { display: flex; gap: 6px; margin-top: 10px; }
   .todo-empty { color: var(--text-subtle); font-size: 13px; padding: 4px 0; }
   .goal-form-label { font-size: 12px; color: var(--text-subtle); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+  .manual-session-btn {
+    width: 100%; margin-top: 14px; padding: 11px;
+    background: rgba(255,255,255,0.04);
+    border: 1px dashed var(--border-strong);
+    border-radius: 10px;
+    color: var(--text-muted); font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .manual-session-btn:hover { background: rgba(255,255,255,0.07); color: var(--text); }
 
   /* ====== Burn-down / Reta final ====== */
   .burndown-card {
@@ -1486,6 +1495,7 @@ window.firebaseConfig = {
         <span class="today-avg-label">Média / dia útil</span>
         <span class="today-avg-value" id="todayAvgValue">—</span>
       </div>
+      <button class="manual-session-btn" id="manualSessionBtn">+ Adicionar sessão manual</button>
     </div>
 
     <div class="goals-card">
@@ -1850,6 +1860,32 @@ window.firebaseConfig = {
     <button class="btn-primary" id="saveTargetBtn">Salvar</button>
     <button class="sync-danger-btn" id="removeTargetBtn" style="display:none; margin-top:8px;">Remover alvo</button>
     <button class="modal-close" id="targetModalClose" style="margin-top:8px;">Cancelar</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="manualModal">
+  <div class="modal-content">
+    <div class="modal-title">Adicionar sessão manual</div>
+    <div class="goal-form-label">Categoria</div>
+    <select class="new-cat-input" id="manualCategorySelect" style="width:100%; margin-bottom:14px;"></select>
+    <div id="manualSubWrap" style="display:none;">
+      <div class="goal-form-label">Subcategoria</div>
+      <select class="new-cat-input" id="manualSubSelect" style="width:100%; margin-bottom:14px;"></select>
+    </div>
+    <div class="goal-form-label">Duração (minutos)</div>
+    <input type="number" class="new-cat-input" id="manualMinutesInput" placeholder="ex: 50" min="1" max="600" inputmode="numeric" style="width:100%; margin-bottom:14px;">
+    <div style="display:flex; gap:10px; margin-bottom:16px;">
+      <div style="flex:1;">
+        <div class="goal-form-label">Data</div>
+        <input type="date" class="new-cat-input" id="manualDateInput" style="width:100%;">
+      </div>
+      <div style="flex:1;">
+        <div class="goal-form-label">Horário</div>
+        <input type="time" class="new-cat-input" id="manualTimeInput" style="width:100%;">
+      </div>
+    </div>
+    <button class="btn-primary" id="saveManualBtn">Adicionar</button>
+    <button class="modal-close" id="manualModalClose" style="margin-top:8px;">Cancelar</button>
   </div>
 </div>
 
@@ -4815,6 +4851,70 @@ $('#journalItemsList').addEventListener('click', (e) => {
   const items = loadJournalItems().filter(i => i.id !== del.dataset.delitem);
   saveJournalItems(items);
   renderJournalItemsList();
+});
+
+// ====== Sessão manual ======
+function addManualSession(category, durationMs, subcategory, dateStr, atMs) {
+  const history = loadHistory();
+  if (!history[dateStr]) history[dateStr] = {};
+  history[dateStr][category] = (history[dateStr][category] || 0) + durationMs;
+  localStorage.setItem('timerHistory', JSON.stringify(history));
+  const sessions = loadSessions();
+  if (!sessions[dateStr]) sessions[dateStr] = [];
+  const rec = { category, durationMs, at: atMs };
+  if (subcategory) rec.subcategory = subcategory;
+  sessions[dateStr].push(rec);
+  localStorage.setItem('timerSessions', JSON.stringify(sessions));
+  markLocalUpdate();
+  if (syncCode && window.API_BASE && !isApplyingRemote) pushToCloud();
+}
+
+const manualModal = $('#manualModal');
+function updateManualSubs() {
+  const cat = $('#manualCategorySelect').value;
+  const subs = subcatsFor(cat);
+  const wrap = $('#manualSubWrap');
+  const sel = $('#manualSubSelect');
+  if (subs.length) {
+    sel.innerHTML = '<option value="">(geral)</option>' + subs.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+    wrap.style.display = 'block';
+  } else {
+    wrap.style.display = 'none';
+    sel.innerHTML = '';
+  }
+}
+$('#manualSessionBtn').addEventListener('click', () => {
+  const sel = $('#manualCategorySelect');
+  const cats = loadCategories();
+  sel.innerHTML = cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  sel.value = state.category;
+  updateManualSubs();
+  $('#manualMinutesInput').value = '50';
+  const now = new Date();
+  $('#manualDateInput').value = dateKey(now);
+  $('#manualTimeInput').value = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  manualModal.classList.add('active');
+});
+$('#manualCategorySelect').addEventListener('change', updateManualSubs);
+$('#manualModalClose').addEventListener('click', () => manualModal.classList.remove('active'));
+manualModal.addEventListener('click', (e) => { if (e.target === manualModal) manualModal.classList.remove('active'); });
+$('#saveManualBtn').addEventListener('click', () => {
+  const category = $('#manualCategorySelect').value;
+  const sub = $('#manualSubSelect') ? ($('#manualSubSelect').value || null) : null;
+  const mins = parseInt($('#manualMinutesInput').value);
+  const dateStr = $('#manualDateInput').value;
+  const timeStr = $('#manualTimeInput').value || '12:00';
+  if (!category || !mins || mins <= 0 || !dateStr) {
+    alert('Preencha categoria, duração e data.');
+    return;
+  }
+  const atMs = new Date(dateStr + 'T' + timeStr).getTime();
+  addManualSession(category, mins * 60000, sub, dateStr, atMs);
+  manualModal.classList.remove('active');
+  renderToday();
+  if (typeof renderGoals === 'function') renderGoals();
+  if (typeof renderBurndown === 'function') renderBurndown();
+  if ($('#history-panel').classList.contains('active')) renderHistory();
 });
 
 updateDisplay();

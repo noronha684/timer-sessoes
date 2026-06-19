@@ -133,6 +133,21 @@ window.firebaseConfig = {
     to { opacity: 1; transform: translateY(0); }
   }
 
+  .remote-timer-banner {
+    display: flex; align-items: center; gap: 10px;
+    background: linear-gradient(180deg, rgba(196,181,253,0.12), rgba(196,181,253,0.05));
+    border: 1px solid rgba(196,181,253,0.25);
+    border-radius: 14px;
+    padding: 12px 16px; margin-bottom: 12px;
+    font-size: 13px; color: var(--text);
+  }
+  .rt-dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0;
+    animation: rtpulse 1.5s ease-in-out infinite;
+  }
+  @keyframes rtpulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
   .focus-card {
     background: linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0) 100%), var(--card);
     border: 1px solid var(--border);
@@ -1442,6 +1457,10 @@ window.firebaseConfig = {
   </div>
 
   <div class="panel active" id="timer-panel">
+    <div class="remote-timer-banner" id="remoteTimerBanner" style="display:none">
+      <span class="rt-dot"></span>
+      <span id="remoteTimerText"></span>
+    </div>
     <div class="focus-card" id="focusIdle">
       <div class="focus-title">Prepare-se para se concentrar</div>
       <div class="focus-desc">Defina o tempo, mantenha o foco até o fim e a sessão entra na sua jornada do dia.</div>
@@ -2524,17 +2543,22 @@ function closeSegment() {
 }
 
 function persistTimerState() {
-  if (!state.running) { localStorage.removeItem('timerActiveState'); return; }
-  localStorage.setItem('timerActiveState', JSON.stringify({
-    running: true,
-    paused: state.paused,
-    startedAt: state.startedAt,
-    totalElapsedMs: state.totalElapsedMs,
-    durationMs: state.durationMs,
-    category: state.category,
-    subcategory: state.subcategory,
-    currentSegStart: currentSegStart,
-  }));
+  if (!state.running) { localStorage.removeItem('timerActiveState'); }
+  else {
+    localStorage.setItem('timerActiveState', JSON.stringify({
+      running: true,
+      paused: state.paused,
+      startedAt: state.startedAt,
+      totalElapsedMs: state.totalElapsedMs,
+      durationMs: state.durationMs,
+      category: state.category,
+      subcategory: state.subcategory,
+      currentSegStart: currentSegStart,
+    }));
+  }
+  // Propaga o estado do timer pros outros dispositivos (espelho) + atualiza banner local
+  if (typeof triggerSync === 'function') triggerSync();
+  if (typeof updateRemoteBanner === 'function') updateRemoteBanner();
 }
 
 startBtn.addEventListener('click', () => {
@@ -3034,6 +3058,16 @@ async function pushToCloud() {
         target: loadTarget(),
         journalItems: loadJournalItems(),
         journal: loadJournal(),
+        activeTimer: state.running ? {
+          paused: state.paused,
+          startedAt: state.startedAt,
+          totalElapsedMs: state.totalElapsedMs,
+          durationMs: state.durationMs,
+          category: state.category,
+          subcategory: state.subcategory,
+          device: DEVICE_ID,
+          updatedAt: Date.now(),
+        } : null,
       },
     };
     const res = await fetch(`${window.API_BASE}/api/sync`, {
@@ -3173,6 +3207,12 @@ function applyServerSnapshot(snap) {
           merged[dk] = [...byId.values()];
         }
         localStorage.setItem('timerEvents', JSON.stringify(merged));
+      }
+      // Timer ativo em outro dispositivo (espelho informativo)
+      if (snap.settings.activeTimer !== undefined) {
+        const rt = snap.settings.activeTimer;
+        remoteActiveTimer = (rt && rt.device !== DEVICE_ID) ? rt : null;
+        if (typeof startRemoteBanner === 'function') startRemoteBanner();
       }
     }
     state.category = loadSelectedCategory();
@@ -4916,6 +4956,42 @@ $('#saveManualBtn').addEventListener('click', () => {
   if (typeof renderBurndown === 'function') renderBurndown();
   if ($('#history-panel').classList.contains('active')) renderHistory();
 });
+
+// ====== Espelho do timer ativo em outro dispositivo ======
+let remoteActiveTimer = null;
+let remoteBannerInterval = null;
+function updateRemoteBanner() {
+  const banner = $('#remoteTimerBanner');
+  if (!banner) return;
+  // Não mostra se: não há timer remoto, ou eu mesmo estou rodando
+  if (!remoteActiveTimer || state.running) {
+    banner.style.display = 'none';
+    if (remoteBannerInterval) { clearInterval(remoteBannerInterval); remoteBannerInterval = null; }
+    return;
+  }
+  const rt = remoteActiveTimer;
+  let elapsed = rt.totalElapsedMs || 0;
+  if (!rt.paused) elapsed += Date.now() - rt.startedAt;
+  const remaining = Math.max(0, (rt.durationMs || 0) - elapsed);
+  if (remaining <= 0) {
+    // a sessão remota já deve ter terminado
+    banner.style.display = 'none';
+    remoteActiveTimer = null;
+    if (remoteBannerInterval) { clearInterval(remoteBannerInterval); remoteBannerInterval = null; }
+    return;
+  }
+  const mm = String(Math.floor(remaining / 60000)).padStart(2, '0');
+  const ss = String(Math.floor((remaining % 60000) / 1000)).padStart(2, '0');
+  const cat = rt.subcategory ? `${rt.category} · ${rt.subcategory}` : rt.category;
+  $('#remoteTimerText').innerHTML = `Em andamento em outro dispositivo — <b>${escapeHtml(cat)}</b> · ${mm}:${ss}${rt.paused ? ' (pausado)' : ''}`;
+  banner.style.display = 'flex';
+}
+function startRemoteBanner() {
+  updateRemoteBanner();
+  if (remoteActiveTimer && !state.running && !remoteBannerInterval) {
+    remoteBannerInterval = setInterval(updateRemoteBanner, 1000);
+  }
+}
 
 updateDisplay();
 renderToday();

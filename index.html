@@ -2025,7 +2025,7 @@ let pipCanvas = null, pipCanvasCtx = null, pipVideo = null, pipDrawInterval = nu
 function setupVideoPipNodes() {
   if (pipCanvas) return;
   pipCanvas = document.createElement('canvas');
-  pipCanvas.width = 480; pipCanvas.height = 270;
+  pipCanvas.width = 360; pipCanvas.height = 360; // quadrado: anel preenche bem
   pipCanvasCtx = pipCanvas.getContext('2d');
   pipVideo = document.createElement('video');
   pipVideo.muted = true;
@@ -2038,15 +2038,16 @@ function drawPipFrame() {
   if (!pipCanvasCtx) return;
   const ctx = pipCanvasCtx;
   const W = pipCanvas.width, H = pipCanvas.height;
-  const cx = W / 2, cy = H / 2, r = 100;
+  const cx = W / 2, cy = H / 2, r = 138;
+  const lw = 22;
   ctx.fillStyle = '#0f0f17';
   ctx.fillRect(0, 0, W, H);
 
   // Anel de fundo
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-  ctx.lineWidth = 14;
+  ctx.strokeStyle = 'rgba(255,255,255,0.09)';
+  ctx.lineWidth = lw;
   ctx.stroke();
 
   // Anel de progresso
@@ -2055,7 +2056,7 @@ function drawPipFrame() {
     ctx.beginPath();
     ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + ratio * Math.PI * 2);
     ctx.strokeStyle = state.paused ? '#fbbf24' : '#c4b5fd';
-    ctx.lineWidth = 14;
+    ctx.lineWidth = lw;
     ctx.lineCap = 'round';
     ctx.stroke();
   }
@@ -2064,8 +2065,15 @@ function drawPipFrame() {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = state.paused ? '#fbbf24' : '#fff';
-  ctx.font = 'bold 64px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillText(display.textContent, cx, cy);
+  ctx.font = '600 84px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  ctx.fillText(display.textContent, cx, cy + 2);
+
+  // Status pequeno embaixo do tempo
+  if (state.paused) {
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = '600 22px -apple-system, sans-serif';
+    ctx.fillText('PAUSADO', cx, cy + 64);
+  }
 }
 
 function updatePipMediaState() {

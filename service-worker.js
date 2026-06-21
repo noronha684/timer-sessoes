@@ -1,9 +1,11 @@
-const CACHE_NAME = 'timer-sessoes-v48';
+const CACHE_NAME = 'timer-sessoes-v50';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './icon.svg'
+  './icon.svg',
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {

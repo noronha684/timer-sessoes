@@ -14,7 +14,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Timer">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <script>
 window.API_BASE = "https://timer-sessoes.gabriel-noronha-o-p.workers.dev";
 window.WHOOP_CLIENT_ID = "72038c31-8035-40bc-9b3a-4e4254dea54e";
@@ -5007,6 +5008,23 @@ renderGoals();
 renderBurndown();
 renderAlarms();
 restoreTimerState();
+
+// Atalhos do app (manifest shortcuts / deep links: ?tab=history, ?quickstart=50)
+(function () {
+  try {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab) {
+      const t = document.querySelector(`.tab[data-panel="${tab}"]`);
+      if (t) t.click();
+    }
+    const qs = parseInt(params.get('quickstart'));
+    if (qs > 0 && !state.running) {
+      setDurationMinutes(qs);
+      startBtn.click();
+    }
+  } catch {}
+})();
 </script>
 </body>
 </html>

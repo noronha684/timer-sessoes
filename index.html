@@ -2149,6 +2149,7 @@ async function openDocPiP() {
       }
       .pip-pause { background: #c4b5fd; color: #1a1a25; }
       .pip-stop { background: rgba(255,255,255,0.08); color: #f87171; }
+      .pip-start { background: #34d399; color: #0a2818; }
     </style>`;
   pipWindow.document.body.innerHTML = `
     <div class="pip-ring-wrap">
@@ -2159,9 +2160,13 @@ async function openDocPiP() {
       <div class="pip-center"><span class="pip-time" id="pipTime">00:00</span></div>
     </div>
     <div class="pip-controls">
+      <button class="pip-btn pip-start" id="pipStartBtn" title="Iniciar" style="display:none">▶</button>
       <button class="pip-btn pip-pause" id="pipPauseBtn" title="Pausar">⏸</button>
       <button class="pip-btn pip-stop" id="pipStopBtn" title="Parar">⏹</button>
     </div>`;
+  pipWindow.document.getElementById('pipStartBtn').addEventListener('click', () => {
+    if (!state.running) startBtn.click(); // inicia nova sessão com a mesma duração
+  });
   pipWindow.document.getElementById('pipPauseBtn').addEventListener('click', () => {
     if (!state.running) return;
     pauseBtn.click(); // pauseBtn já alterna pausar ↔ retomar (sem reiniciar)
@@ -2198,9 +2203,21 @@ function syncPip() {
   if (pipWindow) {
     const t = pipWindow.document.getElementById('pipTime');
     const pb = pipWindow.document.getElementById('pipPauseBtn');
+    const sb = pipWindow.document.getElementById('pipStopBtn');
+    const startB = pipWindow.document.getElementById('pipStartBtn');
     const ring = pipWindow.document.getElementById('pipRing');
     if (t) { t.textContent = display.textContent; t.classList.toggle('paused', state.paused); }
     if (pb) pb.textContent = state.paused ? '▶' : '⏸';
+    // Rodando → pausar + parar; parado/terminado → botão iniciar
+    if (startB && pb && sb) {
+      if (state.running) {
+        startB.style.display = 'none';
+        pb.style.display = ''; sb.style.display = '';
+      } else {
+        startB.style.display = '';
+        pb.style.display = 'none'; sb.style.display = 'none';
+      }
+    }
     if (ring && state.durationMs > 0) {
       const ratio = Math.max(0, Math.min(1, state.remainingMs / state.durationMs));
       ring.style.strokeDashoffset = (PIP_RING_CIRC * (1 - ratio)).toFixed(1);

@@ -1509,7 +1509,7 @@ window.firebaseConfig = {
         <span class="streak-badge" id="streakBadge" style="display:none"></span>
       </div>
       <div class="today-total" id="todayTotal">0min</div>
-      <div class="today-subtitle" id="todaySubtitle">0 sessões de 50min</div>
+      <div class="today-subtitle" id="todaySubtitle">0 sessões de foco</div>
       <div class="today-breakdown" id="todayBreakdown"></div>
       <div class="today-avg-row">
         <span class="today-avg-label">Média / dia útil</span>
@@ -2757,8 +2757,8 @@ function loadSessions() {
   catch { return {}; }
 }
 
-const POMO_MIN = 50; // duração de referência pra contagem
-function countSessionsForDate(dateKey, minMs = POMO_MIN * 60 * 1000) {
+// Conta sessões de foco do dia (qualquer duração >= 1min, p/ ignorar starts acidentais)
+function countSessionsForDate(dateKey, minMs = 60000) {
   const sessions = loadSessions();
   const list = sessions[dateKey] || [];
   return list.filter(s => s.durationMs >= minMs).length;
@@ -2781,7 +2781,7 @@ function renderToday() {
 
   const count = countSessionsForDate(today);
   const sub = $('#todaySubtitle');
-  sub.textContent = count === 1 ? '1 sessão de 50min ✓' : `${count} sessões de 50min`;
+  sub.textContent = count === 1 ? '1 sessão de foco ✓' : `${count} sessões de foco`;
   sub.classList.toggle('highlight', count > 0);
 
   const breakdown = $('#todayBreakdown');
@@ -2916,7 +2916,7 @@ function updateChartDetail() {
     }).join('');
   const sessCount = countSessionsForDate(selectedDate);
   const sessLine = sessCount > 0
-    ? `<div class="chart-detail-line" style="color:#c4b5fd; font-size:13px; margin-top:4px;"><span>${sessCount === 1 ? '1 sessão de 50min' : sessCount + ' sessões de 50min'}</span><span>✓</span></div>`
+    ? `<div class="chart-detail-line" style="color:#c4b5fd; font-size:13px; margin-top:4px;"><span>${sessCount === 1 ? '1 sessão de foco' : sessCount + ' sessões de foco'}</span><span>✓</span></div>`
     : '';
   detail.innerHTML = `
     <div class="chart-detail-date">${formatted}</div>

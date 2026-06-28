@@ -87,7 +87,7 @@ window.firebaseConfig = {
 
   .tabs {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(7, 1fr);
     margin-bottom: 18px;
     background: var(--card);
     padding: 5px;
@@ -99,7 +99,7 @@ window.firebaseConfig = {
     content: '';
     position: absolute;
     top: 5px; bottom: 5px; left: 5px;
-    width: calc((100% - 10px) / 6);
+    width: calc((100% - 10px) / 7);
     background: var(--card-elev);
     border: 1px solid var(--border-strong);
     border-radius: 8px;
@@ -107,15 +107,16 @@ window.firebaseConfig = {
     box-shadow: 0 2px 8px rgba(0,0,0,0.25);
     z-index: 0;
   }
-  .tabs.tab-history::before { transform: translateX(100%); }
-  .tabs.tab-sono::before { transform: translateX(200%); }
-  .tabs.tab-agenda::before { transform: translateX(300%); }
-  .tabs.tab-cal::before { transform: translateX(400%); }
-  .tabs.tab-diario::before { transform: translateX(500%); }
+  .tabs.tab-plano::before { transform: translateX(100%); }
+  .tabs.tab-history::before { transform: translateX(200%); }
+  .tabs.tab-sono::before { transform: translateX(300%); }
+  .tabs.tab-agenda::before { transform: translateX(400%); }
+  .tabs.tab-cal::before { transform: translateX(500%); }
+  .tabs.tab-diario::before { transform: translateX(600%); }
   .tab {
-    padding: 10px 2px; background: transparent;
+    padding: 10px 1px; background: transparent;
     border: none; border-radius: 8px;
-    text-align: center; cursor: pointer; font-size: 11px;
+    text-align: center; cursor: pointer; font-size: 10px;
     color: var(--text-subtle); user-select: none; font-weight: 500;
     transition: color 0.25s ease;
     position: relative; z-index: 1;
@@ -1442,6 +1443,103 @@ window.firebaseConfig = {
   }
   .alert-confirm:hover { filter: brightness(1.05); }
   .alert-confirm:active { transform: scale(0.98); }
+
+  /* ===== Aba Plano (plano semanal) ===== */
+  .plan-today-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px 18px 16px;
+    margin-bottom: 14px;
+  }
+  .plan-today-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .plan-today-day { font-size: 13px; font-weight: 600; color: var(--text); }
+  .plan-today-day small { color: var(--text-subtle); font-weight: 500; }
+  .plan-today-pct { font-size: 13px; font-weight: 700; color: var(--accent); }
+  .plan-today-big {
+    font-size: 26px; font-weight: 700; color: var(--text);
+    letter-spacing: -0.02em; margin-bottom: 2px;
+  }
+  .plan-today-big .of { color: var(--text-subtle); font-weight: 600; font-size: 18px; }
+  .plan-today-label { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
+  .plan-bar {
+    height: 9px; border-radius: 6px; background: var(--card-elev);
+    overflow: hidden; border: 1px solid var(--border);
+  }
+  .plan-bar-fill {
+    height: 100%; border-radius: 6px;
+    background: linear-gradient(90deg, var(--accent-2), var(--accent));
+    transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
+  }
+  .plan-bar-fill.done { background: linear-gradient(90deg, #34d399, #6ee7b7); }
+  .plan-today-cats { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .plan-cat-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; }
+  .plan-cat-name { font-size: 12.5px; color: var(--text); font-weight: 500; }
+  .plan-cat-vals { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .plan-cat-vals .ok { color: var(--success); font-weight: 600; }
+  .plan-cat-bar {
+    grid-column: 1 / -1; height: 6px; border-radius: 4px;
+    background: var(--card-elev); overflow: hidden; border: 1px solid var(--border);
+  }
+  .plan-cat-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+  .plan-today-empty { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+  .plan-grid-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px 14px 14px;
+    margin-bottom: 14px;
+  }
+  .plan-grid-title {
+    display: flex; flex-direction: column; gap: 2px; margin-bottom: 14px; padding: 0 4px;
+  }
+  .plan-grid-title > span:first-child { font-size: 14px; font-weight: 600; color: var(--text); }
+  .plan-grid-sub { font-size: 11px; color: var(--text-subtle); }
+  .plan-grid-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .plan-grid {
+    display: grid;
+    grid-template-columns: 64px repeat(7, minmax(34px, 1fr));
+    gap: 6px 4px;
+    min-width: 320px;
+  }
+  .plan-grid-corner { }
+  .plan-grid-dhead {
+    text-align: center; font-size: 10px; font-weight: 600;
+    color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.5px;
+    padding-bottom: 2px;
+  }
+  .plan-grid-dhead.today { color: var(--accent); }
+  .plan-grid-catname {
+    font-size: 12px; color: var(--text); font-weight: 500;
+    display: flex; align-items: center; min-height: 34px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .plan-grid-input {
+    width: 100%; min-width: 0; height: 34px;
+    background: var(--card-elev); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    text-align: center; font-size: 13px; font-family: inherit;
+    font-variant-numeric: tabular-nums; padding: 0 2px;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .plan-grid-input::placeholder { color: var(--text-subtle); opacity: 0.5; }
+  .plan-grid-input:focus { outline: none; border-color: var(--accent); background: var(--card); }
+  .plan-grid-input.today { border-color: var(--border-strong); box-shadow: inset 0 0 0 1px var(--accent-glow); }
+  .plan-grid-input.filled { color: var(--accent); font-weight: 600; }
+  .plan-week-total {
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 12px; color: var(--text-muted); padding-left: 4px; padding-right: 4px;
+  }
+  .plan-week-total b { color: var(--text); font-size: 15px; font-weight: 700; }
+  .plan-hint {
+    font-size: 11.5px; color: var(--text-subtle); line-height: 1.55;
+    padding: 0 6px; text-align: center;
+  }
 </style>
 </head>
 <body>
@@ -1450,6 +1548,7 @@ window.firebaseConfig = {
 
   <div class="tabs">
     <div class="tab active" data-panel="timer">Timer</div>
+    <div class="tab" data-panel="plano">Plano</div>
     <div class="tab" data-panel="history">Histórico</div>
     <div class="tab" data-panel="sono">Sono</div>
     <div class="tab" data-panel="agenda">Agenda</div>
@@ -1726,6 +1825,23 @@ window.firebaseConfig = {
       <div id="diarioList"></div>
     </div>
     <button class="goals-add-btn" id="manageItemsBtn" style="margin-bottom:14px;">⚙️ Gerenciar perguntas do diário</button>
+  </div>
+
+  <div class="panel" id="plano-panel">
+    <div class="plan-today-card" id="planTodayCard"></div>
+
+    <div class="plan-grid-card">
+      <div class="plan-grid-title">
+        <span>Plano semanal</span>
+        <span class="plan-grid-sub">horas-alvo por dia · repete toda semana</span>
+      </div>
+      <div class="plan-grid-scroll">
+        <div class="plan-grid" id="planGrid"></div>
+      </div>
+      <div class="plan-week-total" id="planWeekTotal"></div>
+    </div>
+
+    <div class="plan-hint">💡 Defina quanto quer focar em cada dia. O card de cima mostra, todo dia, o planejado contra o que você já fez. Fim de semana pode ficar zerado.</div>
   </div>
 </div>
 
@@ -2234,12 +2350,14 @@ document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.add('active');
     $('#' + tab.dataset.panel + '-panel').classList.add('active');
     const tabsEl = document.querySelector('.tabs');
-    tabsEl.classList.remove('tab-history', 'tab-sono', 'tab-agenda', 'tab-cal', 'tab-diario');
+    tabsEl.classList.remove('tab-plano', 'tab-history', 'tab-sono', 'tab-agenda', 'tab-cal', 'tab-diario');
+    if (tab.dataset.panel === 'plano') tabsEl.classList.add('tab-plano');
     if (tab.dataset.panel === 'history') tabsEl.classList.add('tab-history');
     if (tab.dataset.panel === 'sono') tabsEl.classList.add('tab-sono');
     if (tab.dataset.panel === 'agenda') tabsEl.classList.add('tab-agenda');
     if (tab.dataset.panel === 'cal') tabsEl.classList.add('tab-cal');
     if (tab.dataset.panel === 'diario') tabsEl.classList.add('tab-diario');
+    if (tab.dataset.panel === 'plano') renderPlano();
     if (tab.dataset.panel === 'history') renderHistory();
     if (tab.dataset.panel === 'sono') renderSono();
     if (tab.dataset.panel === 'agenda') renderAgenda();
@@ -2838,6 +2956,8 @@ function renderToday() {
       ? `${formatDuration(allTotal / denom)} · ${denom} ${denom === 1 ? 'dia útil' : 'dias úteis'}`
       : '—';
   }
+
+  if (typeof renderPlanToday === 'function') renderPlanToday();
 }
 
 // Cores estáveis por categoria (hash do nome → paleta)
@@ -3079,6 +3199,7 @@ async function pushToCloud() {
         alarms: loadAlarms(),
         segments: loadSegments(),
         goals: loadGoals(),
+        weekPlan: loadWeekPlan(),
         todos: loadTodos(),
         events: loadEvents(),
         target: loadTarget(),
@@ -3196,6 +3317,10 @@ function applyServerSnapshot(snap) {
       if (snap.settings.goals && typeof snap.settings.goals === 'object') {
         localStorage.setItem('timerGoals', JSON.stringify(snap.settings.goals));
       }
+      // Plano semanal: usa do servidor se existir
+      if (snap.settings.weekPlan && typeof snap.settings.weekPlan === 'object') {
+        localStorage.setItem('timerWeekPlan', JSON.stringify(snap.settings.weekPlan));
+      }
       // Alvo da prova (burn-down)
       if (snap.settings.target !== undefined) {
         if (snap.settings.target) localStorage.setItem('timerTarget', JSON.stringify(snap.settings.target));
@@ -3248,6 +3373,7 @@ function applyServerSnapshot(snap) {
     if (typeof renderGoals === 'function') renderGoals();
     if (typeof renderBurndown === 'function') renderBurndown();
     if ($('#history-panel').classList.contains('active')) renderHistory();
+    if (typeof renderPlanGrid === 'function' && $('#plano-panel').classList.contains('active')) renderPlanGrid();
   } finally {
     isApplyingRemote = false;
   }
@@ -5017,6 +5143,164 @@ function startRemoteBanner() {
   if (remoteActiveTimer && !state.running && !remoteBannerInterval) {
     remoteBannerInterval = setInterval(updateRemoteBanner, 1000);
   }
+}
+
+// ===== Plano semanal (horas-alvo por dia da semana) =====
+const PLAN_DAY_LABELS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+const PLAN_DAY_FULL = ['segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado', 'domingo'];
+// 0 = segunda ... 6 = domingo (getDay(): 0=dom..6=sáb)
+function planWeekdayIndex(d = new Date()) { return (d.getDay() + 6) % 7; }
+
+function loadWeekPlan() {
+  try {
+    const p = JSON.parse(localStorage.getItem('timerWeekPlan') || '{}');
+    return (p && typeof p === 'object' && !Array.isArray(p)) ? p : {};
+  } catch { return {}; }
+}
+function saveWeekPlan(p) {
+  localStorage.setItem('timerWeekPlan', JSON.stringify(p));
+  if (typeof triggerSync === 'function') triggerSync();
+}
+function parsePlanVal(s) {
+  const v = parseFloat(String(s == null ? '' : s).replace(',', '.'));
+  if (!isFinite(v) || v <= 0) return 0;
+  return Math.min(24, Math.round(v * 100) / 100); // teto 24h, 2 casas
+}
+function fmtH(hours) {
+  if (!hours || hours <= 0) return '0h';
+  return formatDuration(Math.round(hours * 3600000));
+}
+function doneTodayMsByCat() {
+  return loadHistory()[dateKey(new Date())] || {};
+}
+
+function renderPlano() {
+  renderPlanGrid();
+  renderPlanToday();
+}
+
+// Monta a grade editável (só ao abrir a aba, p/ não perder o foco ao digitar)
+function renderPlanGrid() {
+  const grid = $('#planGrid');
+  if (!grid) return;
+  const cats = loadCategories();
+  const plan = loadWeekPlan();
+  const todayIdx = planWeekdayIndex();
+
+  let html = '<div class="plan-grid-corner"></div>';
+  for (let i = 0; i < 7; i++) {
+    html += `<div class="plan-grid-dhead${i === todayIdx ? ' today' : ''}">${PLAN_DAY_LABELS[i]}</div>`;
+  }
+  for (const cat of cats) {
+    const safe = escapeHtml(cat);
+    html += `<div class="plan-grid-catname" title="${safe}">${safe}</div>`;
+    for (let i = 0; i < 7; i++) {
+      const arr = plan[cat] || [];
+      const v = (typeof arr[i] === 'number' && arr[i] > 0) ? arr[i] : 0;
+      const cls = ['plan-grid-input'];
+      if (i === todayIdx) cls.push('today');
+      if (v > 0) cls.push('filled');
+      html += `<input type="text" inputmode="decimal" class="${cls.join(' ')}" data-cat="${safe}" data-day="${i}" value="${v > 0 ? v : ''}" placeholder="0" aria-label="${safe} ${PLAN_DAY_LABELS[i]}">`;
+    }
+  }
+  grid.innerHTML = html;
+  grid.querySelectorAll('.plan-grid-input').forEach(inp => inp.addEventListener('input', onPlanInput));
+  updatePlanWeekTotal();
+}
+
+// Lê o plano direto dos inputs (funciona mesmo no meio da digitação)
+function readPlanFromInputs() {
+  const plan = {};
+  document.querySelectorAll('#planGrid .plan-grid-input').forEach(inp => {
+    const cat = inp.dataset.cat;
+    const day = parseInt(inp.dataset.day);
+    const v = parsePlanVal(inp.value);
+    if (v > 0) {
+      if (!plan[cat]) plan[cat] = [0, 0, 0, 0, 0, 0, 0];
+      plan[cat][day] = v;
+    }
+  });
+  return plan;
+}
+
+function onPlanInput(e) {
+  const inp = e.target;
+  inp.classList.toggle('filled', parsePlanVal(inp.value) > 0);
+  saveWeekPlan(readPlanFromInputs());
+  updatePlanWeekTotal();
+  renderPlanToday();
+}
+
+function updatePlanWeekTotal() {
+  const el = $('#planWeekTotal');
+  if (!el) return;
+  const plan = loadWeekPlan();
+  const todayIdx = planWeekdayIndex();
+  let total = 0, todayPlan = 0;
+  for (const cat in plan) {
+    const arr = plan[cat] || [];
+    for (let i = 0; i < 7; i++) total += (arr[i] || 0);
+    todayPlan += (arr[todayIdx] || 0);
+  }
+  el.innerHTML = `<span>Hoje: ${fmtH(todayPlan)} planejado</span><span>Semana: <b>${fmtH(total)}</b></span>`;
+}
+
+// Card "Hoje": planejado vs realizado (lê do plano salvo + histórico)
+function renderPlanToday() {
+  const card = $('#planTodayCard');
+  if (!card) return;
+  const plan = loadWeekPlan();
+  const todayIdx = planWeekdayIndex();
+  const doneMs = doneTodayMsByCat();
+  const dayName = PLAN_DAY_FULL[todayIdx];
+
+  // categorias relevantes: com plano hoje OU com tempo feito hoje
+  const cats = [];
+  const seen = new Set();
+  for (const cat in plan) if (((plan[cat] || [])[todayIdx] || 0) > 0 && !seen.has(cat)) { cats.push(cat); seen.add(cat); }
+  for (const cat in doneMs) if ((doneMs[cat] || 0) > 0 && !seen.has(cat)) { cats.push(cat); seen.add(cat); }
+
+  if (cats.length === 0) {
+    card.innerHTML = `
+      <div class="plan-today-head"><div class="plan-today-day">Hoje <small>· ${dayName}</small></div></div>
+      <div class="plan-today-empty">Sem plano para hoje ainda. Defina suas horas-alvo na grade abaixo 👇</div>`;
+    return;
+  }
+
+  let plannedMs = 0, doneMsTotal = 0;
+  for (const cat in plan) plannedMs += ((plan[cat] || [])[todayIdx] || 0) * 3600000;
+  for (const cat of cats) doneMsTotal += (doneMs[cat] || 0);
+  const hasPlan = plannedMs > 0;
+  const pct = hasPlan ? Math.min(100, (doneMsTotal / plannedMs) * 100) : (doneMsTotal > 0 ? 100 : 0);
+  const complete = hasPlan && doneMsTotal >= plannedMs;
+
+  let rows = '';
+  for (const cat of cats) {
+    const pMs = ((plan[cat] || [])[todayIdx] || 0) * 3600000;
+    const dMs = doneMs[cat] || 0;
+    const cpct = pMs > 0 ? Math.min(100, (dMs / pMs) * 100) : (dMs > 0 ? 100 : 0);
+    const cdone = pMs > 0 && dMs >= pMs;
+    const color = getCategoryColor(cat);
+    const vals = pMs > 0
+      ? `<span class="${cdone ? 'ok' : ''}">${formatDuration(dMs)} / ${formatDuration(pMs)}${cdone ? ' ✓' : ''}</span>`
+      : `<span>${formatDuration(dMs)} · <span style="color:var(--text-subtle)">sem meta hoje</span></span>`;
+    rows += `
+      <div class="plan-cat-row">
+        <span class="plan-cat-name">${escapeHtml(cat)}</span>
+        <span class="plan-cat-vals">${vals}</span>
+        <div class="plan-cat-bar"><div class="plan-cat-bar-fill" style="width:${cpct}%;background:${cdone ? 'var(--success)' : color}"></div></div>
+      </div>`;
+  }
+
+  card.innerHTML = `
+    <div class="plan-today-head">
+      <div class="plan-today-day">Hoje <small>· ${dayName}</small></div>
+      <div class="plan-today-pct">${Math.round(pct)}%</div>
+    </div>
+    <div class="plan-today-big">${formatDuration(doneMsTotal)}${hasPlan ? ` <span class="of">/ ${formatDuration(plannedMs)}</span>` : ''}</div>
+    <div class="plan-today-label">${hasPlan ? (complete ? 'meta do dia batida 🎉' : 'foco planejado para hoje') : 'feito hoje (sem meta definida)'}</div>
+    <div class="plan-bar"><div class="plan-bar-fill ${complete ? 'done' : ''}" style="width:${pct}%"></div></div>
+    <div class="plan-today-cats">${rows}</div>`;
 }
 
 updateDisplay();

@@ -1540,6 +1540,96 @@ window.firebaseConfig = {
     font-size: 11.5px; color: var(--text-subtle); line-height: 1.55;
     padding: 0 6px; text-align: center;
   }
+
+  /* ===== Plano do dia (prioridades) ===== */
+  .dayplan-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 16px 16px 14px; margin-bottom: 14px;
+  }
+  .dp-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+  .dp-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .dp-progress { font-size: 12px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .dp-progress.all { color: var(--success); }
+  .dp-empty { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; padding: 2px 0 12px; }
+  .dp-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .dp-list:empty { margin-bottom: 0; }
+  .dp-task { display: flex; align-items: center; gap: 10px; }
+  .dp-check {
+    flex: none; width: 22px; height: 22px; border-radius: 7px;
+    border: 1.5px solid var(--border-strong); background: var(--card-elev);
+    color: #fff; font-size: 13px; line-height: 1; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: all 0.15s ease;
+  }
+  .dp-task.done .dp-check { background: var(--success); border-color: var(--success); }
+  .dp-text { flex: 1; font-size: 13.5px; color: var(--text); word-break: break-word; }
+  .dp-task.done .dp-text { color: var(--text-subtle); text-decoration: line-through; }
+  .dp-del {
+    flex: none; width: 24px; height: 24px; border: none; background: transparent;
+    color: var(--text-subtle); font-size: 18px; line-height: 1; cursor: pointer;
+    border-radius: 6px; opacity: 0.55; transition: all 0.15s ease;
+  }
+  .dp-del:hover { opacity: 1; color: var(--danger); background: var(--card-elev); }
+  .dp-add { display: flex; gap: 8px; }
+  .dp-input {
+    flex: 1; min-width: 0; height: 38px; background: var(--card-elev);
+    border: 1px solid var(--border); border-radius: 9px; color: var(--text);
+    font-size: 13px; font-family: inherit; padding: 0 12px;
+  }
+  .dp-input::placeholder { color: var(--text-subtle); }
+  .dp-input:focus { outline: none; border-color: var(--accent); }
+  .dp-add-btn {
+    flex: none; width: 38px; height: 38px; border: none; border-radius: 9px;
+    background: var(--accent); color: #1a1a2e; font-size: 22px; line-height: 1;
+    cursor: pointer; font-weight: 600; transition: filter 0.15s ease;
+  }
+  .dp-add-btn:hover { filter: brightness(1.08); }
+  .dp-add-btn:active { transform: scale(0.96); }
+
+  /* ===== Revisão da semana ===== */
+  .weekreview-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 16px 16px 14px; margin-bottom: 14px;
+  }
+  .wr-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .wr-range { font-size: 13px; font-weight: 600; color: var(--text); text-align: center; }
+  .wr-range small { color: var(--text-subtle); font-weight: 500; }
+  .wr-nav {
+    flex: none; width: 30px; height: 30px; border: 1px solid var(--border);
+    background: var(--card-elev); color: var(--text-muted); border-radius: 8px;
+    font-size: 16px; cursor: pointer; line-height: 1; transition: all 0.15s ease;
+  }
+  .wr-nav:hover:not([disabled]) { color: var(--text); border-color: var(--border-strong); }
+  .wr-nav[disabled] { opacity: 0.3; cursor: default; }
+  .wr-summary { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+  .wr-big { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+  .wr-big .of { color: var(--text-subtle); font-weight: 600; font-size: 15px; }
+  .wr-pct { font-size: 14px; font-weight: 700; color: var(--accent); }
+  .wr-pct.complete { color: var(--success); }
+  .wr-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin: 16px 0 4px; }
+  .wr-day { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .wr-day-track {
+    position: relative; width: 100%; max-width: 30px; height: 56px;
+    background: var(--card-elev); border: 1px solid var(--border);
+    border-radius: 6px; overflow: hidden;
+  }
+  .wr-day-fill {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(180deg, var(--accent), var(--accent-2));
+    border-radius: 0 0 5px 5px; transition: height 0.4s ease;
+  }
+  .wr-day-fill.met { background: linear-gradient(180deg, #6ee7b7, #34d399); }
+  .wr-day-target { position: absolute; left: -1px; right: -1px; height: 0; border-top: 2px dashed var(--text-subtle); z-index: 2; }
+  .wr-day.today .wr-day-track { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-glow); }
+  .wr-day.future { opacity: 0.4; }
+  .wr-day-label { font-size: 10px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.5px; }
+  .wr-day.today .wr-day-label { color: var(--accent); font-weight: 600; }
+  .wr-day-h { font-size: 10px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .wr-note { font-size: 12px; color: var(--text-muted); text-align: center; margin: 10px 0 2px; line-height: 1.5; }
+  .wr-note b { color: var(--text); font-weight: 600; }
+  .wr-cats {
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 10px;
+  }
 </style>
 </head>
 <body>
@@ -1829,6 +1919,10 @@ window.firebaseConfig = {
 
   <div class="panel" id="plano-panel">
     <div class="plan-today-card" id="planTodayCard"></div>
+
+    <div class="dayplan-card" id="dayPlanCard"></div>
+
+    <div class="weekreview-card" id="weekReviewCard"></div>
 
     <div class="plan-grid-card">
       <div class="plan-grid-title">
@@ -2958,6 +3052,7 @@ function renderToday() {
   }
 
   if (typeof renderPlanToday === 'function') renderPlanToday();
+  if (typeof renderWeekReview === 'function' && $('#plano-panel') && $('#plano-panel').classList.contains('active')) renderWeekReview();
 }
 
 // Cores estáveis por categoria (hash do nome → paleta)
@@ -3200,6 +3295,7 @@ async function pushToCloud() {
         segments: loadSegments(),
         goals: loadGoals(),
         weekPlan: loadWeekPlan(),
+        dayPlan: loadDayPlan(),
         todos: loadTodos(),
         events: loadEvents(),
         target: loadTarget(),
@@ -3321,6 +3417,19 @@ function applyServerSnapshot(snap) {
       if (snap.settings.weekPlan && typeof snap.settings.weekPlan === 'object') {
         localStorage.setItem('timerWeekPlan', JSON.stringify(snap.settings.weekPlan));
       }
+      // Plano do dia (prioridades): mescla por dia (dedupe por id, servidor ganha)
+      if (snap.settings.dayPlan && typeof snap.settings.dayPlan === 'object') {
+        const local = loadDayPlan();
+        const merged = { ...local };
+        for (const dk in snap.settings.dayPlan) {
+          const list = snap.settings.dayPlan[dk];
+          if (!Array.isArray(list)) continue;
+          const byId = new Map((merged[dk] || []).map(t => [t.id, t]));
+          for (const t of list) byId.set(t.id, t);
+          merged[dk] = [...byId.values()];
+        }
+        localStorage.setItem('timerDayPlan', JSON.stringify(merged));
+      }
       // Alvo da prova (burn-down)
       if (snap.settings.target !== undefined) {
         if (snap.settings.target) localStorage.setItem('timerTarget', JSON.stringify(snap.settings.target));
@@ -3373,7 +3482,7 @@ function applyServerSnapshot(snap) {
     if (typeof renderGoals === 'function') renderGoals();
     if (typeof renderBurndown === 'function') renderBurndown();
     if ($('#history-panel').classList.contains('active')) renderHistory();
-    if (typeof renderPlanGrid === 'function' && $('#plano-panel').classList.contains('active')) renderPlanGrid();
+    if (typeof renderPlano === 'function' && $('#plano-panel').classList.contains('active')) renderPlano();
   } finally {
     isApplyingRemote = false;
   }
@@ -5177,6 +5286,8 @@ function doneTodayMsByCat() {
 function renderPlano() {
   renderPlanGrid();
   renderPlanToday();
+  renderDayPlan();
+  renderWeekReview();
 }
 
 // Monta a grade editável (só ao abrir a aba, p/ não perder o foco ao digitar)
@@ -5301,6 +5412,199 @@ function renderPlanToday() {
     <div class="plan-today-label">${hasPlan ? (complete ? 'meta do dia batida 🎉' : 'foco planejado para hoje') : 'feito hoje (sem meta definida)'}</div>
     <div class="plan-bar"><div class="plan-bar-fill ${complete ? 'done' : ''}" style="width:${pct}%"></div></div>
     <div class="plan-today-cats">${rows}</div>`;
+}
+
+// ===== Plano do dia (prioridades) =====
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function loadDayPlan() {
+  try { const o = JSON.parse(localStorage.getItem('timerDayPlan') || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }
+  catch { return {}; }
+}
+function saveDayPlan(o) {
+  localStorage.setItem('timerDayPlan', JSON.stringify(o));
+  if (typeof triggerSync === 'function') triggerSync();
+}
+function getDayTasks(dk) {
+  const o = loadDayPlan();
+  return Array.isArray(o[dk]) ? o[dk] : [];
+}
+function setDayTasks(dk, tasks) {
+  const o = loadDayPlan();
+  if (tasks.length) o[dk] = tasks; else delete o[dk];
+  saveDayPlan(o);
+}
+
+function renderDayPlan() {
+  const card = $('#dayPlanCard');
+  if (!card) return;
+  const dk = dateKey(new Date());
+  const tasks = getDayTasks(dk);
+  const done = tasks.filter(t => t.done).length;
+
+  let rows;
+  if (!tasks.length) {
+    rows = `<div class="dp-empty">Defina suas prioridades do dia — comece pelas 3 mais importantes.</div>`;
+  } else {
+    rows = tasks.map(t => `
+      <div class="dp-task${t.done ? ' done' : ''}" data-id="${t.id}">
+        <button class="dp-check" aria-label="Concluir">${t.done ? '✓' : ''}</button>
+        <span class="dp-text">${escapeHtml(t.text)}</span>
+        <button class="dp-del" aria-label="Excluir">×</button>
+      </div>`).join('');
+  }
+
+  card.innerHTML = `
+    <div class="dp-head">
+      <div class="dp-title">Prioridades de hoje</div>
+      ${tasks.length ? `<div class="dp-progress${done === tasks.length ? ' all' : ''}">${done}/${tasks.length} ✓</div>` : ''}
+    </div>
+    <div class="dp-list">${rows}</div>
+    <div class="dp-add">
+      <input class="dp-input" id="dpInput" placeholder="Adicionar prioridade..." maxlength="120">
+      <button class="dp-add-btn" id="dpAddBtn" aria-label="Adicionar">+</button>
+    </div>`;
+
+  const input = card.querySelector('#dpInput');
+  const addBtn = card.querySelector('#dpAddBtn');
+  const add = () => {
+    const text = input.value.trim();
+    if (!text) return;
+    const list = getDayTasks(dk);
+    list.push({ id: genId(), text, done: false });
+    setDayTasks(dk, list);
+    renderDayPlan();
+    const i = $('#dayPlanCard #dpInput'); if (i) i.focus();
+  };
+  addBtn.addEventListener('click', add);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+  card.querySelectorAll('.dp-task').forEach(row => {
+    const id = row.dataset.id;
+    row.querySelector('.dp-check').addEventListener('click', () => {
+      const list = getDayTasks(dk);
+      const t = list.find(x => x.id === id);
+      if (t) { t.done = !t.done; setDayTasks(dk, list); renderDayPlan(); }
+    });
+    row.querySelector('.dp-del').addEventListener('click', () => {
+      setDayTasks(dk, getDayTasks(dk).filter(x => x.id !== id));
+      renderDayPlan();
+    });
+  });
+}
+
+// ===== Revisão da semana =====
+const PT_MONTHS_ABBR = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+let weekReviewOffset = 0; // 0 = semana atual, -1 = passada ...
+
+function mondayOf(date, offsetWeeks = 0) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() - planWeekdayIndex(d) + offsetWeeks * 7);
+  return d;
+}
+
+function renderWeekReview() {
+  const card = $('#weekReviewCard');
+  if (!card) return;
+  const plan = loadWeekPlan();
+  const history = loadHistory();
+  const now = new Date();
+  const monday = mondayOf(now, weekReviewOffset);
+  const todayK = dateKey(now);
+
+  const days = [];
+  let weekDoneMs = 0, weekPlanMs = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday); d.setDate(d.getDate() + i);
+    const dk = dateKey(d);
+    const dayHist = history[dk] || {};
+    let doneMs = 0; for (const c in dayHist) doneMs += dayHist[c];
+    let planMs = 0; for (const c in plan) planMs += ((plan[c] || [])[i] || 0) * 3600000;
+    weekDoneMs += doneMs; weekPlanMs += planMs;
+    days.push({ i, dk, doneMs, planMs, isToday: dk === todayK, isFuture: d > now && dk !== todayK });
+  }
+
+  // por categoria (com plano ou com algo feito na semana)
+  const catSet = new Set();
+  for (const c in plan) if ((plan[c] || []).some(v => v > 0)) catSet.add(c);
+  for (const day of days) { const h = history[day.dk] || {}; for (const c in h) if (h[c] > 0) catSet.add(c); }
+  const cats = [...catSet].map(c => {
+    let cdone = 0, cpl = 0;
+    for (let i = 0; i < 7; i++) { cdone += (history[days[i].dk]?.[c] || 0); cpl += ((plan[c] || [])[i] || 0) * 3600000; }
+    return { c, done: cdone, pl: cpl };
+  }).filter(x => x.done > 0 || x.pl > 0);
+
+  const sun = new Date(monday); sun.setDate(sun.getDate() + 6);
+  const rangeLabel = monday.getMonth() === sun.getMonth()
+    ? `${monday.getDate()}–${sun.getDate()} ${PT_MONTHS_ABBR[monday.getMonth()]}`
+    : `${monday.getDate()} ${PT_MONTHS_ABBR[monday.getMonth()]} – ${sun.getDate()} ${PT_MONTHS_ABBR[sun.getMonth()]}`;
+  const rel = weekReviewOffset === 0 ? ' · esta semana' : weekReviewOffset === -1 ? ' · semana passada' : '';
+
+  const pct = weekPlanMs > 0 ? Math.min(100, (weekDoneMs / weekPlanMs) * 100) : (weekDoneMs > 0 ? 100 : 0);
+  const complete = weekPlanMs > 0 && weekDoneMs >= weekPlanMs;
+
+  let maxVal = 1;
+  for (const d of days) maxVal = Math.max(maxVal, d.doneMs, d.planMs);
+
+  const daysHtml = days.map(d => {
+    const dh = (d.doneMs / maxVal) * 100;
+    const th = (d.planMs / maxVal) * 100;
+    const met = d.planMs > 0 && d.doneMs >= d.planMs;
+    return `
+      <div class="wr-day${d.isToday ? ' today' : ''}${d.isFuture ? ' future' : ''}">
+        <div class="wr-day-track">
+          ${d.planMs > 0 ? `<div class="wr-day-target" style="bottom:${th}%"></div>` : ''}
+          <div class="wr-day-fill${met ? ' met' : ''}" style="height:${dh}%"></div>
+        </div>
+        <div class="wr-day-label">${PLAN_DAY_LABELS[d.i]}</div>
+        <div class="wr-day-h">${d.doneMs > 0 ? fmtH(d.doneMs / 3600000) : '–'}</div>
+      </div>`;
+  }).join('');
+
+  // melhor dia / faltou (só dias já passados/hoje)
+  const past = days.filter(d => !d.isFuture);
+  const best = past.reduce((a, b) => (b.doneMs > (a ? a.doneMs : 0) ? b : a), null);
+  let shortfall = null;
+  for (const d of past) {
+    if (d.planMs > 0) {
+      const miss = d.planMs - d.doneMs;
+      if (miss > 0 && (!shortfall || miss > shortfall.miss)) shortfall = { d, miss };
+    }
+  }
+  const parts = [];
+  if (best && best.doneMs > 0) parts.push(`Melhor dia: <b>${PLAN_DAY_LABELS[best.i]}</b> (${fmtH(best.doneMs / 3600000)})`);
+  if (shortfall) parts.push(`faltou em <b>${PLAN_DAY_LABELS[shortfall.d.i]}</b> (−${fmtH(shortfall.miss / 3600000)})`);
+  else if (weekPlanMs > 0 && weekDoneMs >= weekPlanMs) parts.push('meta da semana batida 🎉');
+  const note = parts.join(' · ');
+
+  const catsHtml = cats.map(x => {
+    const cpct = x.pl > 0 ? Math.min(100, (x.done / x.pl) * 100) : (x.done > 0 ? 100 : 0);
+    const cdone = x.pl > 0 && x.done >= x.pl;
+    const color = getCategoryColor(x.c);
+    const vals = x.pl > 0 ? `${formatDuration(x.done)} / ${formatDuration(x.pl)}` : formatDuration(x.done);
+    return `
+      <div class="plan-cat-row">
+        <span class="plan-cat-name">${escapeHtml(x.c)}</span>
+        <span class="plan-cat-vals">${cdone ? `<span class="ok">${vals} ✓</span>` : vals}</span>
+        <div class="plan-cat-bar"><div class="plan-cat-bar-fill" style="width:${cpct}%;background:${cdone ? 'var(--success)' : color}"></div></div>
+      </div>`;
+  }).join('');
+
+  card.innerHTML = `
+    <div class="wr-head">
+      <button class="wr-nav" id="wrPrev" aria-label="Semana anterior">‹</button>
+      <div class="wr-range">Revisão · ${rangeLabel}<small>${rel}</small></div>
+      <button class="wr-nav" id="wrNext" aria-label="Próxima semana"${weekReviewOffset >= 0 ? ' disabled' : ''}>›</button>
+    </div>
+    <div class="wr-summary">
+      <div class="wr-big">${formatDuration(weekDoneMs)}${weekPlanMs > 0 ? ` <span class="of">/ ${formatDuration(weekPlanMs)}</span>` : ''}</div>
+      <div class="wr-pct${complete ? ' complete' : ''}">${Math.round(pct)}%</div>
+    </div>
+    <div class="plan-bar"><div class="plan-bar-fill ${complete ? 'done' : ''}" style="width:${pct}%"></div></div>
+    <div class="wr-days">${daysHtml}</div>
+    ${note ? `<div class="wr-note">${note}</div>` : ''}
+    ${catsHtml ? `<div class="wr-cats">${catsHtml}</div>` : ''}`;
+
+  card.querySelector('#wrPrev').addEventListener('click', () => { weekReviewOffset--; renderWeekReview(); });
+  card.querySelector('#wrNext').addEventListener('click', () => { if (weekReviewOffset < 0) { weekReviewOffset++; renderWeekReview(); } });
 }
 
 updateDisplay();

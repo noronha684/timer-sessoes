@@ -1541,11 +1541,44 @@ window.firebaseConfig = {
     padding: 0 6px; text-align: center;
   }
 
-  /* ===== Plano do dia (prioridades) ===== */
-  .dayplan-card {
+  /* ===== Tarefas (lista unificada) ===== */
+  .tasks-card {
     background: var(--card); border: 1px solid var(--border);
     border-radius: 16px; padding: 16px 16px 14px; margin-bottom: 14px;
   }
+  .tasks-sec { margin-bottom: 6px; }
+  .tasks-sec-gap { margin-top: 16px; }
+  .tasks-sec-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--text-subtle); font-weight: 600; margin-bottom: 9px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .tasks-count {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+    background: var(--card-elev); border: 1px solid var(--border);
+    font-size: 10px; font-weight: 600; color: var(--text-muted); letter-spacing: 0;
+  }
+  .dp-star {
+    flex: none; width: 26px; height: 26px; border: none; background: transparent;
+    color: var(--text-subtle); font-size: 16px; line-height: 1; cursor: pointer;
+    border-radius: 6px; opacity: 0.7; transition: all 0.15s ease;
+  }
+  .dp-star:hover { opacity: 1; background: var(--card-elev); }
+  .dp-star.on { color: var(--accent); opacity: 1; }
+  .tasks-done-toggle {
+    width: 100%; display: flex; align-items: center; gap: 7px;
+    background: transparent; border: none; cursor: pointer; padding: 0;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--text-subtle); font-weight: 600; margin-bottom: 9px;
+  }
+  .tasks-done-toggle .chev { margin-left: auto; font-size: 12px; }
+  .tasks-done-toggle:hover { color: var(--text-muted); }
+  .goals-tasks-hint {
+    margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--text-subtle); text-align: center;
+  }
+  .goals-tasks-hint b { color: var(--accent); font-weight: 600; }
   .dp-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
   .dp-title { font-size: 14px; font-weight: 600; color: var(--text); }
   .dp-progress { font-size: 12px; font-weight: 600; color: var(--text-muted); font-variant-numeric: tabular-nums; }
@@ -1740,14 +1773,7 @@ window.firebaseConfig = {
         <div id="goalsList"></div>
         <button class="goals-add-btn" id="addGoalBtn">+ Meta de horas por categoria</button>
 
-        <div class="goals-divider"></div>
-
-        <div class="goals-subtitle">Tarefas do mês</div>
-        <div id="todosList"></div>
-        <div class="todo-add-row">
-          <input type="text" class="new-cat-input" id="newTodoInput" placeholder="Nova tarefa..." maxlength="80">
-          <button class="add-cat-btn" id="addTodoBtn" aria-label="Adicionar">+</button>
-        </div>
+        <div class="goals-tasks-hint">📋 Suas tarefas agora ficam na aba <b>Plano</b>.</div>
       </div>
     </div>
 
@@ -1920,7 +1946,7 @@ window.firebaseConfig = {
   <div class="panel" id="plano-panel">
     <div class="plan-today-card" id="planTodayCard"></div>
 
-    <div class="dayplan-card" id="dayPlanCard"></div>
+    <div class="tasks-card" id="tasksCard"></div>
 
     <div class="weekreview-card" id="weekReviewCard"></div>
 
@@ -3295,8 +3321,7 @@ async function pushToCloud() {
         segments: loadSegments(),
         goals: loadGoals(),
         weekPlan: loadWeekPlan(),
-        dayPlan: loadDayPlan(),
-        todos: loadTodos(),
+        tasks: loadTasks(),
         events: loadEvents(),
         target: loadTarget(),
         journalItems: loadJournalItems(),
@@ -3417,18 +3442,24 @@ function applyServerSnapshot(snap) {
       if (snap.settings.weekPlan && typeof snap.settings.weekPlan === 'object') {
         localStorage.setItem('timerWeekPlan', JSON.stringify(snap.settings.weekPlan));
       }
-      // Plano do dia (prioridades): mescla por dia (dedupe por id, servidor ganha)
-      if (snap.settings.dayPlan && typeof snap.settings.dayPlan === 'object') {
-        const local = loadDayPlan();
-        const merged = { ...local };
-        for (const dk in snap.settings.dayPlan) {
-          const list = snap.settings.dayPlan[dk];
-          if (!Array.isArray(list)) continue;
-          const byId = new Map((merged[dk] || []).map(t => [t.id, t]));
-          for (const t of list) byId.set(t.id, t);
-          merged[dk] = [...byId.values()];
+      // Tarefas (lista unificada): mescla por id; absorve o legado só na transição
+      if (Array.isArray(snap.settings.tasks)) {
+        localStorage.setItem('timerTasks', JSON.stringify(mergeTasksById(loadTasks(), snap.settings.tasks)));
+      } else if (snap.settings.dayPlan || snap.settings.todos) {
+        const incoming = [];
+        if (snap.settings.dayPlan && typeof snap.settings.dayPlan === 'object') {
+          for (const dk in snap.settings.dayPlan) {
+            const list = snap.settings.dayPlan[dk];
+            if (Array.isArray(list)) for (const t of list) if (t && t.id) incoming.push({ id: t.id, text: t.text, done: !!t.done, focusDate: dk, doneAt: t.done ? dk : undefined });
+          }
         }
-        localStorage.setItem('timerDayPlan', JSON.stringify(merged));
+        if (snap.settings.todos && typeof snap.settings.todos === 'object') {
+          for (const mk in snap.settings.todos) {
+            const list = snap.settings.todos[mk];
+            if (Array.isArray(list)) for (const t of list) if (t && t.id) incoming.push({ id: t.id, text: t.text, done: !!t.done });
+          }
+        }
+        if (incoming.length) localStorage.setItem('timerTasks', JSON.stringify(mergeTasksById(loadTasks(), incoming)));
       }
       // Alvo da prova (burn-down)
       if (snap.settings.target !== undefined) {
@@ -3445,17 +3476,6 @@ function applyServerSnapshot(snap) {
           merged[dk] = { ...(merged[dk] || {}), ...snap.settings.journal[dk] };
         }
         localStorage.setItem('timerJournal', JSON.stringify(merged));
-      }
-      // Tarefas: mescla por mês (dedupe por id, servidor ganha no done)
-      if (snap.settings.todos && typeof snap.settings.todos === 'object') {
-        const local = loadTodos();
-        const merged = { ...local };
-        for (const mk in snap.settings.todos) {
-          const byId = new Map((merged[mk] || []).map(t => [t.id, t]));
-          for (const t of snap.settings.todos[mk]) byId.set(t.id, t);
-          merged[mk] = [...byId.values()];
-        }
-        localStorage.setItem('timerTodos', JSON.stringify(merged));
       }
       // Eventos do calendário: mescla por dia (dedupe por id)
       if (snap.settings.events && typeof snap.settings.events === 'object') {
@@ -4560,21 +4580,6 @@ function renderGoals() {
     }).join('');
   }
 
-  // Tarefas do mês
-  const todos = loadTodos();
-  const mk = monthKey();
-  const monthTodos = todos[mk] || [];
-  const todosList = $('#todosList');
-  if (monthTodos.length === 0) {
-    todosList.innerHTML = '<div class="todo-empty">Nenhuma tarefa ainda.</div>';
-  } else {
-    todosList.innerHTML = monthTodos.map(t => `
-      <div class="todo-item ${t.done ? 'done' : ''}">
-        <div class="todo-check ${t.done ? 'done' : ''}" data-toggle="${t.id}"></div>
-        <span class="todo-text">${escapeHtml(t.text)}</span>
-        <button class="todo-remove" data-del="${t.id}" aria-label="Remover">×</button>
-      </div>`).join('');
-  }
 }
 
 // Collapse/expand
@@ -4617,37 +4622,7 @@ $('#goalsList').addEventListener('click', (e) => {
   }
 });
 
-// Tarefas
-function addTodo() {
-  const input = $('#newTodoInput');
-  const text = input.value.trim();
-  if (!text) return;
-  const todos = loadTodos();
-  const mk = monthKey();
-  if (!todos[mk]) todos[mk] = [];
-  const id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 't-' + Date.now();
-  todos[mk].push({ id, text, done: false });
-  saveTodos(todos);
-  input.value = '';
-  renderGoals();
-}
-$('#addTodoBtn').addEventListener('click', addTodo);
-$('#newTodoInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addTodo(); } });
-$('#todosList').addEventListener('click', (e) => {
-  const toggle = e.target.closest('.todo-check');
-  const del = e.target.closest('.todo-remove');
-  const todos = loadTodos();
-  const mk = monthKey();
-  if (!todos[mk]) return;
-  if (toggle) {
-    const t = todos[mk].find(x => x.id === toggle.dataset.toggle);
-    if (t) { t.done = !t.done; saveTodos(todos); renderGoals(); }
-  } else if (del) {
-    todos[mk] = todos[mk].filter(x => x.id !== del.dataset.del);
-    saveTodos(todos);
-    renderGoals();
-  }
-});
+// (Tarefas migraram para a lista unificada na aba Plano — ver renderTasks)
 
 // ====== Burn-down / Reta final ======
 function loadTarget() {
@@ -5286,7 +5261,7 @@ function doneTodayMsByCat() {
 function renderPlano() {
   renderPlanGrid();
   renderPlanToday();
-  renderDayPlan();
+  renderTasks();
   renderWeekReview();
 }
 
@@ -5414,79 +5389,148 @@ function renderPlanToday() {
     <div class="plan-today-cats">${rows}</div>`;
 }
 
-// ===== Plano do dia (prioridades) =====
+// ===== Tarefas (lista unificada: Hoje + A fazer + Concluídas) =====
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+// Legado (só p/ migração): plano-do-dia por data
 function loadDayPlan() {
   try { const o = JSON.parse(localStorage.getItem('timerDayPlan') || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }
   catch { return {}; }
 }
-function saveDayPlan(o) {
-  localStorage.setItem('timerDayPlan', JSON.stringify(o));
+// Constrói a lista unificada a partir dos sistemas antigos (plano-do-dia + tarefas-do-mês)
+function tasksFromLegacy() {
+  const out = []; const seen = new Set();
+  const dp = loadDayPlan();
+  for (const dk in dp) {
+    if (!Array.isArray(dp[dk])) continue;
+    for (const t of dp[dk]) if (t && t.id && !seen.has(t.id)) {
+      out.push({ id: t.id, text: t.text, done: !!t.done, focusDate: dk, doneAt: t.done ? dk : undefined });
+      seen.add(t.id);
+    }
+  }
+  const td = loadTodos();
+  for (const mk in td) {
+    if (!Array.isArray(td[mk])) continue;
+    for (const t of td[mk]) if (t && t.id && !seen.has(t.id)) {
+      out.push({ id: t.id, text: t.text, done: !!t.done });
+      seen.add(t.id);
+    }
+  }
+  return out;
+}
+function loadTasks() {
+  const raw = localStorage.getItem('timerTasks');
+  if (raw != null) { try { const a = JSON.parse(raw); if (Array.isArray(a)) return a; } catch {} return []; }
+  const migrated = tasksFromLegacy(); // migração única
+  localStorage.setItem('timerTasks', JSON.stringify(migrated));
+  return migrated;
+}
+function saveTasks(arr) {
+  localStorage.setItem('timerTasks', JSON.stringify(arr));
   if (typeof triggerSync === 'function') triggerSync();
 }
-function getDayTasks(dk) {
-  const o = loadDayPlan();
-  return Array.isArray(o[dk]) ? o[dk] : [];
-}
-function setDayTasks(dk, tasks) {
-  const o = loadDayPlan();
-  if (tasks.length) o[dk] = tasks; else delete o[dk];
-  saveDayPlan(o);
+function mergeTasksById(local, incoming) {
+  const byId = new Map((local || []).map(t => [t.id, t]));
+  for (const t of (incoming || [])) if (t && t.id) byId.set(t.id, t);
+  return [...byId.values()];
 }
 
-function renderDayPlan() {
-  const card = $('#dayPlanCard');
+let tasksDoneOpen = localStorage.getItem('timerTasksDoneOpen') === '1';
+
+function renderTasks() {
+  const card = $('#tasksCard');
   if (!card) return;
-  const dk = dateKey(new Date());
-  const tasks = getDayTasks(dk);
-  const done = tasks.filter(t => t.done).length;
+  const today = dateKey(new Date());
+  const tasks = loadTasks();
 
-  let rows;
-  if (!tasks.length) {
-    rows = `<div class="dp-empty">Defina suas prioridades do dia — comece pelas 3 mais importantes.</div>`;
-  } else {
-    rows = tasks.map(t => `
-      <div class="dp-task${t.done ? ' done' : ''}" data-id="${t.id}">
-        <button class="dp-check" aria-label="Concluir">${t.done ? '✓' : ''}</button>
-        <span class="dp-text">${escapeHtml(t.text)}</span>
-        <button class="dp-del" aria-label="Excluir">×</button>
-      </div>`).join('');
-  }
+  const hoje = tasks.filter(t => (!t.done && t.focusDate === today) || (t.done && t.doneAt === today))
+                    .sort((a, b) => (a.done === b.done) ? 0 : (a.done ? 1 : -1));
+  const backlog = tasks.filter(t => !t.done && t.focusDate !== today);
+  const concluidas = tasks.filter(t => t.done && t.doneAt !== today);
+  const doneHoje = hoje.filter(t => t.done).length;
 
-  card.innerHTML = `
-    <div class="dp-head">
-      <div class="dp-title">Prioridades de hoje</div>
-      ${tasks.length ? `<div class="dp-progress${done === tasks.length ? ' all' : ''}">${done}/${tasks.length} ✓</div>` : ''}
-    </div>
-    <div class="dp-list">${rows}</div>
-    <div class="dp-add">
-      <input class="dp-input" id="dpInput" placeholder="Adicionar prioridade..." maxlength="120">
-      <button class="dp-add-btn" id="dpAddBtn" aria-label="Adicionar">+</button>
+  const rowHtml = (t, sec) => `
+    <div class="dp-task${t.done ? ' done' : ''}" data-id="${t.id}">
+      <button class="dp-check" data-act="toggle" aria-label="Concluir">${t.done ? '✓' : ''}</button>
+      <span class="dp-text">${escapeHtml(t.text)}</span>
+      ${sec === 'done' ? '' : `<button class="dp-star${t.focusDate === today ? ' on' : ''}" data-act="star" aria-label="Focar hoje" title="${t.focusDate === today ? 'Tirar do foco de hoje' : 'Focar hoje'}">${t.focusDate === today ? '★' : '☆'}</button>`}
+      <button class="dp-del" data-act="del" aria-label="Excluir">×</button>
     </div>`;
 
-  const input = card.querySelector('#dpInput');
-  const addBtn = card.querySelector('#dpAddBtn');
+  const hojeRows = hoje.length
+    ? hoje.map(t => rowHtml(t, 'hoje')).join('')
+    : `<div class="dp-empty">Nada em foco hoje. Adicione abaixo, ou estrele ★ uma tarefa de "A fazer".</div>`;
+
+  let html = `
+    <div class="dp-head">
+      <div class="dp-title">Tarefas</div>
+      ${hoje.length ? `<div class="dp-progress${doneHoje === hoje.length ? ' all' : ''}">${doneHoje}/${hoje.length} ✓</div>` : ''}
+    </div>
+    <div class="tasks-sec">
+      <div class="tasks-sec-title">Hoje</div>
+      <div class="dp-list">${hojeRows}</div>
+    </div>
+    <div class="dp-add">
+      <input class="dp-input" id="taskInput" placeholder="Adicionar tarefa de hoje..." maxlength="120">
+      <button class="dp-add-btn" id="taskAddBtn" aria-label="Adicionar">+</button>
+    </div>`;
+
+  if (backlog.length) {
+    html += `
+      <div class="tasks-sec tasks-sec-gap">
+        <div class="tasks-sec-title">A fazer <span class="tasks-count">${backlog.length}</span></div>
+        <div class="dp-list">${backlog.map(t => rowHtml(t, 'backlog')).join('')}</div>
+      </div>`;
+  }
+  if (concluidas.length) {
+    html += `
+      <div class="tasks-sec tasks-sec-gap">
+        <button class="tasks-done-toggle" id="tasksDoneToggle">Concluídas <span class="tasks-count">${concluidas.length}</span><span class="chev">${tasksDoneOpen ? '▾' : '▸'}</span></button>
+        <div class="dp-list" id="tasksDoneList" style="${tasksDoneOpen ? '' : 'display:none'}">${concluidas.map(t => rowHtml(t, 'done')).join('')}</div>
+      </div>`;
+  }
+
+  card.innerHTML = html;
+
+  const input = card.querySelector('#taskInput');
   const add = () => {
     const text = input.value.trim();
     if (!text) return;
-    const list = getDayTasks(dk);
-    list.push({ id: genId(), text, done: false });
-    setDayTasks(dk, list);
-    renderDayPlan();
-    const i = $('#dayPlanCard #dpInput'); if (i) i.focus();
+    const list = loadTasks();
+    list.push({ id: genId(), text, done: false, focusDate: today });
+    saveTasks(list);
+    renderTasks();
+    const i = $('#tasksCard #taskInput'); if (i) i.focus();
   };
-  addBtn.addEventListener('click', add);
+  card.querySelector('#taskAddBtn').addEventListener('click', add);
   input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+
+  const dt = card.querySelector('#tasksDoneToggle');
+  if (dt) dt.addEventListener('click', () => {
+    tasksDoneOpen = !tasksDoneOpen;
+    localStorage.setItem('timerTasksDoneOpen', tasksDoneOpen ? '1' : '0');
+    renderTasks();
+  });
+
   card.querySelectorAll('.dp-task').forEach(row => {
     const id = row.dataset.id;
-    row.querySelector('.dp-check').addEventListener('click', () => {
-      const list = getDayTasks(dk);
-      const t = list.find(x => x.id === id);
-      if (t) { t.done = !t.done; setDayTasks(dk, list); renderDayPlan(); }
-    });
-    row.querySelector('.dp-del').addEventListener('click', () => {
-      setDayTasks(dk, getDayTasks(dk).filter(x => x.id !== id));
-      renderDayPlan();
+    row.querySelectorAll('[data-act]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const list = loadTasks();
+        const t = list.find(x => x.id === id);
+        if (!t) return;
+        const act = btn.dataset.act;
+        if (act === 'toggle') {
+          t.done = !t.done;
+          if (t.done) t.doneAt = today; else delete t.doneAt;
+        } else if (act === 'star') {
+          if (t.focusDate === today) delete t.focusDate; else t.focusDate = today;
+        } else if (act === 'del') {
+          list.splice(list.indexOf(t), 1);
+        }
+        saveTasks(list);
+        renderTasks();
+      });
     });
   });
 }
@@ -5607,6 +5651,7 @@ function renderWeekReview() {
   card.querySelector('#wrNext').addEventListener('click', () => { if (weekReviewOffset < 0) { weekReviewOffset++; renderWeekReview(); } });
 }
 
+loadTasks(); // migra tarefas dos sistemas antigos (plano-do-dia + tarefas-do-mês) na 1ª carga
 updateDisplay();
 renderToday();
 renderGoals();

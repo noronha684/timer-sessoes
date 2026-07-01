@@ -1666,6 +1666,18 @@ window.firebaseConfig = {
   .h2-atual:focus { border-color: var(--accent); }
   .h2-scoregrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
   @media (max-width: 480px) { .h2-scoregrid { grid-template-columns: 1fr; } }
+  .h2-toggle { display: inline-flex; gap: 4px; background: var(--card-elev); border: 1px solid var(--border); border-radius: 9px; padding: 3px; margin-top: 12px; }
+  .h2-toggle button { border: none; background: transparent; color: var(--text-subtle); padding: 6px 14px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .h2-toggle button.active { background: var(--accent); color: #1a1a2e; }
+  .h2-cov-tierh { display: flex; align-items: center; gap: 9px; margin: 18px 0 8px; }
+  .h2-cov-tierh .h2-note { font-size: 11px; }
+  .h2-cov-card { display: flex; align-items: flex-start; gap: 11px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 13px; margin-bottom: 8px; }
+  .h2-cov-card.star { border-color: rgba(251,191,36,0.35); }
+  .h2-cov-main { flex: 1; min-width: 0; }
+  .h2-cov-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .h2-cov-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 5px; line-height: 1.45; }
+  .h2-cov-tag { font-size: 11px; color: var(--warn); margin-top: 4px; line-height: 1.4; }
+  .h2-cyc { width: 100%; height: 34px; border-radius: 7px; cursor: pointer; font: 600 13px var(--h2-mono); }
 
   /* ===== Tarefas (lista unificada) ===== */
   .tasks-card {
@@ -5889,6 +5901,15 @@ const H2_COV_DEFS = [
   { t: 'AMBP3', sub: 'Waste', tier: 3, earn: '—', nota: 'Distressed — não modelar', st: 'watch', note: '', star: false },
   { t: 'ORVR3', sub: 'Waste', tier: 1, earn: '13/08', nota: 'Iniciação de cobertura jul/2026 (pós-M&A Holding Vital)', st: 'fromzero', note: '★ iniciar cobertura jul/2026', star: true },
 ];
+const H2_SC_DEFS = [
+  { dim: 'Resultado', q: 'Gerei impacto?', metric: 'Teses aprovadas em comitê; hit rate das calls; P&L attribution' },
+  { dim: 'Processo', q: 'Executei com disciplina?', metric: '% modelos atualizados no prazo; tempo médio pós-release; nº de post-mortems' },
+  { dim: 'Aprendizado', q: 'Fiquei mais forte?', metric: 'Deep dives concluídos; conversas com especialistas; erros documentados' },
+  { dim: 'Energia / capacidade', q: 'Sustentei o ritmo?', metric: 'Horas de deep work/semana; reuniões recusadas ou delegadas; buffer usado' },
+];
+const H2_PARES_META = [0, 0, 9, 9, 9, 9];
+const H2_ST_LABEL = { updated: 'Atualizado', fromzero: 'Do zero', update: 'Atualizar', watch: 'Só watch' };
+function h2VarTok(v) { return v === 'V' ? H2_TOK.green : v === 'A' ? H2_TOK.gold : v === 'R' ? H2_TOK.red : H2_TOK.gray; }
 
 // -- Tokens de cor no tema escuro (mapeiam as cores semânticas do original) --
 const H2_TOK = {
@@ -5939,12 +5960,14 @@ function renderH2Section() {
   const D = loadH2();
   if (h2Active === 'okrs') { c.innerHTML = h2SecOkrs(D); bindH2Okrs(c); }
   else if (h2Active === 'retro') { c.innerHTML = h2SecRetro(D); bindH2Retro(c); }
+  else if (h2Active === 'cobertura') { c.innerHTML = h2SecCobertura(D); bindH2Cobertura(c); }
   else if (h2Active === 'tiers') { c.innerHTML = h2SecTiers(D); bindH2Tiers(c); }
+  else if (h2Active === 'scorecard') { c.innerHTML = h2SecScorecard(D); bindH2Scorecard(c); }
   else if (h2Active === 'calendario') c.innerHTML = h2SecCalendario();
   else if (h2Active === 'regulatorio') c.innerHTML = h2SecRegulatorio();
   else {
     const lbl = (H2_SECTIONS.find(s => s.id === h2Active) || {}).label || '';
-    c.innerHTML = `<div class="h2-sec"><div class="h2-soon">A seção <b>${escapeHtml(lbl)}</b> chega no próximo passo desta reconstrução.</div></div>`;
+    c.innerHTML = `<div class="h2-sec"><div class="h2-soon">A seção <b>${escapeHtml(lbl)}</b> ainda não foi construída.</div></div>`;
   }
 }
 
@@ -6165,6 +6188,108 @@ function bindH2Tiers(c) {
     const D = loadH2(); D[el.dataset.h2sel] = el.value; saveH2(D);
     const t = h2TierTok(+el.value); el.style.border = '1px solid ' + t.br; el.style.background = t.b; el.style.color = t.c;
     const cnt = $('#h2TierCounts'); if (cnt) cnt.innerHTML = h2TierCountsHtml(loadH2());
+  }));
+}
+
+// -- Seção 03 · Cobertura --
+let h2CovView = localStorage.getItem('timerH2CovView') || 'cards';
+function h2SecCobertura(D) {
+  const t1 = H2_COV_DEFS.filter(c => c.tier === 1), t2 = H2_COV_DEFS.filter(c => c.tier === 2), t3 = H2_COV_DEFS.filter(c => c.tier === 3);
+  const covCard = c => {
+    const tv = h2TierTok(c.tier), sv = h2StatusTok(c.st);
+    return `<div class="h2-cov-card${c.star ? ' star' : ''}">
+      <input type="checkbox" class="h2-check" data-h2check="cov_${c.t}"${D['cov_' + c.t] ? ' checked' : ''} title="2T26 atualizado">
+      <div class="h2-cov-main">
+        <div class="h2-cov-top"><span class="h2-ticker">${c.t}</span><span class="h2-badge" style="${h2Badge(tv)}">T${c.tier}</span><span class="h2-badge" style="${h2Badge(sv)}">${H2_ST_LABEL[c.st]}</span></div>
+        <div class="h2-cov-sub">${escapeHtml(c.sub)} · earn ${escapeHtml(c.earn)} · ${escapeHtml(c.nota)}</div>
+        ${c.note ? `<div class="h2-cov-tag"${c.star ? '' : ' style="color:var(--text-subtle)"'}>${escapeHtml(c.note)}</div>` : ''}
+      </div>
+    </div>`;
+  };
+  const group = (list, t, label) => `<div class="h2-cov-tierh"><span class="h2-badge" style="${h2Badge(h2TierTok(t))}">Tier ${t}</span><span class="h2-note">${label} · ${list.length} names</span></div>${list.map(covCard).join('')}`;
+  let body;
+  if (h2CovView === 'cards') {
+    body = group(t1, 1, 'Core') + group(t2, 2, 'Periódico') + group(t3, 3, 'Radar');
+  } else {
+    const rows = H2_COV_DEFS.map(c => `<tr>
+      <td style="text-align:center"><input type="checkbox" class="h2-check" data-h2check="cov_${c.t}"${D['cov_' + c.t] ? ' checked' : ''}></td>
+      <td class="h2-ticker">${c.t}</td>
+      <td><span class="h2-badge" style="${h2Badge(h2TierTok(c.tier))}">T${c.tier}</span></td>
+      <td class="mono">${escapeHtml(c.sub)}</td>
+      <td class="mono">${escapeHtml(c.earn)}</td>
+      <td><span class="h2-badge" style="${h2Badge(h2StatusTok(c.st))}">${H2_ST_LABEL[c.st]}</span></td>
+      <td class="h2-note">${escapeHtml(c.nota)}${c.note ? ' · ' + escapeHtml(c.note) : ''}</td>
+    </tr>`).join('');
+    body = `<div class="h2-table-wrap"><table class="h2-table" style="min-width:660px"><thead><tr><th>2T26</th><th>Name</th><th>Tier</th><th>Subsetor</th><th>Earn</th><th>Status</th><th>Tese</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+  return `<div class="h2-sec">
+    <div class="h2-eyebrow">03 · universo de cobertura</div>
+    <h1 class="h2-h1">Cobertura — Utilities & Infra</h1>
+    <p class="h2-lead">Tier = prioridade de atenção. Marque "2T26" conforme concluir cada modelo — as contagens do Scorecard se atualizam sozinhas. <span style="color:var(--warn)">★</span> = do-zero prioritário.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      <span class="h2-badge" style="${h2Badge(h2TierTok(1))}">${t1.length} Tier 1</span>
+      <span class="h2-badge" style="${h2Badge(h2TierTok(2))}">${t2.length} Tier 2</span>
+      <span class="h2-badge" style="${h2Badge(h2TierTok(3))}">${t3.length} Tier 3</span>
+    </div>
+    <div class="h2-toggle"><button data-h2cov="cards"${h2CovView === 'cards' ? ' class="active"' : ''}>Cards</button><button data-h2cov="table"${h2CovView === 'table' ? ' class="active"' : ''}>Tabela</button></div>
+    ${body}
+  </div>`;
+}
+function bindH2Cobertura(c) {
+  c.querySelectorAll('[data-h2check]').forEach(el => el.addEventListener('change', () => { const D = loadH2(); D[el.dataset.h2check] = el.checked; saveH2(D); }));
+  c.querySelectorAll('[data-h2cov]').forEach(el => el.addEventListener('click', () => { h2CovView = el.dataset.h2cov; try { localStorage.setItem('timerH2CovView', h2CovView); } catch {} renderH2Section(); }));
+}
+
+// -- Seção 05 · Scorecard mensal --
+function h2ScCov(D) {
+  const rows = [1, 2, 3].map(t => { const list = H2_COV_DEFS.filter(c => c.tier === t); const upd = list.filter(c => D['cov_' + c.t]).length; return { t, upd, total: list.length, pct: list.length ? Math.round(100 * upd / list.length) : 0 }; });
+  const totUpd = rows.reduce((s, r) => s + r.upd, 0), totAll = H2_COV_DEFS.length;
+  return { rows, total: { upd: totUpd, total: totAll, pct: totAll ? Math.round(100 * totUpd / totAll) : 0 } };
+}
+function h2ParesTotal(D) { return H2_MONTHS.reduce((acc, m) => { const v = h2Num(D['par_' + m + '_n']); return acc + (v || 0); }, 0); }
+function h2SecScorecard(D) {
+  const scHead = `<tr><th style="position:sticky;left:0;background:var(--card)">Dimensão</th>${H2_MONTHS.map(m => `<th style="text-align:center">${m}</th>`).join('')}</tr>`;
+  const scRows = H2_SC_DEFS.map((d, i) => {
+    const cells = H2_MONTHS.map(m => { const id = 'var_' + i + '_' + m; const v = D[id] || ''; const tok = h2VarTok(v); return `<td style="padding:5px 4px;min-width:46px"><button class="h2-cyc" data-h2cyc="${id}" style="border:1px solid ${tok.br};background:${tok.b};color:${tok.c}">${v || '·'}</button></td>`; }).join('');
+    return `<tr><td style="position:sticky;left:0;background:var(--card)"><div style="font-weight:600">${escapeHtml(d.dim)}</div><div class="h2-note" style="font-style:italic;max-width:180px">${escapeHtml(d.metric)}</div></td>${cells}</tr>`;
+  }).join('');
+  const kpc = H2_MONTHS.map(m => `<div class="h2-card">
+    <div class="h2-card-h">${m}</div>
+    <label class="h2-flabel" style="color:var(--danger)">Matar</label><textarea class="h2-ta" data-h2key="kpc_${m}_k" placeholder="…" style="min-height:36px">${escapeHtml(D['kpc_' + m + '_k'] || '')}</textarea>
+    <label class="h2-flabel" style="color:var(--warn)">Pausar</label><textarea class="h2-ta" data-h2key="kpc_${m}_p" placeholder="…" style="min-height:36px">${escapeHtml(D['kpc_' + m + '_p'] || '')}</textarea>
+    <label class="h2-flabel" style="color:var(--success)">Continuar</label><textarea class="h2-ta" data-h2key="kpc_${m}_c" placeholder="…" style="min-height:36px">${escapeHtml(D['kpc_' + m + '_c'] || '')}</textarea>
+  </div>`).join('');
+  const sc = h2ScCov(D);
+  const covRows = sc.rows.map(r => `<tr><td><span class="h2-badge" style="${h2Badge(h2TierTok(r.t))}">Tier ${r.t}</span></td><td class="mono" style="text-align:center">${r.upd}</td><td class="mono" style="text-align:center">${r.total}</td><td class="mono" style="text-align:right;color:${r.pct >= 67 ? 'var(--success)' : r.pct >= 34 ? 'var(--warn)' : 'var(--danger)'}">${r.pct}%</td></tr>`).join('');
+  const covTotal = `<tr><td style="font-weight:600">Total</td><td class="mono" style="text-align:center">${sc.total.upd}</td><td class="mono" style="text-align:center">${sc.total.total}</td><td class="mono" style="text-align:right;font-weight:600">${sc.total.pct}%</td></tr>`;
+  const paresRows = H2_MONTHS.map((m, i) => `<tr>
+    <td style="font-weight:600">${m}</td>
+    <td class="mono" style="text-align:center;color:var(--text-subtle)">${H2_PARES_META[i]}</td>
+    <td style="width:70px"><input class="h2-atual" data-h2key="par_${m}_n" data-h2partot="1" inputmode="numeric" value="${escapeHtml(D['par_' + m + '_n'] || '')}" placeholder="0"></td>
+    <td><input class="h2-atual" data-h2key="par_${m}_c" style="text-align:left" value="${escapeHtml(D['par_' + m + '_c'] || '')}" placeholder="comentário…"></td>
+  </tr>`).join('');
+  return `<div class="h2-sec">
+    <div class="h2-eyebrow">05 · o ritmo mês a mês</div>
+    <h1 class="h2-h1">Scorecard mensal — 4 dimensões</h1>
+    <p class="h2-lead">Clique numa célula para alternar: <b style="color:var(--success)">V</b> no ritmo · <b style="color:var(--warn)">A</b> atenção · <b style="color:var(--danger)">R</b> fora do ritmo.</p>
+    <div class="h2-table-wrap"><table class="h2-table" style="min-width:520px"><thead>${scHead}</thead><tbody>${scRows}</tbody></table></div>
+    <div class="h2-eyebrow" style="margin:24px 0 0">Regra mensal: kill / pause / continue</div>
+    ${kpc}
+    <div class="h2-eyebrow" style="margin:24px 0 0">Cobertura atualizada por tier</div>
+    <div class="h2-table-wrap"><table class="h2-table" style="min-width:360px"><thead><tr><th>Tier</th><th style="text-align:center">Atualiz.</th><th style="text-align:center">Total</th><th style="text-align:right">%</th></tr></thead><tbody>${covRows}${covTotal}</tbody></table></div>
+    <div class="h2-eyebrow" style="margin:24px 0 0">Pares long/short — <span id="h2ParesTot" style="color:var(--accent)">${h2ParesTotal(D)}</span> montados no H2</div>
+    <div class="h2-table-wrap"><table class="h2-table" style="min-width:440px"><thead><tr><th>Mês</th><th style="text-align:center">Meta</th><th>Montados</th><th>Comentário</th></tr></thead><tbody>${paresRows}</tbody></table></div>
+  </div>`;
+}
+function bindH2Scorecard(c) {
+  c.querySelectorAll('[data-h2key]').forEach(el => el.addEventListener('input', () => {
+    const D = loadH2(); D[el.dataset.h2key] = el.value; saveH2(D);
+    if (el.dataset.h2partot) { const t = $('#h2ParesTot'); if (t) t.textContent = h2ParesTotal(loadH2()); }
+  }));
+  c.querySelectorAll('[data-h2cyc]').forEach(el => el.addEventListener('click', () => {
+    const D = loadH2(); const order = ['', 'V', 'A', 'R']; const cur = D[el.dataset.h2cyc] || '';
+    const nv = order[(order.indexOf(cur) + 1) % 4]; D[el.dataset.h2cyc] = nv; saveH2(D);
+    const tok = h2VarTok(nv); el.style.border = '1px solid ' + tok.br; el.style.background = tok.b; el.style.color = tok.c; el.textContent = nv || '·';
   }));
 }
 

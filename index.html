@@ -10,10 +10,10 @@
 <!-- Fontes editoriais da aba Semestre (IBM Plex Serif nos títulos, Mono nos dados) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Serif:wght@600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Serif:wght@600;700&family=Hanken+Grotesk:wght@400;500;600&display=swap">
 <title>Timer de Sessões</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0e0e1a">
+<meta name="theme-color" content="#131110">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Timer">
@@ -1819,6 +1819,130 @@ window.firebaseConfig = {
     margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
     display: flex; flex-direction: column; gap: 10px;
   }
+
+  /* ===== Modelinho (Claude Design): charcoal quente + champagne, Hanken Grotesk ===== */
+  :root {
+    --bg: oklch(0.145 0.004 70);
+    --card: oklch(0.185 0.004 70);
+    --card-elev: oklch(0.235 0.005 70);
+    --border: oklch(0.34 0.006 70 / 0.35);
+    --border-strong: oklch(0.40 0.006 70 / 0.55);
+    --accent: oklch(0.83 0.045 78);
+    --accent-2: oklch(0.78 0.05 74);
+    --accent-glow: oklch(0.83 0.045 78 / 0.25);
+    --text: oklch(0.95 0.005 85);
+    --text-muted: oklch(0.62 0.006 80);
+    --text-subtle: oklch(0.54 0.006 80);
+    --success: oklch(0.72 0.13 155);
+  }
+  body {
+    background: var(--bg);
+    font-family: 'Hanken Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+  }
+  .tabs { border-radius: 15px; }
+  .tabs::before { border-radius: 11px; }
+
+  /* Hero do timer */
+  .focus-card { border-radius: 30px; padding: clamp(30px, 6vw, 48px) clamp(20px, 5vw, 40px); }
+  .focus-eyebrow {
+    font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase;
+    color: var(--text-subtle); text-align: center; margin-bottom: clamp(18px, 4vw, 28px);
+  }
+  #focusIdle .picker { display: flex; flex-direction: column; align-items: center; gap: 2px; margin: 0; }
+  #focusIdle .picker-arrow {
+    width: 52px; height: 44px; display: grid; place-items: center;
+    border: none; background: transparent; color: var(--text-muted);
+    cursor: pointer; border-radius: 12px; font-size: 0; transition: color 0.15s ease, background 0.15s ease;
+  }
+  #focusIdle .picker-arrow:hover { color: var(--text); background: var(--card-elev); }
+  .picker-num-row { display: flex; align-items: baseline; gap: 10px; }
+  #focusIdle .picker-value {
+    font-size: clamp(88px, 24vw, 140px); font-weight: 600; line-height: 0.9;
+    font-variant-numeric: tabular-nums; color: var(--text); width: auto;
+  }
+  #focusIdle .picker-label { font-size: 14px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--text-subtle); }
+  .preset-row { display: flex; gap: 8px; justify-content: center; margin: clamp(18px, 4vw, 26px) 0 0; }
+  .preset-pill {
+    padding: 7px 16px; border-radius: 999px; border: 1px solid var(--border);
+    background: transparent; color: var(--text-subtle); font-family: inherit;
+    font-size: 13px; font-weight: 500; cursor: pointer; font-variant-numeric: tabular-nums;
+    transition: all 0.15s ease;
+  }
+  .preset-pill:hover { color: var(--text-muted); border-color: var(--border-strong); }
+  .preset-pill.active { border-color: oklch(0.83 0.045 78 / 0.5); background: oklch(0.83 0.045 78 / 0.14); color: var(--accent); }
+  .cat-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; flex: none; }
+  .category-chip::before { display: none; } /* dot antigo (substituído pelo .cat-dot) */
+  .category-chip {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 10px 20px; border-radius: 999px; border: 1px solid var(--border-strong);
+    background: var(--card-elev); color: var(--text); font-size: 15px;
+    margin: clamp(18px, 4vw, 26px) auto 0;
+  }
+  .category-chip .chip-arrow { color: var(--text-subtle); }
+  #startBtn {
+    width: 100%; margin-top: clamp(20px, 5vw, 30px); padding: 18px;
+    border: none; border-radius: 18px; background: oklch(0.88 0.03 80);
+    color: oklch(0.18 0.01 80); font-size: 16px; font-weight: 600; letter-spacing: 0.01em;
+  }
+  #startBtn:hover { background: oklch(0.92 0.03 80); }
+  #startBtn:active { transform: scale(0.99); }
+
+  /* Modo rodando */
+  .running-cat-row { display: flex; align-items: center; justify-content: center; gap: 9px; margin-bottom: clamp(18px, 4vw, 26px); }
+  .running-cat { font-size: 12px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--text-muted); margin: 0; }
+  .timer-ring-container {
+    position: relative; width: clamp(240px, 70vw, 330px); aspect-ratio: 1;
+    margin: 0 auto; display: grid; place-items: center;
+  }
+  @keyframes tmr-breathe { 0%, 100% { opacity: 0.35; transform: translate(-50%, -50%) scale(0.92); } 50% { opacity: 0.7; transform: translate(-50%, -50%) scale(1.06); } }
+  .ring-glow {
+    position: absolute; top: 50%; left: 50%; width: 62%; height: 62%; border-radius: 50%;
+    background: radial-gradient(circle, oklch(0.83 0.045 78 / 0.3), transparent 70%);
+    filter: blur(28px); animation: tmr-breathe 6s ease-in-out infinite; pointer-events: none;
+  }
+  .timer-ring { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .ring-bg { fill: none; stroke: oklch(0.30 0.005 70); stroke-width: 3; }
+  .ring-progress {
+    fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round;
+    stroke-dasharray: 565.49; transform: rotate(-90deg); transform-origin: center;
+    transition: stroke-dashoffset 0.95s linear;
+  }
+  .timer-center { display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 1; }
+  .timer-display {
+    position: static; font-size: clamp(54px, 16vw, 84px); font-weight: 600;
+    line-height: 1; font-variant-numeric: tabular-nums; color: var(--text); transform: none;
+  }
+  .timer-sub { font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-subtle); }
+  #focusRunning .controls { display: flex; gap: 12px; width: 100%; margin-top: clamp(20px, 5vw, 30px); }
+  .btn-pause {
+    flex: 1; padding: 16px; border: 1px solid var(--border-strong); border-radius: 16px;
+    background: var(--card-elev); color: var(--text); font-size: 15px; font-weight: 600;
+  }
+  .btn-stop {
+    flex: none; padding: 16px 24px; border: 1px solid var(--border); border-radius: 16px;
+    background: transparent; color: var(--text-muted); font-size: 15px; font-weight: 500;
+  }
+  .btn-stop:hover { color: var(--text); border-color: var(--border-strong); }
+  .btn-pip {
+    display: block; margin: 14px auto 0; border: none; background: transparent;
+    color: var(--text-subtle); font-size: 13px; letter-spacing: 0.04em; padding: 4px 8px; width: auto;
+  }
+  .btn-pip:hover { color: var(--text); }
+
+  /* Cards do painel Timer no idioma do design */
+  .today-card, .goals-card, .burndown-card { border-radius: 26px; padding: clamp(22px, 5vw, 30px); }
+  .today-title > span:first-child, .goals-title {
+    font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase;
+    color: var(--text-subtle); font-weight: 500;
+  }
+  .goals-add-btn, .manual-session-btn {
+    border: 1px dashed var(--border-strong); border-radius: 14px; padding: 15px;
+    background: transparent; color: var(--text-muted); font-size: 14.5px;
+  }
+  .goals-add-btn:hover, .manual-session-btn:hover { color: var(--text); border-color: oklch(0.56 0.006 70 / 0.8); }
+  .mg-ring-bg { stroke: oklch(0.30 0.005 70); stroke-width: 6; }
+  .mg-ring-fill { stroke: var(--accent); stroke-width: 6; }
+  .mg-side-value { font-weight: 600; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -1841,44 +1965,47 @@ window.firebaseConfig = {
       <span id="remoteTimerText"></span>
     </div>
     <div class="focus-card" id="focusIdle">
-      <div class="focus-title">Prepare-se para se concentrar</div>
-      <div class="focus-desc">Defina o tempo, mantenha o foco até o fim e a sessão entra na sua jornada do dia.</div>
+      <div class="focus-eyebrow">Sessão de foco</div>
 
       <div class="picker">
-        <button class="picker-arrow" id="durationUp" aria-label="Aumentar">▲</button>
-        <div class="picker-value" id="durationValue">50</div>
-        <div class="picker-label">min</div>
-        <button class="picker-arrow" id="durationDown" aria-label="Diminuir">▼</button>
+        <button class="picker-arrow" id="durationUp" aria-label="Aumentar"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M6 15l6-6 6 6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="picker-num-row"><span class="picker-value" id="durationValue">50</span><span class="picker-label">min</span></div>
+        <button class="picker-arrow" id="durationDown" aria-label="Diminuir"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+
+      <div class="preset-row">
+        <button class="preset-pill" data-preset="25" type="button">25</button>
+        <button class="preset-pill" data-preset="50" type="button">50</button>
+        <button class="preset-pill" data-preset="90" type="button">90</button>
       </div>
 
       <button class="category-chip" id="categoryChip" type="button">
+        <span class="cat-dot"></span>
         <span id="categoryLabel">CFA</span>
         <span class="chip-arrow">⇄</span>
       </button>
 
-      <button class="btn-primary" id="startBtn">▶ Iniciar sessão</button>
+      <button class="btn-primary" id="startBtn">Iniciar sessão</button>
     </div>
 
     <div class="focus-card" id="focusRunning" style="display:none">
-      <div class="running-cat" id="runningCat">CFA</div>
+      <div class="running-cat-row"><span class="cat-dot"></span><span class="running-cat" id="runningCat">CFA</span></div>
       <div class="timer-ring-container">
+        <div class="ring-glow"></div>
         <svg class="timer-ring" viewBox="0 0 200 200">
-          <defs>
-            <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#c4b5fd"/>
-              <stop offset="100%" stop-color="#a78bfa"/>
-            </linearGradient>
-          </defs>
           <circle class="ring-bg" cx="100" cy="100" r="90"/>
           <circle class="ring-progress" id="ringProgress" cx="100" cy="100" r="90"/>
         </svg>
-        <div class="timer-display" id="display">50:00</div>
+        <div class="timer-center">
+          <div class="timer-display" id="display">50:00</div>
+          <div class="timer-sub" id="runningSub"></div>
+        </div>
       </div>
       <div class="controls">
         <button class="btn btn-pause" id="pauseBtn">Pausar</button>
         <button class="btn btn-stop" id="stopBtn">Parar</button>
       </div>
-      <button class="btn btn-pip" id="pipBtn" style="display:none">Modo flutuante</button>
+      <button class="btn btn-pip" id="pipBtn" style="display:none">◈ Modo flutuante</button>
     </div>
 
     <div class="today-card">
@@ -2894,6 +3021,20 @@ $('#durationDown').addEventListener('click', () => {
   setDurationMinutes(parseInt(durationValue.textContent) - 5);
 });
 
+// Presets rápidos (25/50/90) — parte do redesign
+function refreshPresetPills() {
+  const cur = parseInt(durationValue.textContent);
+  document.querySelectorAll('.preset-pill').forEach(b => b.classList.toggle('active', parseInt(b.dataset.preset) === cur));
+}
+document.querySelectorAll('.preset-pill').forEach(b => b.addEventListener('click', () => {
+  if (state.running) return;
+  setDurationMinutes(parseInt(b.dataset.preset));
+  refreshPresetPills();
+}));
+$('#durationUp').addEventListener('click', refreshPresetPills);
+$('#durationDown').addEventListener('click', refreshPresetPills);
+refreshPresetPills();
+
 function setDuration(ms) {
   state.durationMs = ms;
   state.remainingMs = ms;
@@ -2914,6 +3055,12 @@ function updateDisplay() {
     ring.classList.toggle('paused', state.paused);
     // Pulsa nos últimos 60 segundos pra dar urgência
     ring.classList.toggle('urgent', !state.paused && state.remainingMs > 0 && state.remainingMs <= 60000);
+  }
+  const sub = document.getElementById('runningSub');
+  if (sub && state.durationMs > 0) {
+    const totalMin = Math.round(state.durationMs / 60000);
+    const pct = Math.round((1 - Math.max(0, Math.min(1, state.remainingMs / state.durationMs))) * 100);
+    sub.textContent = `de ${totalMin} min · ${pct}%`;
   }
   syncPip();
 }

@@ -5742,33 +5742,25 @@ function renderWeekReview() {
 // -- Seeds fixos (definições; só o que o usuário edita persiste em timerH2Plan) --
 const H2_SECTIONS = [
   { id: 'okrs', n: '01', label: 'OKRs' },
-  { id: 'retro', n: '02', label: 'Retrospectiva H1' },
-  { id: 'cobertura', n: '03', label: 'Cobertura' },
-  { id: 'tiers', n: '04', label: 'Evolução de tiers' },
-  { id: 'scorecard', n: '05', label: 'Scorecard mensal' },
-  { id: 'calendario', n: '06', label: 'Calendário & cadência' },
-  { id: 'regulatorio', n: '07', label: 'Calendário regulatório' },
-];
-const H2_RETRO_NAMES = ['Resultado', 'Processo', 'Aprendizado', 'Energia / capacidade'];
-const H2_RETRO_PREV = [
-  'Gerar ideias acionáveis com assimetria (o alvo do H1)',
-  'Atualizar modelos no prazo, disciplina de pesquisa',
-  'Deep dives, conversas com especialistas, erros documentados',
-  'Sustentar ritmo de deep work sem estourar',
+  { id: 'cobertura', n: '02', label: 'Cobertura' },
+  { id: 'tiers', n: '03', label: 'Evolução de tiers' },
+  { id: 'scorecard', n: '04', label: 'Scorecard mensal' },
+  { id: 'calendario', n: '05', label: 'Calendário & cadência' },
+  { id: 'regulatorio', n: '06', label: 'Calendário regulatório' },
 ];
 const H2_EARNINGS = [
   { per: 'Earnings 2T26', tri: '2º tri de 2026', what: 'Bloco pesado: 21 names reportam. Update ágil de modelos (Tier 1 em ≤48h), guidance vs. consenso. NÃO iniciar relatórios de iniciação aqui.', ini: '29/jul/2026', fim: '14/ago/2026' },
   { per: 'Earnings 3T26', tri: '3º tri de 2026', what: 'Janela análoga (~final out–meados nov). Confirme datas na Bloomberg quando publicadas.', ini: '~fim out/2026', fim: '~meados nov/2026' },
 ];
 const H2_DEEPWORK = [
-  { w: 'Jul (pré-earnings)', f: 'Preparar pré-templates de delta de guidance (KR2.1); montar teses para novos names renováveis (O1).' },
-  { w: 'Set–out (entre temporadas)', f: 'Publicar as 2 notas de iniciação (KR1.1); rodar pre-mortem de cada tese (KR3.2).' },
-  { w: 'Nov–dez (pós-earnings)', f: 'Revisar premissas de valuation; fechar o semestre; retrospectiva e handoff para H1/2027.' },
+  { w: 'Jul (pré-earnings)', f: 'Preparar os earnings previews do 2T26 (KR4.1); iniciação ORVR3 (KR2.1).' },
+  { w: 'Set–out (entre temporadas)', f: 'Construir CMIG4 do zero (KR2.1); revisar a assimetria de cada case Tier 1 (KR3.1).' },
+  { w: 'Nov–dez (pós-earnings)', f: 'LIGT3 e PASS3 do zero (KR2.1); fechar o semestre; retrospectiva e handoff para H1/2027.' },
 ];
 const H2_CADENCE = [
   { fr: 'Semanal (sex)', du: '20 min', w: 'Lead measures: fiz minhas alavancas controláveis esta semana? O que bloqueia?' },
   { fr: 'Mensal', du: '60–90 min', w: 'KRs no ritmo? Alguma premissa quebrou? Atualizar scorecard + kill/pause/continue.' },
-  { fr: 'Trimestral (fora da earnings season)', du: 'meio dia', w: 'Reset: pontuar cada KR de 0,0 a 1,0, retrospectiva e reescrever OKRs do 2º ciclo.' },
+  { fr: 'Trimestral (fora da earnings season)', du: 'meio dia', w: 'Reset: revisar o Atual de cada KR, retrospectiva e reescrever OKRs do 2º ciclo.' },
   { fr: 'Semestral (fim de dez)', du: 'meio dia', w: 'O que mudou estruturalmente? Que capacidades construí? Handoff para H1/2027.' },
 ];
 const H2_REG_EVENTS = [
@@ -5778,7 +5770,7 @@ const H2_REG_EVENTS = [
   { ev: 'Declaração de Necessidade — LEE', data: '11–21/ago/2026', tri: '3T26', names: 'Distribuidoras + geradoras', acao: 'COLIDE com pico de balanços. Bridge de demanda contratada; antecipar o CME.' },
   { ev: 'Ratificação — LEE', data: '19–30/out/2026', tri: '4T26', names: 'Geradoras/distribuidoras', acao: 'Confirmar volumes; ajustar curva de preço da tese.' },
   { ev: 'Leilão de Transmissão 4/2026', data: '30/out/2026 (edital no TCU em set)', tri: '4T26', names: 'Transmissão/integradas', acao: 'Checar disciplina de retorno; impacto setorial.' },
-  { ev: 'Leilão de Energia Existente (A-1/A-2/A-3)', data: '13/nov/2026', tri: '4T26', names: 'AURE3, ENEV3, EGIE3, AXIA3', acao: 'Ponto alto do KR5.1 (CME). Curvas de preço viram tese, não só estudo.' },
+  { ev: 'Leilão de Energia Existente (A-1/A-2/A-3)', data: '13/nov/2026', tri: '4T26', names: 'AURE3, ENEV3, EGIE3, AXIA3', acao: 'Ponto alto do KR6.1 (preço de LP / CME). Curvas de preço viram tese, não só estudo.' },
   { ev: 'Leilões de Armazenamento em Baterias', data: '02 e 04/dez/2026', tri: '4T26', names: 'ENEV3, geradoras, integradas', acao: 'Opcionalidade de baterias; efeitos em preço/capacidade.' },
 ];
 const H2_MACRO = [
@@ -5892,9 +5884,10 @@ function renderH2Subnav() {
 function renderH2Section() {
   const c = $('#h2Content');
   if (!c) return;
+  // aba guardada pode não existir mais (ex.: 'retro' removida) → volta pra OKRs
+  if (!H2_SECTIONS.some(s => s.id === h2Active)) { h2Active = 'okrs'; try { localStorage.setItem('timerH2Tab', h2Active); } catch {} renderH2Subnav(); }
   const D = loadH2();
   if (h2Active === 'okrs') { c.innerHTML = h2SecOkrs(D); bindH2Okrs(c); }
-  else if (h2Active === 'retro') { c.innerHTML = h2SecRetro(D); bindH2Retro(c); }
   else if (h2Active === 'cobertura') { c.innerHTML = h2SecCobertura(D); bindH2Cobertura(c); }
   else if (h2Active === 'tiers') { c.innerHTML = h2SecTiers(D); bindH2Tiers(c); }
   else if (h2Active === 'scorecard') { c.innerHTML = h2SecScorecard(D); bindH2Scorecard(c); }
@@ -5906,63 +5899,7 @@ function renderH2Section() {
   }
 }
 
-function h2RetroAvg(D) { const v = [0, 1, 2, 3].map(i => h2Num(D['retro_' + i + '_nota'])).filter(x => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; }
-
-function h2SecRetro(D) {
-  const dims = H2_RETRO_NAMES.map((dim, i) => {
-    const nota = D['retro_' + i + '_nota'] != null ? D['retro_' + i + '_nota'] : '';
-    const tok = h2ScoreTok(nota);
-    return `
-    <div class="h2-card">
-      <div class="h2-card-h">${escapeHtml(dim)}</div>
-      <div class="h2-note" style="margin-bottom:8px">Previsto (H1): ${escapeHtml(H2_RETRO_PREV[i])}</div>
-      <label class="h2-flabel">O que de fato aconteceu</label>
-      <textarea class="h2-ta" data-h2key="retro_${i}_real" placeholder="o que aconteceu…">${escapeHtml(D['retro_' + i + '_real'] || '')}</textarea>
-      <div class="h2-row2">
-        <div><label class="h2-flabel">Nota (0–1)</label>
-          <input class="h2-score" data-h2score="retro_${i}_nota" inputmode="decimal" maxlength="4" value="${escapeHtml(String(nota))}" placeholder="—" style="border:1px solid ${tok.br};background:${tok.b};color:${tok.c}"></div>
-        <div style="flex:1"><label class="h2-flabel">Causa-raiz</label>
-          <textarea class="h2-ta" data-h2key="retro_${i}_causa" placeholder="por quê?">${escapeHtml(D['retro_' + i + '_causa'] || '')}</textarea></div>
-      </div>
-    </div>`;
-  }).join('');
-  const lessons = [0, 1, 2].map(i => `
-    <div class="h2-card">
-      <div class="h2-card-h"><span class="h2-num">${i + 1}</span> Lição que muda o H2</div>
-      <textarea class="h2-ta" data-h2key="les_${i}_lic" placeholder="a lição aprendida…">${escapeHtml(D['les_' + i + '_lic'] || '')}</textarea>
-      <label class="h2-flabel" style="margin-top:8px">Ação concreta no H2</label>
-      <textarea class="h2-ta" data-h2key="les_${i}_act" placeholder="a ação…">${escapeHtml(D['les_' + i + '_act'] || '')}</textarea>
-    </div>`).join('');
-  const avg = h2RetroAvg(D);
-  return `<div class="h2-sec">
-    <div class="h2-eyebrow">02 · preencha antes de rodar o H2</div>
-    <h1 class="h2-h1">Retrospectiva honesta — H1 / 2026</h1>
-    <p class="h2-lead">Para cada dimensão: o que planejei, o que de fato aconteceu, e a causa-raiz da diferença. Isso alimenta os OKRs do H2.</p>
-    <div class="h2-card" style="display:flex;align-items:center;justify-content:space-between">
-      <span class="h2-note">Média das 4 dimensões</span>
-      <span class="h2-big" id="h2RetroAvg" style="color:${h2ScoreTok(avg).c}">${avg == null ? '—' : avg.toFixed(2).replace('.', ',')}</span>
-    </div>
-    ${dims}
-    <div class="h2-eyebrow" style="margin:24px 0 0">Top 3 lições que mudam o plano do H2</div>
-    ${lessons}
-  </div>`;
-}
-
-function bindH2Retro(c) {
-  c.querySelectorAll('[data-h2key]').forEach(el => {
-    el.addEventListener('input', () => { const D = loadH2(); D[el.dataset.h2key] = el.value; saveH2(D); });
-  });
-  c.querySelectorAll('[data-h2score]').forEach(el => {
-    el.addEventListener('input', () => {
-      const D = loadH2(); D[el.dataset.h2score] = el.value; saveH2(D);
-      const tok = h2ScoreTok(el.value);
-      el.style.border = '1px solid ' + tok.br; el.style.background = tok.b; el.style.color = tok.c;
-      const avg = h2RetroAvg(loadH2());
-      const avgEl = $('#h2RetroAvg');
-      if (avgEl) { avgEl.textContent = avg == null ? '—' : avg.toFixed(2).replace('.', ','); avgEl.style.color = h2ScoreTok(avg).c; }
-    });
-  });
-}
+// (Seção Retrospectiva H1 removida a pedido — dados retro_*/les_* preservados no store, sem UI)
 
 function h2SecCalendario() {
   const earn = H2_EARNINGS.map(e => `
@@ -5974,7 +5911,7 @@ function h2SecCalendario() {
   const dw = H2_DEEPWORK.map(d => `<tr><td class="mono" style="white-space:nowrap;color:var(--text)">${escapeHtml(d.w)}</td><td>${escapeHtml(d.f)}</td></tr>`).join('');
   const cad = H2_CADENCE.map(x => `<tr><td style="font-weight:600;white-space:nowrap">${escapeHtml(x.fr)}</td><td class="mono">${escapeHtml(x.du)}</td><td class="h2-note">${escapeHtml(x.w)}</td></tr>`).join('');
   return `<div class="h2-sec">
-    <div class="h2-eyebrow">06 · quando fazer o quê</div>
+    <div class="h2-eyebrow">05 · quando fazer o quê</div>
     <h1 class="h2-h1">Calendário & cadência — H2 / 2026</h1>
     <p class="h2-lead">As duas earnings seasons são os picos; entre elas ficam as janelas de deep work. A cadência de revisão mantém os OKRs vivos.</p>
     ${earn}
@@ -6000,7 +5937,7 @@ function h2SecRegulatorio() {
       <td class="h2-note">${escapeHtml(m.impl)}</td>
     </tr>`).join('');
   return `<div class="h2-sec">
-    <div class="h2-eyebrow">07 · gatilhos das teses (KR4.1)</div>
+    <div class="h2-eyebrow">06 · gatilhos das teses</div>
     <h1 class="h2-h1">Calendário regulatório — H2 / 2026</h1>
     <p class="h2-lead">Eventos regulatórios do setor elétrico são gatilhos das teses — bloqueie-os como capacidade comprometida. Fonte: MME/ANEEL/CCEE.</p>
     <button id="h2RegAdd" style="margin-top:14px;padding:9px 14px;border-radius:9px;border:1px solid var(--border-strong);background:var(--card-elev);color:var(--text);font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer">📅 Adicionar os 8 ao calendário</button>
@@ -6224,7 +6161,7 @@ function h2SecTiers(D) {
     return `<tr><td class="h2-ticker" style="white-space:nowrap;position:sticky;left:0;background:var(--card)">${c.t}<div class="h2-note" style="font-weight:400">${escapeHtml(c.sub)}</div></td>${cells}</tr>`;
   }).join('');
   return `<div class="h2-sec">
-    <div class="h2-eyebrow">04 · o tier pode mudar ao longo do semestre</div>
+    <div class="h2-eyebrow">03 · o tier pode mudar ao longo do semestre</div>
     <h1 class="h2-h1">Evolução da tierização — H2 / 2026</h1>
     <p class="h2-lead">Ajuste o tier de atenção de cada name mês a mês. As contagens embaixo se atualizam sozinhas.</p>
     <div class="h2-table-wrap"><table class="h2-table" style="min-width:560px"><thead>${head}</thead><tbody>${rows}</tbody></table></div>
@@ -6272,7 +6209,7 @@ function h2SecCobertura(D) {
     body = `<div class="h2-table-wrap"><table class="h2-table" style="min-width:660px"><thead><tr><th>2T26</th><th>Name</th><th>Tier</th><th>Subsetor</th><th>Earn</th><th>Status</th><th>Tese</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
   return `<div class="h2-sec">
-    <div class="h2-eyebrow">03 · universo de cobertura</div>
+    <div class="h2-eyebrow">02 · universo de cobertura</div>
     <h1 class="h2-h1">Cobertura — Utilities & Infra</h1>
     <p class="h2-lead">Tier = prioridade de atenção. Marque "2T26" conforme concluir cada modelo — as contagens do Scorecard se atualizam sozinhas. <span style="color:var(--warn)">★</span> = do-zero prioritário.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
@@ -6318,7 +6255,7 @@ function h2SecScorecard(D) {
     <td><input class="h2-atual" data-h2key="par_${m}_c" style="text-align:left" value="${escapeHtml(D['par_' + m + '_c'] || '')}" placeholder="comentário…"></td>
   </tr>`).join('');
   return `<div class="h2-sec">
-    <div class="h2-eyebrow">05 · o ritmo mês a mês</div>
+    <div class="h2-eyebrow">04 · o ritmo mês a mês</div>
     <h1 class="h2-h1">Scorecard mensal — 4 dimensões</h1>
     <p class="h2-lead">Clique numa célula para alternar: <b style="color:var(--success)">V</b> no ritmo · <b style="color:var(--warn)">A</b> atenção · <b style="color:var(--danger)">R</b> fora do ritmo.</p>
     <div class="h2-table-wrap"><table class="h2-table" style="min-width:520px"><thead>${scHead}</thead><tbody>${scRows}</tbody></table></div>

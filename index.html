@@ -1226,6 +1226,26 @@ window.firebaseConfig = {
   .day-event-item .ev-text { flex: 1; font-size: 14px; color: var(--text); }
   .day-event-item.done .ev-text { color: var(--text-subtle); text-decoration: line-through; }
   .day-events-empty { color: var(--text-subtle); font-size: 13px; padding: 6px 0 10px; }
+  .day-event-item { padding-left: 9px; border-left: 3px solid transparent; }
+  .ev-time-badge { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text-muted); margin-right: 6px; }
+  .day-event-item.done .ev-time-badge { color: var(--text-subtle); }
+  /* Formulário de novo evento */
+  .ev-form { display: flex; flex-direction: column; gap: 9px; margin-top: 6px; }
+  .ev-form-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .ev-time-input {
+    flex: none; width: 118px; padding: 8px 10px; background: var(--card-elev);
+    border: 1px solid var(--border); border-radius: 9px; color: var(--text);
+    font-family: inherit; font-size: 13px; color-scheme: dark;
+  }
+  .ev-time-input:focus { outline: none; border-color: var(--accent); }
+  .ev-cat-chips { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+  .ev-cat-chip {
+    padding: 5px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 600;
+    cursor: pointer; border: 1px solid var(--border); background: var(--card-elev);
+    color: var(--text-muted); font-family: inherit; transition: filter 0.12s ease;
+  }
+  .ev-cat-chip.active { color: #14141f; }
+  .ev-cat-chip:hover { filter: brightness(1.15); }
 
   /* Sync UI */
   .sync-trigger {
@@ -2260,9 +2280,13 @@ window.firebaseConfig = {
     <div class="modal-title" id="dayModalTitle">—</div>
     <div class="day-summary" id="daySummary"></div>
     <div id="dayEventsList"></div>
-    <div class="todo-add-row">
-      <input type="text" class="new-cat-input" id="newEventInput" placeholder="Nova tarefa/evento..." maxlength="80">
-      <button class="add-cat-btn" id="addEventBtn" aria-label="Adicionar">+</button>
+    <div class="ev-form">
+      <input type="text" class="new-cat-input" id="newEventInput" placeholder="Novo evento..." maxlength="80">
+      <div class="ev-form-row">
+        <input type="time" class="ev-time-input" id="newEventTime" aria-label="Horário">
+        <div class="ev-cat-chips" id="newEventCats"></div>
+      </div>
+      <button class="btn-primary" id="addEventBtn">+ Adicionar evento</button>
     </div>
     <button class="modal-close" id="dayModalClose" style="margin-top:14px;">Fechar</button>
   </div>
@@ -4884,6 +4908,32 @@ function saveEvents(ev) {
   if (typeof triggerSync === 'function') triggerSync();
 }
 
+// Categorias de evento (com cor) — usadas no Calendário
+const EV_CATS = [
+  { id: 'trabalho', label: 'Trabalho', color: '#93c5fd' },
+  { id: 'pessoal', label: 'Pessoal', color: '#6ee7b7' },
+  { id: 'saude', label: 'Saúde', color: '#f9a8d4' },
+  { id: 'estudo', label: 'Estudo', color: '#c4b5fd' },
+  { id: 'financeiro', label: 'Financeiro', color: '#fcd34d' },
+  { id: 'outro', label: 'Outro', color: '#9ca3b8' },
+];
+function evCat(id) { return EV_CATS.find(c => c.id === id) || null; }
+function evCatColor(id) { const c = evCat(id); return c ? c.color : 'var(--accent)'; }
+// Ordena eventos por horário (com horário primeiro, crescente; sem horário depois)
+function sortEvents(list) {
+  return [...list].sort((a, b) => { const ta = a.time || '99:99', tb = b.time || '99:99'; return ta < tb ? -1 : ta > tb ? 1 : 0; });
+}
+let newEventCat = '';
+function renderEventCatChips() {
+  const el = $('#newEventCats');
+  if (!el) return;
+  el.innerHTML = EV_CATS.map(c => `<button type="button" class="ev-cat-chip${newEventCat === c.id ? ' active' : ''}" data-evcat="${c.id}"${newEventCat === c.id ? ` style="background:${c.color};border-color:${c.color}"` : ''}>${escapeHtml(c.label)}</button>`).join('');
+  el.querySelectorAll('[data-evcat]').forEach(b => b.addEventListener('click', () => {
+    newEventCat = (newEventCat === b.dataset.evcat) ? '' : b.dataset.evcat;
+    renderEventCatChips();
+  }));
+}
+
 function focusTotalForDay(key) {
   const h = loadHistory()[key];
   if (!h) return 0;
@@ -4932,9 +4982,12 @@ function renderCalMonth() {
     const focusMs = focusTotalForDay(key);
     const sleepMs = sleepForDay(key);
 
-    const evHtml = dayEvents.slice(0, 2).map(e =>
-      `<div class="cal-event ${e.done ? 'done' : ''}">${escapeHtml(e.text)}</div>`
-    ).join('');
+    const sortedEv = sortEvents(dayEvents);
+    const evHtml = sortedEv.slice(0, 2).map(e => {
+      const col = evCatColor(e.cat);
+      const t = e.time ? `<b>${escapeHtml(e.time)}</b> ` : '';
+      return `<div class="cal-event ${e.done ? 'done' : ''}" style="border-left:2px solid ${col};padding-left:4px">${t}${escapeHtml(e.text)}</div>`;
+    }).join('');
     const moreHtml = dayEvents.length > 2 ? `<div class="cal-more">+${dayEvents.length - 2}</div>` : '';
     const dots = [];
     if (focusMs > 0) dots.push('<span class="cal-dot focus"></span>');
@@ -4968,6 +5021,9 @@ function openDayModal(key) {
   if (sleepMs > 0) chips.push(`<span class="chip"><i class="sleep"></i> ${formatDuration(sleepMs)} sono</span>`);
   summary.innerHTML = chips.join('');
 
+  newEventCat = '';
+  $('#newEventTime').value = '';
+  renderEventCatChips();
   renderDayEvents();
   $('#dayModal').classList.add('active');
   setTimeout(() => $('#newEventInput').focus(), 50);
@@ -4978,14 +5034,18 @@ function renderDayEvents() {
   const list = events[dayModalKey] || [];
   const el = $('#dayEventsList');
   if (list.length === 0) {
-    el.innerHTML = '<div class="day-events-empty">Nenhuma tarefa neste dia.</div>';
+    el.innerHTML = '<div class="day-events-empty">Nenhum evento neste dia.</div>';
   } else {
-    el.innerHTML = list.map(e => `
-      <div class="day-event-item ${e.done ? 'done' : ''}">
+    el.innerHTML = sortEvents(list).map(e => {
+      const col = evCatColor(e.cat);
+      const t = e.time ? `<span class="ev-time-badge">${escapeHtml(e.time)}</span>` : '';
+      return `
+      <div class="day-event-item ${e.done ? 'done' : ''}" style="border-left-color:${col}">
         <div class="todo-check ${e.done ? 'done' : ''}" data-toggle="${e.id}"></div>
-        <span class="ev-text">${escapeHtml(e.text)}</span>
+        <span class="ev-text">${t}${escapeHtml(e.text)}</span>
         <button class="todo-remove" data-del="${e.id}" aria-label="Remover">×</button>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
 }
 
@@ -4993,12 +5053,19 @@ function addEvent() {
   const input = $('#newEventInput');
   const text = input.value.trim();
   if (!text || !dayModalKey) return;
+  const time = ($('#newEventTime').value || '').trim();
   const events = loadEvents();
   if (!events[dayModalKey]) events[dayModalKey] = [];
   const id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'e-' + Date.now();
-  events[dayModalKey].push({ id, text, done: false });
+  const rec = { id, text, done: false };
+  if (time) rec.time = time;
+  if (newEventCat) rec.cat = newEventCat;
+  events[dayModalKey].push(rec);
   saveEvents(events);
   input.value = '';
+  $('#newEventTime').value = '';
+  newEventCat = '';
+  renderEventCatChips();
   renderDayEvents();
   renderCalendar();
 }
@@ -5026,8 +5093,12 @@ function renderCalWeek() {
     if (sleepMs > 0) summaryParts.push(`<span><i class="sleep"></i>${formatDuration(sleepMs)}</span>`);
 
     const evHtml = dayEvents.length
-      ? dayEvents.map(e => `<div class="cal-week-event ${e.done ? 'done' : ''}">${escapeHtml(e.text)}</div>`).join('')
-      : '<div class="cal-week-empty">Sem tarefas</div>';
+      ? sortEvents(dayEvents).map(e => {
+          const col = evCatColor(e.cat);
+          const t = e.time ? `<b>${escapeHtml(e.time)}</b> ` : '';
+          return `<div class="cal-week-event ${e.done ? 'done' : ''}" style="border-left:3px solid ${col};padding-left:8px">${t}${escapeHtml(e.text)}</div>`;
+        }).join('')
+      : '<div class="cal-week-empty">Sem eventos</div>';
 
     return `
       <div class="cal-week-day ${key === todayKey ? 'today' : ''}" data-key="${key}">

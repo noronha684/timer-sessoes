@@ -1678,6 +1678,12 @@ window.firebaseConfig = {
   .h2-krdel:hover, .h2-objdel:hover { opacity: 1; color: var(--danger); background: var(--card-elev); }
   .h2-kindbtn { cursor: pointer; font-family: inherit; }
   .h2-score-out { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; cursor: default; }
+  .h2-cov-checks { display: flex; flex-direction: column; gap: 6px; flex: none; }
+  .h2-cov-q { display: flex; align-items: center; gap: 5px; font: 600 10px var(--h2-mono); color: var(--text-subtle); cursor: pointer; white-space: nowrap; }
+  .h2-cov-q .h2-check { width: 17px; height: 17px; }
+  .h2-nota-in { text-align: left; font-size: 12px; font-family: inherit; }
+  .h2-cov-main .h2-nota-in { margin-top: 7px; }
+  .h2-st-sel { width: auto; min-width: 96px; padding: 5px 8px; font-size: 11px; }
   .h2-toggle { display: inline-flex; gap: 4px; background: var(--card-elev); border: 1px solid var(--border); border-radius: 9px; padding: 3px; margin-top: 12px; }
   .h2-toggle button { border: none; background: transparent; color: var(--text-subtle); padding: 6px 14px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
   .h2-toggle button.active { background: var(--accent); color: #1a1a2e; }
@@ -6178,16 +6184,37 @@ function bindH2Tiers(c) {
 }
 
 // -- Seção 03 · Cobertura --
+// Mês corrente dentro do H2 (Jul..Dez; antes de julho trava em Jul)
+function h2CurMonth() { const m = new Date().getMonth(); return m < 6 ? 'Jul' : (H2_MONTHS[m - 6] || 'Dez'); }
+// Tier efetivo do name no mês corrente (puxado da matriz "Evolução de tiers"; fallback = seed)
+function h2EffTier(D, c) { const v = D['te_' + c.t + '_' + h2CurMonth()]; return v != null ? +v : c.tier; }
+// Temporada em curso p/ "modelo atualizado": Jul–Set cobra o 2T26; Out–Dez cobra o 3T26
+function h2CurQuarter() { return ['Out', 'Nov', 'Dez'].includes(h2CurMonth()) ? '3T26' : '2T26'; }
+function h2CovKey(q, t) { return (q === '3T26' ? 'cov3_' : 'cov_') + t; }
+
 let h2CovView = localStorage.getItem('timerH2CovView') || 'cards';
 function h2SecCobertura(D) {
-  const t1 = H2_COV_DEFS.filter(c => c.tier === 1), t2 = H2_COV_DEFS.filter(c => c.tier === 2), t3 = H2_COV_DEFS.filter(c => c.tier === 3);
+  const mes = h2CurMonth();
+  const t1 = H2_COV_DEFS.filter(c => h2EffTier(D, c) === 1), t2 = H2_COV_DEFS.filter(c => h2EffTier(D, c) === 2), t3 = H2_COV_DEFS.filter(c => h2EffTier(D, c) === 3);
+  const stSel = c => {
+    const st = D['covst_' + c.t] || c.st;
+    const sv = h2StatusTok(st);
+    return `<select class="h2-sel h2-st-sel" data-h2stsel="${c.t}" style="border:1px solid ${sv.br};background:${sv.b};color:${sv.c}">${Object.keys(H2_ST_LABEL).map(k => `<option value="${k}"${k === st ? ' selected' : ''}>${H2_ST_LABEL[k]}</option>`).join('')}</select>`;
+  };
+  const notaVal = c => D['covnota_' + c.t] != null ? D['covnota_' + c.t] : c.nota;
+  const checks = c => `
+    <div class="h2-cov-checks">
+      <label class="h2-cov-q"><input type="checkbox" class="h2-check" data-h2check="cov_${c.t}"${D['cov_' + c.t] ? ' checked' : ''}>2T</label>
+      <label class="h2-cov-q"><input type="checkbox" class="h2-check" data-h2check="cov3_${c.t}"${D['cov3_' + c.t] ? ' checked' : ''}>3T</label>
+    </div>`;
   const covCard = c => {
-    const tv = h2TierTok(c.tier), sv = h2StatusTok(c.st);
+    const eff = h2EffTier(D, c);
     return `<div class="h2-cov-card${c.star ? ' star' : ''}">
-      <input type="checkbox" class="h2-check" data-h2check="cov_${c.t}"${D['cov_' + c.t] ? ' checked' : ''} title="2T26 atualizado">
+      ${checks(c)}
       <div class="h2-cov-main">
-        <div class="h2-cov-top"><span class="h2-ticker">${c.t}</span><span class="h2-badge" style="${h2Badge(tv)}">T${c.tier}</span><span class="h2-badge" style="${h2Badge(sv)}">${H2_ST_LABEL[c.st]}</span></div>
-        <div class="h2-cov-sub">${escapeHtml(c.sub)} · earn ${escapeHtml(c.earn)} · ${escapeHtml(c.nota)}</div>
+        <div class="h2-cov-top"><span class="h2-ticker">${c.t}</span><span class="h2-badge" style="${h2Badge(h2TierTok(eff))}" title="Tier de ${mes} (Evolução de tiers)">T${eff}</span>${stSel(c)}</div>
+        <div class="h2-cov-sub">${escapeHtml(c.sub)} · earn ${escapeHtml(c.earn)}</div>
+        <input class="h2-atual h2-nota-in" data-h2key="covnota_${c.t}" value="${escapeHtml(String(notaVal(c)))}" placeholder="tese…">
         ${c.note ? `<div class="h2-cov-tag"${c.star ? '' : ' style="color:var(--text-subtle)"'}>${escapeHtml(c.note)}</div>` : ''}
       </div>
     </div>`;
@@ -6197,21 +6224,25 @@ function h2SecCobertura(D) {
   if (h2CovView === 'cards') {
     body = group(t1, 1, 'Core') + group(t2, 2, 'Periódico') + group(t3, 3, 'Radar');
   } else {
-    const rows = H2_COV_DEFS.map(c => `<tr>
+    const rows = H2_COV_DEFS.map(c => {
+      const eff = h2EffTier(D, c);
+      return `<tr>
       <td style="text-align:center"><input type="checkbox" class="h2-check" data-h2check="cov_${c.t}"${D['cov_' + c.t] ? ' checked' : ''}></td>
+      <td style="text-align:center"><input type="checkbox" class="h2-check" data-h2check="cov3_${c.t}"${D['cov3_' + c.t] ? ' checked' : ''}></td>
       <td class="h2-ticker">${c.t}</td>
-      <td><span class="h2-badge" style="${h2Badge(h2TierTok(c.tier))}">T${c.tier}</span></td>
+      <td><span class="h2-badge" style="${h2Badge(h2TierTok(eff))}" title="Tier de ${mes}">T${eff}</span></td>
       <td class="mono">${escapeHtml(c.sub)}</td>
       <td class="mono">${escapeHtml(c.earn)}</td>
-      <td><span class="h2-badge" style="${h2Badge(h2StatusTok(c.st))}">${H2_ST_LABEL[c.st]}</span></td>
-      <td class="h2-note">${escapeHtml(c.nota)}${c.note ? ' · ' + escapeHtml(c.note) : ''}</td>
-    </tr>`).join('');
-    body = `<div class="h2-table-wrap"><table class="h2-table" style="min-width:660px"><thead><tr><th>2T26</th><th>Name</th><th>Tier</th><th>Subsetor</th><th>Earn</th><th>Status</th><th>Tese</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+      <td>${stSel(c)}</td>
+      <td style="min-width:220px"><input class="h2-atual h2-nota-in" data-h2key="covnota_${c.t}" value="${escapeHtml(String(notaVal(c)))}" placeholder="tese…"></td>
+    </tr>`;
+    }).join('');
+    body = `<div class="h2-table-wrap"><table class="h2-table" style="min-width:780px"><thead><tr><th>2T26</th><th>3T26</th><th>Name</th><th>Tier (${mes})</th><th>Subsetor</th><th>Earn</th><th>Status</th><th>Tese</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
   return `<div class="h2-sec">
     <div class="h2-eyebrow">02 · universo de cobertura</div>
     <h1 class="h2-h1">Cobertura — Utilities & Infra</h1>
-    <p class="h2-lead">Tier = prioridade de atenção. Marque "2T26" conforme concluir cada modelo — as contagens do Scorecard se atualizam sozinhas. <span style="color:var(--warn)">★</span> = do-zero prioritário.</p>
+    <p class="h2-lead">Tier = prioridade do mês corrente (<b style="color:var(--text-muted)">${mes}</b>, puxado da "Evolução de tiers"). Marque <b style="color:var(--text-muted)">2T26/3T26</b> conforme concluir cada modelo — o Scorecard acompanha a temporada em curso. Status e tese são editáveis. <span style="color:var(--warn)">★</span> = do-zero prioritário.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
       <span class="h2-badge" style="${h2Badge(h2TierTok(1))}">${t1.length} Tier 1</span>
       <span class="h2-badge" style="${h2Badge(h2TierTok(2))}">${t2.length} Tier 2</span>
@@ -6223,14 +6254,20 @@ function h2SecCobertura(D) {
 }
 function bindH2Cobertura(c) {
   c.querySelectorAll('[data-h2check]').forEach(el => el.addEventListener('change', () => { const D = loadH2(); D[el.dataset.h2check] = el.checked; saveH2(D); }));
+  c.querySelectorAll('[data-h2key]').forEach(el => el.addEventListener('input', () => { const D = loadH2(); D[el.dataset.h2key] = el.value; saveH2(D); }));
+  c.querySelectorAll('[data-h2stsel]').forEach(el => el.addEventListener('change', () => {
+    const D = loadH2(); D['covst_' + el.dataset.h2stsel] = el.value; saveH2(D);
+    const tok = h2StatusTok(el.value); el.style.border = '1px solid ' + tok.br; el.style.background = tok.b; el.style.color = tok.c;
+  }));
   c.querySelectorAll('[data-h2cov]').forEach(el => el.addEventListener('click', () => { h2CovView = el.dataset.h2cov; try { localStorage.setItem('timerH2CovView', h2CovView); } catch {} renderH2Section(); }));
 }
 
 // -- Seção 05 · Scorecard mensal --
 function h2ScCov(D) {
-  const rows = [1, 2, 3].map(t => { const list = H2_COV_DEFS.filter(c => c.tier === t); const upd = list.filter(c => D['cov_' + c.t]).length; return { t, upd, total: list.length, pct: list.length ? Math.round(100 * upd / list.length) : 0 }; });
+  const q = h2CurQuarter(); // temporada em curso: Jul–Set cobra 2T26, Out–Dez cobra 3T26
+  const rows = [1, 2, 3].map(t => { const list = H2_COV_DEFS.filter(c => h2EffTier(D, c) === t); const upd = list.filter(c => D[h2CovKey(q, c.t)]).length; return { t, upd, total: list.length, pct: list.length ? Math.round(100 * upd / list.length) : 0 }; });
   const totUpd = rows.reduce((s, r) => s + r.upd, 0), totAll = H2_COV_DEFS.length;
-  return { rows, total: { upd: totUpd, total: totAll, pct: totAll ? Math.round(100 * totUpd / totAll) : 0 } };
+  return { q, rows, total: { upd: totUpd, total: totAll, pct: totAll ? Math.round(100 * totUpd / totAll) : 0 } };
 }
 function h2ParesTotal(D) { return H2_MONTHS.reduce((acc, m) => { const v = h2Num(D['par_' + m + '_n']); return acc + (v || 0); }, 0); }
 function h2SecScorecard(D) {
@@ -6261,7 +6298,7 @@ function h2SecScorecard(D) {
     <div class="h2-table-wrap"><table class="h2-table" style="min-width:520px"><thead>${scHead}</thead><tbody>${scRows}</tbody></table></div>
     <div class="h2-eyebrow" style="margin:24px 0 0">Regra mensal: kill / pause / continue</div>
     ${kpc}
-    <div class="h2-eyebrow" style="margin:24px 0 0">Cobertura atualizada por tier</div>
+    <div class="h2-eyebrow" style="margin:24px 0 0">Cobertura atualizada por tier — temporada ${sc.q}</div>
     <div class="h2-table-wrap"><table class="h2-table" style="min-width:360px"><thead><tr><th>Tier</th><th style="text-align:center">Atualiz.</th><th style="text-align:center">Total</th><th style="text-align:right">%</th></tr></thead><tbody>${covRows}${covTotal}</tbody></table></div>
     <div class="h2-eyebrow" style="margin:24px 0 0">Pares long/short — <span id="h2ParesTot" style="color:var(--accent)">${h2ParesTotal(D)}</span> montados no H2</div>
     <div class="h2-table-wrap"><table class="h2-table" style="min-width:440px"><thead><tr><th>Mês</th><th style="text-align:center">Meta</th><th>Montados</th><th>Comentário</th></tr></thead><tbody>${paresRows}</tbody></table></div>

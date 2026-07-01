@@ -5964,7 +5964,7 @@ function renderH2Section() {
   else if (h2Active === 'tiers') { c.innerHTML = h2SecTiers(D); bindH2Tiers(c); }
   else if (h2Active === 'scorecard') { c.innerHTML = h2SecScorecard(D); bindH2Scorecard(c); }
   else if (h2Active === 'calendario') c.innerHTML = h2SecCalendario();
-  else if (h2Active === 'regulatorio') c.innerHTML = h2SecRegulatorio();
+  else if (h2Active === 'regulatorio') { c.innerHTML = h2SecRegulatorio(); bindH2Reg(c); }
   else {
     const lbl = (H2_SECTIONS.find(s => s.id === h2Active) || {}).label || '';
     c.innerHTML = `<div class="h2-sec"><div class="h2-soon">A seção <b>${escapeHtml(lbl)}</b> ainda não foi construída.</div></div>`;
@@ -6068,6 +6068,7 @@ function h2SecRegulatorio() {
     <div class="h2-eyebrow">07 · gatilhos das teses (KR4.1)</div>
     <h1 class="h2-h1">Calendário regulatório — H2 / 2026</h1>
     <p class="h2-lead">Eventos regulatórios do setor elétrico são gatilhos das teses — bloqueie-os como capacidade comprometida. Fonte: MME/ANEEL/CCEE.</p>
+    <button id="h2RegAdd" style="margin-top:14px;padding:9px 14px;border-radius:9px;border:1px solid var(--border-strong);background:var(--card-elev);color:var(--text);font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer">📅 Adicionar os 8 ao calendário</button>
     <div class="h2-table-wrap"><table class="h2-table"><thead><tr><th>Evento</th><th>Data</th><th>Names</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="h2-eyebrow" style="margin:24px 0 0">Temas macro</div>
     <div class="h2-table-wrap"><table class="h2-table"><thead><tr><th>Tema</th><th>Leitura H2/2026</th><th>Implicação</th></tr></thead><tbody>${macro}</tbody></table></div>
@@ -6291,6 +6292,36 @@ function bindH2Scorecard(c) {
     const nv = order[(order.indexOf(cur) + 1) % 4]; D[el.dataset.h2cyc] = nv; saveH2(D);
     const tok = h2VarTok(nv); el.style.border = '1px solid ' + tok.br; el.style.background = tok.b; el.style.color = tok.c; el.textContent = nv || '·';
   }));
+}
+
+// -- Integração: Regulatório → eventos do Calendário/Agenda --
+const H2_MONTH_NUM = { jan: '01', fev: '02', mar: '03', abr: '04', mai: '05', jun: '06', jul: '07', ago: '08', set: '09', out: '10', nov: '11', dez: '12' };
+function h2RegDateKey(txt) {
+  const m = String(txt).toLowerCase().match(/(\d{1,2})\s*\/?\s*(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)/);
+  if (!m) return null;
+  return '2026-' + H2_MONTH_NUM[m[2]] + '-' + m[1].padStart(2, '0');
+}
+function h2AddRegToCalendar() {
+  if (typeof loadEvents !== 'function') return 0;
+  const ev = loadEvents();
+  let added = 0;
+  H2_REG_EVENTS.forEach((r, i) => {
+    const dk = h2RegDateKey(r.data);
+    if (!dk) return;
+    const id = 'h2reg-' + i;
+    if (!ev[dk]) ev[dk] = [];
+    if (!ev[dk].some(e => e.id === id)) { ev[dk].push({ id, text: '⚖️ ' + r.ev, done: false }); added++; }
+  });
+  saveEvents(ev);
+  return added;
+}
+function bindH2Reg(c) {
+  const b = c.querySelector('#h2RegAdd');
+  if (b) b.addEventListener('click', () => {
+    const n = h2AddRegToCalendar();
+    b.textContent = n > 0 ? `✓ ${n} adicionado(s) ao calendário` : '✓ já estavam no calendário';
+    b.disabled = true; b.style.opacity = '0.65';
+  });
 }
 
 // -- Abrir/fechar a sobreposição (tela cheia, dentro do app; back do Android fecha) --

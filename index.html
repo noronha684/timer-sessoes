@@ -1661,6 +1661,22 @@ window.firebaseConfig = {
   .h2-atual:focus { border-color: var(--accent); }
   .h2-scoregrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
   @media (max-width: 480px) { .h2-scoregrid { grid-template-columns: 1fr; } }
+  .h2-add-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border-radius: 9px; cursor: pointer;
+    background: var(--card-elev); border: 1px dashed var(--border-strong);
+    color: var(--text-muted); font-size: 12px; font-weight: 600; font-family: inherit;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .h2-add-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .h2-obj-foot { padding: 10px 14px; border-top: 1px solid var(--border); }
+  .h2-add-obj { width: 100%; justify-content: center; margin-top: 16px; padding: 12px; }
+  .h2-krdel, .h2-objdel {
+    margin-left: auto; flex: none; width: 24px; height: 24px; border: none; background: transparent;
+    color: var(--text-subtle); font-size: 17px; line-height: 1; cursor: pointer; border-radius: 6px; opacity: 0.6;
+  }
+  .h2-krdel:hover, .h2-objdel:hover { opacity: 1; color: var(--danger); background: var(--card-elev); }
+  .h2-kindbtn { cursor: pointer; font-family: inherit; }
   .h2-toggle { display: inline-flex; gap: 4px; background: var(--card-elev); border: 1px solid var(--border); border-radius: 9px; padding: 3px; margin-top: 12px; }
   .h2-toggle button { border: none; background: transparent; color: var(--text-subtle); padding: 6px 14px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
   .h2-toggle button.active { background: var(--accent); color: #1a1a2e; }
@@ -6000,15 +6016,23 @@ function h2Agg(D, codes) {
   const av = vals.reduce((s, x) => s + x, 0) / vals.length;
   return { text: av.toFixed(2).replace('.', ','), filled: vals.length + ' de ' + codes.length + ' preenchidos', tok: h2ScoreTok(av) };
 }
-const H2_OP_CODES = ['KR1.1', 'KR2.1', 'KR2.2', 'KR3.1', 'KR4.1', 'KR6.1', 'KR7.1'];
-const H2_AL_CODES = ['KR1.2'];
+// OKRs custom (criados no app pelo botão "+", vivem no store e sincronizam; seeds ficam no código)
+function h2CustomObjs(D) { return Array.isArray(D.h2CustomObjs) ? D.h2CustomObjs : []; }
+function h2CustomKrs(D) { return Array.isArray(D.h2CustomKrs) ? D.h2CustomKrs : []; }
+function h2AllKrDefs(D) { return H2_KR_DEFS.concat(h2CustomKrs(D)); }
+function h2OpCodes(D) { return h2AllKrDefs(D).filter(k => k.op).map(k => k.code); }
+function h2AlCodes(D) { return h2AllKrDefs(D).filter(k => !k.op).map(k => k.code); }
 
 function h2SecOkrs(D) {
   const kindBadge = op => op
     ? `<span class="h2-badge" style="${h2Badge(H2_TOK.gray)}">operacional</span>`
     : `<span class="h2-badge" style="${h2Badge(H2_TOK.purple)}">alpha</span>`;
-  const groups = ['O1', 'O2', 'O3', 'O4', 'O5', 'O6', 'O7'].map(oid => {
-    const krs = H2_KR_DEFS.filter(k => k.fam === oid).map(k => {
+  const seedObjIds = ['O1', 'O2', 'O3', 'O4', 'O5', 'O6', 'O7'];
+  const objIds = seedObjIds.concat(h2CustomObjs(D));
+  const groups = objIds.map(oid => {
+    const defs = h2AllKrDefs(D).filter(k => k.fam === oid)
+      .sort((a, b) => (parseInt(a.code.split('.')[1]) || 0) - (parseInt(b.code.split('.')[1]) || 0));
+    const krs = defs.map(k => {
       const score = D['okr_' + k.code + '_score'] != null ? D['okr_' + k.code + '_score'] : '';
       const atual = D['okr_' + k.code + '_atual'] != null ? D['okr_' + k.code + '_atual'] : k.atualSeed;
       const lead = D['okr_' + k.code + '_lead'] != null ? D['okr_' + k.code + '_lead'] : k.leadSeed;
@@ -6018,7 +6042,9 @@ function h2SecOkrs(D) {
       const st = h2ScoreTok(score);
       return `
       <div class="h2-kr">
-        <div class="h2-kr-head"><span class="h2-kr-code">${k.code}</span>${kindBadge(k.op)}</div>
+        <div class="h2-kr-head"><span class="h2-kr-code">${k.code}</span>${k.custom
+          ? `<button type="button" class="h2-badge h2-kindbtn" data-h2kind="${k.code}" title="Alternar operacional/alpha" style="${h2Badge(k.op ? H2_TOK.gray : H2_TOK.purple)}">${k.op ? 'operacional' : 'alpha'}</button><button type="button" class="h2-krdel" data-h2delkr="${k.code}" aria-label="Excluir KR">×</button>`
+          : kindBadge(k.op)}</div>
         <textarea class="h2-ta h2-kr-body-ta" data-h2key="okr_${k.code}_body" placeholder="descrição do key result…">${escapeHtml(String(body))}</textarea>
         <div class="h2-row2" style="margin-top:8px">
           <div style="flex:1"><label class="h2-flabel">Baseline</label><input class="h2-atual" data-h2key="okr_${k.code}_baseline" value="${escapeHtml(String(baseline))}" placeholder="—"></div>
@@ -6032,14 +6058,18 @@ function h2SecOkrs(D) {
         <textarea class="h2-ta" data-h2key="okr_${k.code}_lead" placeholder="alavanca semanal controlável…">${escapeHtml(String(lead))}</textarea>
       </div>`;
     }).join('');
+    const isCustom = !seedObjIds.includes(oid);
     const objTitle = D['obj_' + oid] != null ? D['obj_' + oid] : (H2_OBJ_DEFS[oid] || '');
     const inner = krs || (H2_OBJ_QUAL[oid] ? `<div class="h2-kr"><div class="h2-note" style="font-style:italic;line-height:1.55">${escapeHtml(H2_OBJ_QUAL[oid])}</div></div>` : '');
     return `<div class="h2-obj">
-      <div class="h2-obj-head"><span class="h2-obj-id">${oid}</span><input class="h2-obj-title" data-h2key="obj_${oid}" value="${escapeHtml(String(objTitle))}" placeholder="Descreva o objetivo (resultado / lag)…"></div>
+      <div class="h2-obj-head"><span class="h2-obj-id">${oid}</span><input class="h2-obj-title" data-h2key="obj_${oid}" value="${escapeHtml(String(objTitle))}" placeholder="Descreva o objetivo (resultado / lag)…">${isCustom ? `<button type="button" class="h2-objdel" data-h2delobj="${oid}" aria-label="Excluir objetivo">×</button>` : ''}</div>
       ${inner}
+      <div class="h2-obj-foot"><button type="button" class="h2-add-btn" data-h2addkr="${oid}">+ Adicionar KR</button></div>
     </div>`;
   }).join('');
-  const opA = h2Agg(D, H2_OP_CODES), alA = h2Agg(D, H2_AL_CODES);
+  const opA = h2Agg(D, h2OpCodes(D)), alA = h2Agg(D, h2AlCodes(D));
+  const opList = h2OpCodes(D).map((c, i) => i ? c.replace('KR', '') : c).join(' · ') || '—';
+  const alList = h2AlCodes(D).map((c, i) => i ? c.replace('KR', '') : c).join(' · ') || '—';
   const ns = D['northstar'] != null ? D['northstar'] : 'Gerar alpha no fundo com minha cobertura de energia';
   return `<div class="h2-sec">
     <div class="h2-eyebrow">01 · objetivos & key results</div>
@@ -6055,9 +6085,10 @@ function h2SecOkrs(D) {
       <div style="display:flex;align-items:center;gap:9px;margin-top:12px;font-size:12px;color:var(--text-muted)">Data <input class="h2-atual" data-h2key="pm_date" style="width:110px" value="${escapeHtml(D['pm_date'] || '')}" placeholder="__/__/__"></div>
     </div>
     ${groups}
+    <button type="button" class="h2-add-btn h2-add-obj" id="h2AddObj">+ Adicionar objetivo</button>
     <div class="h2-scoregrid">
-      <div class="h2-card"><div class="h2-eyebrow">Score — operacionais</div><div class="h2-note" style="margin-top:4px">KR1.1 · 2.1 · 2.2 · 3.1 · 4.1 · 6.1 · 7.1 — pass/fail</div><div style="display:flex;align-items:baseline;gap:10px;margin-top:10px"><span class="h2-big" id="h2OpA" style="color:${opA.tok.c}">${opA.text}</span><span class="h2-note" id="h2OpAf">${opA.filled}</span></div></div>
-      <div class="h2-card"><div class="h2-eyebrow">Score — alpha</div><div class="h2-note" style="margin-top:4px">KR1.2 — reflexão qualitativa</div><div style="display:flex;align-items:baseline;gap:10px;margin-top:10px"><span class="h2-big" id="h2AlA" style="color:${alA.tok.c}">${alA.text}</span><span class="h2-note" id="h2AlAf">${alA.filled}</span></div></div>
+      <div class="h2-card"><div class="h2-eyebrow">Score — operacionais</div><div class="h2-note" style="margin-top:4px">${opList} — pass/fail</div><div style="display:flex;align-items:baseline;gap:10px;margin-top:10px"><span class="h2-big" id="h2OpA" style="color:${opA.tok.c}">${opA.text}</span><span class="h2-note" id="h2OpAf">${opA.filled}</span></div></div>
+      <div class="h2-card"><div class="h2-eyebrow">Score — alpha</div><div class="h2-note" style="margin-top:4px">${alList} — reflexão qualitativa</div><div style="display:flex;align-items:baseline;gap:10px;margin-top:10px"><span class="h2-big" id="h2AlA" style="color:${alA.tok.c}">${alA.text}</span><span class="h2-note" id="h2AlAf">${alA.filled}</span></div></div>
     </div>
     <div class="h2-note" style="margin-top:12px;padding:11px 14px;background:var(--card-elev);border:1px solid var(--border);border-radius:10px"><b style="color:var(--text)">Regra:</b> operacional é pass/fail (não deveria ficar "verde" com 0,7); alpha usa 0,0–1,0 com reflexão qualitativa.</div>
   </div>`;
@@ -6065,8 +6096,8 @@ function h2SecOkrs(D) {
 function h2UpdateOkrAgg() {
   const D = loadH2();
   const set = (id, fid, a) => { const e = $(id); if (e) { e.textContent = a.text; e.style.color = a.tok.c; } const f = $(fid); if (f) f.textContent = a.filled; };
-  set('#h2OpA', '#h2OpAf', h2Agg(D, H2_OP_CODES));
-  set('#h2AlA', '#h2AlAf', h2Agg(D, H2_AL_CODES));
+  set('#h2OpA', '#h2OpAf', h2Agg(D, h2OpCodes(D)));
+  set('#h2AlA', '#h2AlAf', h2Agg(D, h2AlCodes(D)));
 }
 function bindH2Okrs(c) {
   c.querySelectorAll('[data-h2key]').forEach(el => el.addEventListener('input', () => { const D = loadH2(); D[el.dataset.h2key] = el.value; saveH2(D); }));
@@ -6075,6 +6106,62 @@ function bindH2Okrs(c) {
     const D = loadH2(); D[el.dataset.h2score] = el.value; saveH2(D);
     const t = h2ScoreTok(el.value); el.style.border = '1px solid ' + t.br; el.style.background = t.b; el.style.color = t.c;
     if (el.dataset.h2agg) h2UpdateOkrAgg();
+  }));
+
+  // Adicionar objetivo (O8, O9, ...)
+  const addObj = c.querySelector('#h2AddObj');
+  if (addObj) addObj.addEventListener('click', () => {
+    const D = loadH2();
+    const customs = h2CustomObjs(D);
+    const nums = ['O1', 'O2', 'O3', 'O4', 'O5', 'O6', 'O7'].concat(customs).map(o => parseInt(o.slice(1)) || 0);
+    const oid = 'O' + (Math.max(...nums) + 1);
+    D.h2CustomObjs = customs.concat([oid]);
+    saveH2(D);
+    renderH2Section();
+    const inp = $('#h2Content [data-h2key="obj_' + oid + '"]');
+    if (inp) { inp.scrollIntoView({ block: 'center' }); inp.focus(); }
+  });
+  // Adicionar KR dentro de um objetivo (próximo número da família)
+  c.querySelectorAll('[data-h2addkr]').forEach(btn => btn.addEventListener('click', () => {
+    const oid = btn.dataset.h2addkr;
+    const D = loadH2();
+    const famNum = parseInt(oid.slice(1)) || 0;
+    const minors = h2AllKrDefs(D).filter(k => k.fam === oid).map(k => parseInt(k.code.split('.')[1]) || 0);
+    const code = 'KR' + famNum + '.' + (minors.length ? Math.max(...minors) + 1 : 1);
+    D.h2CustomKrs = h2CustomKrs(D).concat([{ code, fam: oid, op: true, custom: true, baseline: '', meta: '', atualSeed: '', leadSeed: '', body: '' }]);
+    saveH2(D);
+    renderH2Section();
+    const ta = $('#h2Content [data-h2key="okr_' + code + '_body"]');
+    if (ta) { ta.scrollIntoView({ block: 'center' }); ta.focus(); }
+  }));
+  // Alternar operacional/alpha (só KRs criados no app)
+  c.querySelectorAll('[data-h2kind]').forEach(btn => btn.addEventListener('click', () => {
+    const D = loadH2();
+    const kr = h2CustomKrs(D).find(k => k.code === btn.dataset.h2kind);
+    if (kr) { kr.op = !kr.op; saveH2(D); renderH2Section(); }
+  }));
+  // Excluir KR custom (limpa também os campos digitados dele)
+  c.querySelectorAll('[data-h2delkr]').forEach(btn => btn.addEventListener('click', () => {
+    const code = btn.dataset.h2delkr;
+    if (!confirm('Excluir o ' + code + '?')) return;
+    const D = loadH2();
+    D.h2CustomKrs = h2CustomKrs(D).filter(k => k.code !== code);
+    ['body', 'baseline', 'meta', 'atual', 'score', 'lead'].forEach(f => delete D['okr_' + code + '_' + f]);
+    saveH2(D);
+    renderH2Section();
+  }));
+  // Excluir objetivo custom (leva junto os KRs dele)
+  c.querySelectorAll('[data-h2delobj]').forEach(btn => btn.addEventListener('click', () => {
+    const oid = btn.dataset.h2delobj;
+    if (!confirm('Excluir o objetivo ' + oid + ' e seus KRs?')) return;
+    const D = loadH2();
+    h2CustomKrs(D).filter(k => k.fam === oid).forEach(k =>
+      ['body', 'baseline', 'meta', 'atual', 'score', 'lead'].forEach(f => delete D['okr_' + k.code + '_' + f]));
+    D.h2CustomKrs = h2CustomKrs(D).filter(k => k.fam !== oid);
+    D.h2CustomObjs = h2CustomObjs(D).filter(o => o !== oid);
+    delete D['obj_' + oid];
+    saveH2(D);
+    renderH2Section();
   }));
 }
 

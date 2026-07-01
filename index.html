@@ -1558,6 +1558,25 @@ window.firebaseConfig = {
   .plan-h2-title { font-size: 14px; font-weight: 600; color: var(--text); }
   .plan-h2-sub { font-size: 11.5px; color: var(--text-subtle); margin-top: 2px; line-height: 1.4; }
   .plan-h2-arrow { flex: none; color: var(--accent); font-size: 18px; font-weight: 600; }
+  .h2-overlay {
+    position: fixed; inset: 0; z-index: 1000; background: var(--bg);
+    display: none; flex-direction: column;
+  }
+  .h2-overlay.open { display: flex; }
+  .h2-bar {
+    flex: none; display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px; background: var(--card); border-bottom: 1px solid var(--border);
+    padding-top: max(10px, env(safe-area-inset-top));
+  }
+  .h2-back {
+    flex: none; background: var(--card-elev); border: 1px solid var(--border-strong);
+    color: var(--text); border-radius: 9px; padding: 8px 14px; font-size: 13px;
+    font-weight: 500; font-family: inherit; cursor: pointer; transition: filter 0.15s ease;
+  }
+  .h2-back:hover { filter: brightness(1.12); }
+  .h2-back:active { transform: scale(0.97); }
+  .h2-bar-title { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+  .h2-frame { flex: 1; width: 100%; border: none; background: #F6F4EF; }
 
   /* ===== Tarefas (lista unificada) ===== */
   .tasks-card {
@@ -1979,7 +1998,7 @@ window.firebaseConfig = {
       <div class="plan-week-total" id="planWeekTotal"></div>
     </div>
 
-    <a class="plan-h2-link" href="plano-h2.html" target="_blank" rel="noopener">
+    <a class="plan-h2-link" id="planH2Open" href="plano-h2.html">
       <div class="plan-h2-ico">📋</div>
       <div class="plan-h2-txt">
         <div class="plan-h2-title">Plano semestral · H2 2026</div>
@@ -1990,6 +2009,14 @@ window.firebaseConfig = {
 
     <div class="plan-hint">💡 Defina quanto quer focar em cada dia. O card de cima mostra, todo dia, o planejado contra o que você já fez. Fim de semana pode ficar zerado.</div>
   </div>
+</div>
+
+<div class="h2-overlay" id="h2Overlay">
+  <div class="h2-bar">
+    <button class="h2-back" id="h2Back">‹ Voltar</button>
+    <span class="h2-bar-title">Plano semestral · H2 2026</span>
+  </div>
+  <iframe class="h2-frame" id="h2Frame" title="Plano semestral H2 2026"></iframe>
 </div>
 
 <div class="alarm-overlay" id="alarmModal">
@@ -5677,6 +5704,28 @@ function renderWeekReview() {
   card.querySelector('#wrPrev').addEventListener('click', () => { weekReviewOffset--; renderWeekReview(); });
   card.querySelector('#wrNext').addEventListener('click', () => { if (weekReviewOffset < 0) { weekReviewOffset++; renderWeekReview(); } });
 }
+
+// ===== Plano semestral H2 2026: abre embutido (tela cheia, dentro do app) =====
+(function () {
+  const overlay = $('#h2Overlay');
+  const frame = $('#h2Frame');
+  const openBtn = $('#planH2Open');
+  const backBtn = $('#h2Back');
+  if (!overlay || !frame || !openBtn) return;
+  function openH2() {
+    if (!frame.getAttribute('src')) frame.setAttribute('src', 'plano-h2.html'); // carrega só no 1º acesso
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    try { history.pushState({ h2: 1 }, ''); } catch {}
+  }
+  function closeH2() {
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  openBtn.addEventListener('click', e => { e.preventDefault(); openH2(); });
+  backBtn.addEventListener('click', () => { if (history.state && history.state.h2) history.back(); else closeH2(); });
+  window.addEventListener('popstate', () => { if (overlay.classList.contains('open')) closeH2(); });
+})();
 
 loadTasks(); // migra tarefas dos sistemas antigos (plano-do-dia + tarefas-do-mês) na 1ª carga
 updateDisplay();

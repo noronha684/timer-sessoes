@@ -7,6 +7,10 @@
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://timer-sessoes.gabriel-noronha-o-p.workers.dev">
 <link rel="dns-prefetch" href="https://www.gstatic.com">
+<!-- Fontes editoriais da aba Semestre (IBM Plex Serif nos títulos, Mono nos dados) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Serif:wght@600;700&display=swap">
 <title>Timer de Sessões</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0e0e1a">
@@ -1573,16 +1577,19 @@ window.firebaseConfig = {
   .h2-chip:hover { color: var(--text-muted); }
   .h2-chip.active { color: #1a1a2e; background: var(--accent); border-color: var(--accent); }
   .h2-chip.active .h2-chip-n { opacity: 0.65; }
-  .h2-content { --h2-mono: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace; }
+  .h2-content {
+    --h2-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace;
+    --h2-serif: 'IBM Plex Serif', Georgia, 'Times New Roman', serif;
+  }
 
-  /* Tipografia/estrutura das seções H2 */
+  /* Tipografia/estrutura das seções H2 — editorial (serif nos títulos, mono nos dados) */
   .h2-sec { max-width: 760px; margin: 0 auto; }
   .h2-eyebrow { font: 600 10px/1 var(--h2-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-subtle); }
-  .h2-h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); margin: 9px 0 0; }
-  .h2-lead { font-size: 13px; color: var(--text-muted); margin: 9px 0 0; line-height: 1.55; }
+  .h2-h1 { font-family: var(--h2-serif); font-size: 26px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.15; color: var(--text); margin: 11px 0 0; }
+  .h2-lead { font-size: 13.5px; color: var(--text-muted); margin: 11px 0 0; line-height: 1.6; max-width: 68ch; }
   .h2-card {
     background: var(--card); border: 1px solid var(--border); border-radius: 14px;
-    padding: 14px 15px; margin-top: 14px;
+    padding: 15px 16px; margin-top: 16px;
   }
   .h2-card-h {
     display: flex; align-items: center; gap: 9px; margin: -2px 0 10px;
@@ -1624,14 +1631,14 @@ window.firebaseConfig = {
   }
   .h2-cycle { width: 100%; height: 34px; border-radius: 7px; cursor: pointer; font: 600 13px var(--h2-mono); }
   .h2-check { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
-  .h2-big { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+  .h2-big { font-family: var(--h2-serif); font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
   .h2-soon { font-size: 13px; color: var(--text-muted); text-align: center; padding: 40px 12px; line-height: 1.6; }
   .h2-flabel { display: block; font: 600 9.5px var(--h2-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-subtle); margin: 8px 0 5px; }
   .h2-row2 { display: flex; gap: 12px; align-items: flex-start; margin-top: 4px; }
   .h2-obj { border: 1px solid var(--border); border-radius: 13px; overflow: hidden; margin-top: 14px; }
   .h2-obj-head { display: flex; align-items: center; gap: 10px; padding: 11px 13px; background: var(--card-elev); border-bottom: 1px solid var(--border); }
   .h2-obj-id { font: 600 11px var(--h2-mono); color: var(--accent); border: 1px solid var(--accent); background: rgba(196,181,253,0.08); padding: 3px 8px; border-radius: 6px; flex: none; }
-  .h2-obj-title { flex: 1; min-width: 0; border: none; background: transparent; outline: none; color: var(--text); font-size: 14px; font-weight: 600; font-family: inherit; }
+  .h2-obj-title { flex: 1; min-width: 0; border: none; background: transparent; outline: none; color: var(--text); font-size: 15.5px; font-weight: 600; font-family: var(--h2-serif); }
   .h2-obj-title::placeholder { color: var(--text-subtle); font-weight: 400; }
   .h2-kr { padding: 13px 14px; border-top: 1px solid var(--border); }
   .h2-obj .h2-kr:first-of-type { border-top: none; }
@@ -6010,7 +6017,7 @@ function h2SecOkrs(D) {
     <p class="h2-lead">Cada KR é pontuado de 0,0 a 1,0 (0,7–1,0 = sucesso). Operacionais são pass/fail; metas de alpha admitem reflexão qualitativa.</p>
     <div class="h2-card" style="box-shadow:inset 3px 0 0 var(--accent)">
       <div class="h2-eyebrow" style="color:var(--accent)">North Star do semestre</div>
-      <textarea class="h2-ta" data-h2key="northstar" style="border:none;background:transparent;font-size:16px;font-weight:500;min-height:50px;padding:8px 0 0" placeholder="Sua frase de direção…">${escapeHtml(String(ns))}</textarea>
+      <textarea class="h2-ta" data-h2key="northstar" style="border:none;background:transparent;font-family:var(--h2-serif);font-size:18px;font-weight:500;line-height:1.4;min-height:52px;padding:8px 0 0" placeholder="Sua frase de direção…">${escapeHtml(String(ns))}</textarea>
     </div>
     <div class="h2-card">
       <div class="h2-eyebrow">Aprovação do PM</div>

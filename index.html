@@ -87,7 +87,7 @@ window.firebaseConfig = {
 
   .tabs {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     margin-bottom: 18px;
     background: var(--card);
     padding: 5px;
@@ -99,7 +99,7 @@ window.firebaseConfig = {
     content: '';
     position: absolute;
     top: 5px; bottom: 5px; left: 5px;
-    width: calc((100% - 10px) / 7);
+    width: calc((100% - 10px) / 6);
     background: var(--card-elev);
     border: 1px solid var(--border-strong);
     border-radius: 8px;
@@ -112,7 +112,6 @@ window.firebaseConfig = {
   .tabs.tab-sono::before { transform: translateX(300%); }
   .tabs.tab-agenda::before { transform: translateX(400%); }
   .tabs.tab-cal::before { transform: translateX(500%); }
-  .tabs.tab-diario::before { transform: translateX(600%); }
   .tab {
     padding: 10px 1px; background: transparent;
     border: none; border-radius: 8px;
@@ -1116,41 +1115,6 @@ window.firebaseConfig = {
   .agenda-dot.focus { background: var(--accent); }
   .agenda-dot.sleep { background: #6f8fff; }
 
-  /* ====== Diário (hábitos diários) ====== */
-  .diario-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 8px 0;
-    margin-bottom: 12px;
-  }
-  .diario-item {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 12px; padding: 14px 18px;
-  }
-  .diario-item + .diario-item { border-top: 1px solid var(--border); }
-  .diario-q { font-size: 14px; color: var(--text); flex: 1; line-height: 1.35; }
-  .diario-btns { display: flex; gap: 8px; flex-shrink: 0; }
-  .diario-btn {
-    width: 42px; height: 38px;
-    border: 1px solid var(--border-strong);
-    background: rgba(255,255,255,0.03);
-    border-radius: 9px;
-    color: var(--text-subtle); font-size: 16px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.15s ease;
-  }
-  .diario-btn:hover { background: rgba(255,255,255,0.07); }
-  .diario-btn.no.active { background: rgba(248,113,113,0.18); border-color: var(--danger); color: var(--danger); }
-  .diario-btn.yes.active { background: rgba(52,211,153,0.18); border-color: var(--success); color: var(--success); }
-  .diario-empty {
-    text-align: center; padding: 40px 20px; color: var(--text-subtle); font-size: 14px; line-height: 1.6;
-  }
-  .diario-progress {
-    text-align: center; font-size: 12px; color: var(--text-subtle);
-    padding: 12px 0 4px;
-  }
-
   /* ====== Calendário (planner mensal) ====== */
   .cal-view-toggle {
     display: flex; gap: 4px;
@@ -1814,7 +1778,6 @@ window.firebaseConfig = {
     <div class="tab" data-panel="sono">Sono</div>
     <div class="tab" data-panel="agenda">Agenda</div>
     <div class="tab" data-panel="cal">Calendário</div>
-    <div class="tab" data-panel="diario">Diário</div>
   </div>
 
   <div class="panel active" id="timer-panel">
@@ -2069,17 +2032,6 @@ window.firebaseConfig = {
     <div class="cal-week-list" id="calWeekList" style="display:none"></div>
   </div>
 
-  <div class="panel" id="diario-panel">
-    <div class="agenda-nav">
-      <button class="agenda-nav-btn" id="diarioPrev">‹</button>
-      <div class="agenda-range" id="diarioDate">—</div>
-      <button class="agenda-nav-btn" id="diarioNext">›</button>
-    </div>
-    <div class="diario-card">
-      <div id="diarioList"></div>
-    </div>
-    <button class="goals-add-btn" id="manageItemsBtn" style="margin-bottom:14px;">⚙️ Gerenciar perguntas do diário</button>
-  </div>
 
   <div class="panel" id="plano-panel">
     <div class="plan-today-card" id="planTodayCard"></div>
@@ -2300,18 +2252,6 @@ window.firebaseConfig = {
     </div>
     <button class="btn-primary" id="saveManualBtn">Adicionar</button>
     <button class="modal-close" id="manualModalClose" style="margin-top:8px;">Cancelar</button>
-  </div>
-</div>
-
-<div class="modal-overlay" id="journalItemsModal">
-  <div class="modal-content">
-    <div class="modal-title">Perguntas do diário</div>
-    <div class="cat-list" id="journalItemsList"></div>
-    <div class="add-cat-row">
-      <input type="text" class="new-cat-input" id="newJournalItemInput" placeholder="Nova pergunta..." maxlength="60">
-      <button class="add-cat-btn" id="addJournalItemBtn" aria-label="Adicionar">+</button>
-    </div>
-    <button class="modal-close" id="journalItemsModalClose">Fechar</button>
   </div>
 </div>
 
@@ -2628,19 +2568,17 @@ document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.add('active');
     $('#' + tab.dataset.panel + '-panel').classList.add('active');
     const tabsEl = document.querySelector('.tabs');
-    tabsEl.classList.remove('tab-plano', 'tab-history', 'tab-sono', 'tab-agenda', 'tab-cal', 'tab-diario');
+    tabsEl.classList.remove('tab-plano', 'tab-history', 'tab-sono', 'tab-agenda', 'tab-cal');
     if (tab.dataset.panel === 'plano') tabsEl.classList.add('tab-plano');
     if (tab.dataset.panel === 'history') tabsEl.classList.add('tab-history');
     if (tab.dataset.panel === 'sono') tabsEl.classList.add('tab-sono');
     if (tab.dataset.panel === 'agenda') tabsEl.classList.add('tab-agenda');
     if (tab.dataset.panel === 'cal') tabsEl.classList.add('tab-cal');
-    if (tab.dataset.panel === 'diario') tabsEl.classList.add('tab-diario');
     if (tab.dataset.panel === 'plano') renderPlano();
     if (tab.dataset.panel === 'history') renderHistory();
     if (tab.dataset.panel === 'sono') renderSono();
     if (tab.dataset.panel === 'agenda') renderAgenda();
     if (tab.dataset.panel === 'cal') renderCalendar();
-    if (tab.dataset.panel === 'diario') renderDiario();
   });
 });
 
@@ -3483,8 +3421,6 @@ async function pushToCloud() {
         h2Plan: loadH2(),
         events: loadEvents(),
         target: loadTarget(),
-        journalItems: loadJournalItems(),
-        journal: loadJournal(),
         activeTimer: state.running ? {
           paused: state.paused,
           startedAt: state.startedAt,
@@ -3628,18 +3564,6 @@ function applyServerSnapshot(snap) {
       // Alvo da prova (burn-down)
       if (snap.settings.target !== undefined) {
         if (snap.settings.target) localStorage.setItem('timerTarget', JSON.stringify(snap.settings.target));
-      }
-      // Diário: perguntas (usa do servidor) e respostas (mescla por dia)
-      if (Array.isArray(snap.settings.journalItems)) {
-        localStorage.setItem('timerJournalItems', JSON.stringify(snap.settings.journalItems));
-      }
-      if (snap.settings.journal && typeof snap.settings.journal === 'object') {
-        const local = loadJournal();
-        const merged = { ...local };
-        for (const dk in snap.settings.journal) {
-          merged[dk] = { ...(merged[dk] || {}), ...snap.settings.journal[dk] };
-        }
-        localStorage.setItem('timerJournal', JSON.stringify(merged));
       }
       // Eventos do calendário: mescla por dia (dedupe por id)
       if (snap.settings.events && typeof snap.settings.events === 'object') {
@@ -5157,141 +5081,7 @@ $('#dayEventsList').addEventListener('click', (e) => {
   }
 });
 
-// ====== Diário (hábitos diários) ======
-let diarioOffset = 0; // 0 = hoje
-
-function loadJournalItems() {
-  try {
-    const stored = JSON.parse(localStorage.getItem('timerJournalItems') || 'null');
-    if (Array.isArray(stored)) return stored;
-  } catch {}
-  // Defaults editáveis
-  return [
-    { id: 'j1', text: 'Exercício físico?' },
-    { id: 'j2', text: 'Cafeína?' },
-    { id: 'j3', text: 'Álcool?' },
-    { id: 'j4', text: 'Boa noite de sono?' },
-  ];
-}
-function saveJournalItems(items) {
-  localStorage.setItem('timerJournalItems', JSON.stringify(items));
-  if (typeof triggerSync === 'function') triggerSync();
-}
-function loadJournal() {
-  try { return JSON.parse(localStorage.getItem('timerJournal') || '{}'); }
-  catch { return {}; }
-}
-function saveJournal(j) {
-  localStorage.setItem('timerJournal', JSON.stringify(j));
-  if (typeof triggerSync === 'function') triggerSync();
-}
-
-function diarioDateKey() {
-  const d = new Date();
-  d.setDate(d.getDate() + diarioOffset);
-  return dateKey(d);
-}
-
-function renderDiario() {
-  const items = loadJournalItems();
-  const journal = loadJournal();
-  const key = diarioDateKey();
-  const answers = journal[key] || {};
-
-  // Header de data
-  const d = new Date(key + 'T00:00:00');
-  const dateEl = $('#diarioDate');
-  dateEl.textContent = diarioOffset === 0
-    ? 'Hoje, ' + d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
-    : d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
-
-  const list = $('#diarioList');
-  if (items.length === 0) {
-    list.innerHTML = '<div class="diario-empty">Nenhuma pergunta ainda.<br>Toque em "Gerenciar perguntas" pra adicionar.</div>';
-    return;
-  }
-
-  let answered = 0;
-  const rows = items.map(item => {
-    const val = answers[item.id];
-    if (val !== undefined) answered++;
-    return `
-      <div class="diario-item">
-        <span class="diario-q">${escapeHtml(item.text)}</span>
-        <span class="diario-btns">
-          <button class="diario-btn no ${val === false ? 'active' : ''}" data-item="${item.id}" data-val="no">✗</button>
-          <button class="diario-btn yes ${val === true ? 'active' : ''}" data-item="${item.id}" data-val="yes">✓</button>
-        </span>
-      </div>`;
-  }).join('');
-
-  list.innerHTML = rows + `<div class="diario-progress">${answered} de ${items.length} respondidas</div>`;
-}
-
-$('#diarioList').addEventListener('click', (e) => {
-  const btn = e.target.closest('.diario-btn');
-  if (!btn) return;
-  const itemId = btn.dataset.item;
-  const wantYes = btn.dataset.val === 'yes';
-  const journal = loadJournal();
-  const key = diarioDateKey();
-  if (!journal[key]) journal[key] = {};
-  const current = journal[key][itemId];
-  // Toggle: clicar no já-ativo remove a resposta
-  if ((wantYes && current === true) || (!wantYes && current === false)) {
-    delete journal[key][itemId];
-  } else {
-    journal[key][itemId] = wantYes;
-  }
-  if (Object.keys(journal[key]).length === 0) delete journal[key];
-  saveJournal(journal);
-  renderDiario();
-});
-
-$('#diarioPrev').addEventListener('click', () => { diarioOffset--; renderDiario(); });
-$('#diarioNext').addEventListener('click', () => { if (diarioOffset < 0) { diarioOffset++; renderDiario(); } });
-
-// Gerenciar perguntas
-function renderJournalItemsList() {
-  const items = loadJournalItems();
-  const list = $('#journalItemsList');
-  if (items.length === 0) {
-    list.innerHTML = '<div class="todo-empty" style="margin-bottom:10px;">Nenhuma pergunta. Adicione abaixo.</div>';
-    return;
-  }
-  list.innerHTML = items.map(item => `
-    <div class="cat-item">
-      <span class="cat-name">${escapeHtml(item.text)}</span>
-      <button class="cat-delete" data-delitem="${item.id}" aria-label="Excluir">×</button>
-    </div>`).join('');
-}
-$('#manageItemsBtn').addEventListener('click', () => {
-  renderJournalItemsList();
-  $('#journalItemsModal').classList.add('active');
-  $('#newJournalItemInput').value = '';
-});
-$('#journalItemsModalClose').addEventListener('click', () => { $('#journalItemsModal').classList.remove('active'); renderDiario(); });
-$('#journalItemsModal').addEventListener('click', (e) => { if (e.target.id === 'journalItemsModal') { $('#journalItemsModal').classList.remove('active'); renderDiario(); } });
-function addJournalItem() {
-  const input = $('#newJournalItemInput');
-  const text = input.value.trim();
-  if (!text) return;
-  const items = loadJournalItems();
-  const id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'j-' + Date.now();
-  items.push({ id, text });
-  saveJournalItems(items);
-  input.value = '';
-  renderJournalItemsList();
-}
-$('#addJournalItemBtn').addEventListener('click', addJournalItem);
-$('#newJournalItemInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addJournalItem(); } });
-$('#journalItemsList').addEventListener('click', (e) => {
-  const del = e.target.closest('.cat-delete');
-  if (!del) return;
-  const items = loadJournalItems().filter(i => i.id !== del.dataset.delitem);
-  saveJournalItems(items);
-  renderJournalItemsList();
-});
+// (Aba Diário removida a pedido do usuário — dados de timerJournal preservados no storage, sem UI/sync)
 
 // ====== Sessão manual ======
 function addManualSession(category, durationMs, subcategory, dateStr, atMs) {

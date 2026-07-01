@@ -1677,6 +1677,7 @@ window.firebaseConfig = {
   }
   .h2-krdel:hover, .h2-objdel:hover { opacity: 1; color: var(--danger); background: var(--card-elev); }
   .h2-kindbtn { cursor: pointer; font-family: inherit; }
+  .h2-score-out { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; cursor: default; }
   .h2-toggle { display: inline-flex; gap: 4px; background: var(--card-elev); border: 1px solid var(--border); border-radius: 9px; padding: 3px; margin-top: 12px; }
   .h2-toggle button { border: none; background: transparent; color: var(--text-subtle); padding: 6px 14px; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
   .h2-toggle button.active { background: var(--accent); color: #1a1a2e; }
@@ -6011,10 +6012,11 @@ function h2SecRegulatorio() {
 
 // -- Seção 01 · OKRs --
 function h2Agg(D, codes) {
-  const vals = codes.map(c => h2Num(D['okr_' + c + '_score'])).filter(x => x != null);
-  if (!vals.length) return { text: '—', filled: '0 de ' + codes.length + ' preenchidos', tok: H2_TOK.gray };
+  const defs = h2AllKrDefs(D);
+  const vals = codes.map(c => h2AutoScore(D, defs.find(k => k.code === c))).filter(x => x != null);
+  if (!vals.length) return { text: '—', filled: '0 de ' + codes.length + ' mensuráveis', tok: H2_TOK.gray };
   const av = vals.reduce((s, x) => s + x, 0) / vals.length;
-  return { text: av.toFixed(2).replace('.', ','), filled: vals.length + ' de ' + codes.length + ' preenchidos', tok: h2ScoreTok(av) };
+  return { text: av.toFixed(2).replace('.', ','), filled: vals.length + ' de ' + codes.length + ' mensuráveis', tok: h2ScoreTok(av) };
 }
 // OKRs custom (criados no app pelo botão "+", vivem no store e sincronizam; seeds ficam no código)
 function h2CustomObjs(D) { return Array.isArray(D.h2CustomObjs) ? D.h2CustomObjs : []; }
@@ -6022,6 +6024,29 @@ function h2CustomKrs(D) { return Array.isArray(D.h2CustomKrs) ? D.h2CustomKrs : 
 function h2AllKrDefs(D) { return H2_KR_DEFS.concat(h2CustomKrs(D)); }
 function h2OpCodes(D) { return h2AllKrDefs(D).filter(k => k.op).map(k => k.code); }
 function h2AlCodes(D) { return h2AllKrDefs(D).filter(k => !k.op).map(k => k.code); }
+
+// Score é OUTPUT: calculado de onde o Atual está no caminho Baseline -> Meta.
+// Entende frações ("4/10" -> 0,4), percentuais ("60%" -> 60) e números; ignora ~ ≤ ≥.
+function h2ParseVal(s) {
+  if (s == null) return null;
+  s = String(s).replace(/[~≤≥<>≈]/g, '').trim();
+  if (!s) return null;
+  const num = t => parseFloat(t.replace(',', '.'));
+  const frac = s.match(/(-?\d+(?:[.,]\d+)?)\s*\/\s*(-?\d+(?:[.,]\d+)?)/);
+  if (frac) { const d = num(frac[2]); if (d) return num(frac[1]) / d; }
+  const m = s.match(/-?\d+(?:[.,]\d+)?/);
+  return m ? num(m[0]) : null;
+}
+function h2AutoScore(D, k) {
+  if (!k) return null;
+  const g = f => D['okr_' + k.code + '_' + f] != null ? D['okr_' + k.code + '_' + f] : (f === 'atual' ? k.atualSeed : k[f]);
+  const vb = h2ParseVal(g('baseline')), vm = h2ParseVal(g('meta')), va = h2ParseVal(g('atual'));
+  if (vb == null || vm == null || va == null) return null;
+  if (vm === vb) return va >= vm ? 1 : 0;
+  // funciona também quando menor é melhor (ex.: baseline 12% -> meta 8%)
+  return Math.max(0, Math.min(1, (va - vb) / (vm - vb)));
+}
+function h2FmtScore(v) { return v == null ? '—' : v.toFixed(2).replace('.', ','); }
 
 function h2SecOkrs(D) {
   const kindBadge = op => op
@@ -6033,7 +6058,7 @@ function h2SecOkrs(D) {
     const defs = h2AllKrDefs(D).filter(k => k.fam === oid)
       .sort((a, b) => (parseInt(a.code.split('.')[1]) || 0) - (parseInt(b.code.split('.')[1]) || 0));
     const krs = defs.map(k => {
-      const score = D['okr_' + k.code + '_score'] != null ? D['okr_' + k.code + '_score'] : '';
+      const score = h2AutoScore(D, k);
       const atual = D['okr_' + k.code + '_atual'] != null ? D['okr_' + k.code + '_atual'] : k.atualSeed;
       const lead = D['okr_' + k.code + '_lead'] != null ? D['okr_' + k.code + '_lead'] : k.leadSeed;
       const body = D['okr_' + k.code + '_body'] != null ? D['okr_' + k.code + '_body'] : k.body;
@@ -6052,7 +6077,7 @@ function h2SecOkrs(D) {
         </div>
         <div class="h2-row2">
           <div style="flex:1"><label class="h2-flabel">Atual</label><input class="h2-atual" data-h2key="okr_${k.code}_atual" value="${escapeHtml(String(atual))}" placeholder="—"></div>
-          <div><label class="h2-flabel">Score</label><input class="h2-score" data-h2score="okr_${k.code}_score" data-h2agg="1" inputmode="decimal" maxlength="4" value="${escapeHtml(String(score))}" placeholder="0,0" style="border:1px solid ${st.br};background:${st.b};color:${st.c}"></div>
+          <div><label class="h2-flabel">Score (auto)</label><span class="h2-score h2-score-out" data-h2auto="${k.code}" title="Calculado do Atual no caminho Baseline → Meta" style="border:1px solid ${st.br};background:${st.b};color:${st.c}">${h2FmtScore(score)}</span></div>
         </div>
         <label class="h2-flabel">Lead measures (alavanca semanal)</label>
         <textarea class="h2-ta" data-h2key="okr_${k.code}_lead" placeholder="alavanca semanal controlável…">${escapeHtml(String(lead))}</textarea>
@@ -6074,7 +6099,7 @@ function h2SecOkrs(D) {
   return `<div class="h2-sec">
     <div class="h2-eyebrow">01 · objetivos & key results</div>
     <h1 class="h2-h1">OKRs — 2H26</h1>
-    <p class="h2-lead">Cada KR é pontuado de 0,0 a 1,0 (0,7–1,0 = sucesso). Operacionais são pass/fail; metas de alpha admitem reflexão qualitativa. <b style="color:var(--text-muted)">Regra do 1,5×:</b> multiplique toda estimativa de tempo por 1,5 antes de comprometer prazo (corrige o otimismo sistemático).</p>
+    <p class="h2-lead">O score é <b style="color:var(--text-muted)">output</b>: calculado de onde o Atual está no caminho Baseline → Meta (0,7–1,0 = sucesso). Você só atualiza o Atual. <b style="color:var(--text-muted)">Regra do 1,5×:</b> multiplique toda estimativa de tempo por 1,5 antes de comprometer prazo (corrige o otimismo sistemático).</p>
     <div class="h2-card" style="box-shadow:inset 3px 0 0 var(--accent)">
       <div class="h2-eyebrow" style="color:var(--accent)">North Star do semestre</div>
       <textarea class="h2-ta" data-h2key="northstar" style="border:none;background:transparent;font-family:var(--h2-serif);font-size:18px;font-weight:500;line-height:1.4;min-height:52px;padding:8px 0 0" placeholder="Sua frase de direção…">${escapeHtml(String(ns))}</textarea>
@@ -6090,7 +6115,7 @@ function h2SecOkrs(D) {
       <div class="h2-card"><div class="h2-eyebrow">Score — operacionais</div><div class="h2-note" style="margin-top:4px">${opList} — pass/fail</div><div style="display:flex;align-items:baseline;gap:10px;margin-top:10px"><span class="h2-big" id="h2OpA" style="color:${opA.tok.c}">${opA.text}</span><span class="h2-note" id="h2OpAf">${opA.filled}</span></div></div>
       <div class="h2-card"><div class="h2-eyebrow">Score — alpha</div><div class="h2-note" style="margin-top:4px">${alList} — reflexão qualitativa</div><div style="display:flex;align-items:baseline;gap:10px;margin-top:10px"><span class="h2-big" id="h2AlA" style="color:${alA.tok.c}">${alA.text}</span><span class="h2-note" id="h2AlAf">${alA.filled}</span></div></div>
     </div>
-    <div class="h2-note" style="margin-top:12px;padding:11px 14px;background:var(--card-elev);border:1px solid var(--border);border-radius:10px"><b style="color:var(--text)">Regra:</b> operacional é pass/fail (não deveria ficar "verde" com 0,7); alpha usa 0,0–1,0 com reflexão qualitativa.</div>
+    <div class="h2-note" style="margin-top:12px;padding:11px 14px;background:var(--card-elev);border:1px solid var(--border);border-radius:10px"><b style="color:var(--text)">Regra:</b> o score sai do Atual (entre Baseline e Meta) — atualize o Atual, não o score. Operacional só conta como entregue em 1,0 (pass/fail); alpha admite leitura parcial.</div>
   </div>`;
 }
 function h2UpdateOkrAgg() {
@@ -6099,14 +6124,24 @@ function h2UpdateOkrAgg() {
   set('#h2OpA', '#h2OpAf', h2Agg(D, h2OpCodes(D)));
   set('#h2AlA', '#h2AlAf', h2Agg(D, h2AlCodes(D)));
 }
+function h2RefreshAutoScore(code) {
+  const D = loadH2();
+  const el = document.querySelector(`#h2Content [data-h2auto="${code}"]`);
+  if (el) {
+    const v = h2AutoScore(D, h2AllKrDefs(D).find(k => k.code === code));
+    const t = h2ScoreTok(v);
+    el.textContent = h2FmtScore(v);
+    el.style.border = '1px solid ' + t.br; el.style.background = t.b; el.style.color = t.c;
+  }
+  h2UpdateOkrAgg();
+}
 function bindH2Okrs(c) {
-  c.querySelectorAll('[data-h2key]').forEach(el => el.addEventListener('input', () => { const D = loadH2(); D[el.dataset.h2key] = el.value; saveH2(D); }));
-  c.querySelectorAll('[data-h2check]').forEach(el => el.addEventListener('change', () => { const D = loadH2(); D[el.dataset.h2check] = el.checked; saveH2(D); }));
-  c.querySelectorAll('[data-h2score]').forEach(el => el.addEventListener('input', () => {
-    const D = loadH2(); D[el.dataset.h2score] = el.value; saveH2(D);
-    const t = h2ScoreTok(el.value); el.style.border = '1px solid ' + t.br; el.style.background = t.b; el.style.color = t.c;
-    if (el.dataset.h2agg) h2UpdateOkrAgg();
+  c.querySelectorAll('[data-h2key]').forEach(el => el.addEventListener('input', () => {
+    const D = loadH2(); D[el.dataset.h2key] = el.value; saveH2(D);
+    const m = el.dataset.h2key.match(/^okr_(.+)_(atual|baseline|meta)$/);
+    if (m) h2RefreshAutoScore(m[1]); // score é derivado desses campos
   }));
+  c.querySelectorAll('[data-h2check]').forEach(el => el.addEventListener('change', () => { const D = loadH2(); D[el.dataset.h2check] = el.checked; saveH2(D); }));
 
   // Adicionar objetivo (O8, O9, ...)
   const addObj = c.querySelector('#h2AddObj');

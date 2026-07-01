@@ -1540,6 +1540,24 @@ window.firebaseConfig = {
     font-size: 11.5px; color: var(--text-subtle); line-height: 1.55;
     padding: 0 6px; text-align: center;
   }
+  .plan-h2-link {
+    display: flex; align-items: center; gap: 13px;
+    background: linear-gradient(135deg, rgba(196,181,253,0.10), rgba(167,139,250,0.05)), var(--card);
+    border: 1px solid var(--border-strong); border-radius: 16px;
+    padding: 15px 16px; margin-bottom: 14px; text-decoration: none;
+    transition: border-color 0.15s ease, transform 0.1s ease;
+  }
+  .plan-h2-link:hover { border-color: var(--accent); }
+  .plan-h2-link:active { transform: scale(0.99); }
+  .plan-h2-ico {
+    flex: none; width: 40px; height: 40px; border-radius: 11px;
+    background: var(--card-elev); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; font-size: 20px;
+  }
+  .plan-h2-txt { flex: 1; min-width: 0; }
+  .plan-h2-title { font-size: 14px; font-weight: 600; color: var(--text); }
+  .plan-h2-sub { font-size: 11.5px; color: var(--text-subtle); margin-top: 2px; line-height: 1.4; }
+  .plan-h2-arrow { flex: none; color: var(--accent); font-size: 18px; font-weight: 600; }
 
   /* ===== Tarefas (lista unificada) ===== */
   .tasks-card {
@@ -1960,6 +1978,15 @@ window.firebaseConfig = {
       </div>
       <div class="plan-week-total" id="planWeekTotal"></div>
     </div>
+
+    <a class="plan-h2-link" href="plano-h2.html" target="_blank" rel="noopener">
+      <div class="plan-h2-ico">📋</div>
+      <div class="plan-h2-txt">
+        <div class="plan-h2-title">Plano semestral · H2 2026</div>
+        <div class="plan-h2-sub">OKRs, tierização da cobertura, scorecard e calendário regulatório</div>
+      </div>
+      <div class="plan-h2-arrow">→</div>
+    </a>
 
     <div class="plan-hint">💡 Defina quanto quer focar em cada dia. O card de cima mostra, todo dia, o planejado contra o que você já fez. Fim de semana pode ficar zerado.</div>
   </div>

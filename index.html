@@ -1654,6 +1654,7 @@ window.firebaseConfig = {
   .h2-kr-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .h2-kr-code { font: 600 11px var(--h2-mono); color: var(--accent); }
   .h2-kr-body { font-size: 12px; line-height: 1.5; color: var(--text-muted); }
+  .h2-kr-body-ta { min-height: 58px; font-size: 12.5px; line-height: 1.5; margin-top: 2px; }
   .h2-kr-meta { display: flex; gap: 16px; margin: 9px 0 4px; font: 500 12px var(--h2-mono); color: var(--text); flex-wrap: wrap; }
   .h2-kr-meta b { color: var(--text-subtle); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; font-size: 9.5px; margin-right: 5px; }
   .h2-atual { width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font: 500 12px var(--h2-mono); background: var(--card-elev); color: var(--text); outline: none; text-align: center; }
@@ -5999,12 +6000,18 @@ function h2SecOkrs(D) {
       const score = D['okr_' + k.code + '_score'] != null ? D['okr_' + k.code + '_score'] : '';
       const atual = D['okr_' + k.code + '_atual'] != null ? D['okr_' + k.code + '_atual'] : k.atualSeed;
       const lead = D['okr_' + k.code + '_lead'] != null ? D['okr_' + k.code + '_lead'] : k.leadSeed;
+      const body = D['okr_' + k.code + '_body'] != null ? D['okr_' + k.code + '_body'] : k.body;
+      const baseline = D['okr_' + k.code + '_baseline'] != null ? D['okr_' + k.code + '_baseline'] : k.baseline;
+      const meta = D['okr_' + k.code + '_meta'] != null ? D['okr_' + k.code + '_meta'] : k.meta;
       const st = h2ScoreTok(score);
       return `
       <div class="h2-kr">
         <div class="h2-kr-head"><span class="h2-kr-code">${k.code}</span>${kindBadge(k.op)}</div>
-        <div class="h2-kr-body">${escapeHtml(k.body)}</div>
-        <div class="h2-kr-meta"><span><b>Baseline</b>${escapeHtml(k.baseline)}</span><span><b>Meta</b>${escapeHtml(k.meta)}</span></div>
+        <textarea class="h2-ta h2-kr-body-ta" data-h2key="okr_${k.code}_body" placeholder="descrição do key result…">${escapeHtml(String(body))}</textarea>
+        <div class="h2-row2" style="margin-top:8px">
+          <div style="flex:1"><label class="h2-flabel">Baseline</label><input class="h2-atual" data-h2key="okr_${k.code}_baseline" value="${escapeHtml(String(baseline))}" placeholder="—"></div>
+          <div style="flex:1"><label class="h2-flabel">Meta</label><input class="h2-atual" data-h2key="okr_${k.code}_meta" value="${escapeHtml(String(meta))}" placeholder="—"></div>
+        </div>
         <div class="h2-row2">
           <div style="flex:1"><label class="h2-flabel">Atual</label><input class="h2-atual" data-h2key="okr_${k.code}_atual" value="${escapeHtml(String(atual))}" placeholder="—"></div>
           <div><label class="h2-flabel">Score</label><input class="h2-score" data-h2score="okr_${k.code}_score" data-h2agg="1" inputmode="decimal" maxlength="4" value="${escapeHtml(String(score))}" placeholder="0,0" style="border:1px solid ${st.br};background:${st.b};color:${st.c}"></div>

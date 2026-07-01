@@ -6213,7 +6213,7 @@ function h2SecCobertura(D) {
       ${checks(c)}
       <div class="h2-cov-main">
         <div class="h2-cov-top"><span class="h2-ticker">${c.t}</span><span class="h2-badge" style="${h2Badge(h2TierTok(eff))}" title="Tier de ${mes} (Evolução de tiers)">T${eff}</span>${stSel(c)}</div>
-        <div class="h2-cov-sub">${escapeHtml(c.sub)} · earn ${escapeHtml(c.earn)}</div>
+        <div class="h2-cov-sub">${escapeHtml(c.sub)} · earn 2T26: ${escapeHtml(c.earn)}</div>
         <input class="h2-atual h2-nota-in" data-h2key="covnota_${c.t}" value="${escapeHtml(String(notaVal(c)))}" placeholder="tese…">
         ${c.note ? `<div class="h2-cov-tag"${c.star ? '' : ' style="color:var(--text-subtle)"'}>${escapeHtml(c.note)}</div>` : ''}
       </div>
@@ -6237,7 +6237,7 @@ function h2SecCobertura(D) {
       <td style="min-width:220px"><input class="h2-atual h2-nota-in" data-h2key="covnota_${c.t}" value="${escapeHtml(String(notaVal(c)))}" placeholder="tese…"></td>
     </tr>`;
     }).join('');
-    body = `<div class="h2-table-wrap"><table class="h2-table" style="min-width:780px"><thead><tr><th>2T26</th><th>3T26</th><th>Name</th><th>Tier (${mes})</th><th>Subsetor</th><th>Earn</th><th>Status</th><th>Tese</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    body = `<div class="h2-table-wrap"><table class="h2-table" style="min-width:780px"><thead><tr><th>2T26</th><th>3T26</th><th>Name</th><th>Tier (${mes})</th><th>Subsetor</th><th>Earn 2T26</th><th>Status</th><th>Tese</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   }
   return `<div class="h2-sec">
     <div class="h2-eyebrow">02 · universo de cobertura</div>

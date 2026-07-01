@@ -1650,6 +1650,22 @@ window.firebaseConfig = {
   .h2-soon { font-size: 13px; color: var(--text-muted); text-align: center; padding: 40px 12px; line-height: 1.6; }
   .h2-flabel { display: block; font: 600 9.5px var(--h2-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-subtle); margin: 8px 0 5px; }
   .h2-row2 { display: flex; gap: 12px; align-items: flex-start; margin-top: 4px; }
+  .h2-obj { border: 1px solid var(--border); border-radius: 13px; overflow: hidden; margin-top: 14px; }
+  .h2-obj-head { display: flex; align-items: center; gap: 10px; padding: 11px 13px; background: var(--card-elev); border-bottom: 1px solid var(--border); }
+  .h2-obj-id { font: 600 11px var(--h2-mono); color: var(--accent); border: 1px solid var(--accent); background: rgba(196,181,253,0.08); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .h2-obj-title { flex: 1; min-width: 0; border: none; background: transparent; outline: none; color: var(--text); font-size: 14px; font-weight: 600; font-family: inherit; }
+  .h2-obj-title::placeholder { color: var(--text-subtle); font-weight: 400; }
+  .h2-kr { padding: 13px 14px; border-top: 1px solid var(--border); }
+  .h2-obj .h2-kr:first-of-type { border-top: none; }
+  .h2-kr-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .h2-kr-code { font: 600 11px var(--h2-mono); color: var(--accent); }
+  .h2-kr-body { font-size: 12px; line-height: 1.5; color: var(--text-muted); }
+  .h2-kr-meta { display: flex; gap: 16px; margin: 9px 0 4px; font: 500 12px var(--h2-mono); color: var(--text); flex-wrap: wrap; }
+  .h2-kr-meta b { color: var(--text-subtle); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; font-size: 9.5px; margin-right: 5px; }
+  .h2-atual { width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font: 500 12px var(--h2-mono); background: var(--card-elev); color: var(--text); outline: none; text-align: center; }
+  .h2-atual:focus { border-color: var(--accent); }
+  .h2-scoregrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+  @media (max-width: 480px) { .h2-scoregrid { grid-template-columns: 1fr; } }
 
   /* ===== Tarefas (lista unificada) ===== */
   .tasks-card {
@@ -5837,6 +5853,42 @@ const H2_MACRO = [
   { tema: 'Renovação de concessões (distribuição)', leitura: 'Critérios rígidos de DEC/FEC; áreas podem ir a leilão', impl: 'EQTL3 e CPFE3 como consolidadoras: modelar upside orgânico de M&A de ativos não renovados.' },
   { tema: 'Sabesp × Equatorial', leitura: 'EQTL3 é acionista de referência da SBSP3', impl: 'Tratar como par cruzado (não isolado): alocação de capex e sinergias mudam o xadrez do setor.' },
 ];
+const H2_MONTHS = ['Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+const H2_KR_DEFS = [
+  { code: 'KR1.1', fam: 'O1', op: true, baseline: '0/3 + 0/7', meta: '3/3 + 7/7', atualSeed: '0/3 + 0/7', leadSeed: '', body: 'Durante a earnings season 2T26, atualizar os names "Core-ativo" (CPLE3, ENEV3, EQTL3 — posição/tese ativa) em ≤48h após o release, e os demais Tier 1 "Core-monitor" em ≤5 dias úteis. Evita a promessa inviável de ≤48h para 10 names simultâneos (pico 05–13/ago).' },
+  { code: 'KR1.2', fam: 'O1', op: false, baseline: '~12%', meta: '≤8%', atualSeed: '', leadSeed: '', body: 'MAPE do EBITDA 2T26 dos 10 names Tier 1 ≤ 8% — |previsto−reportado ajustado| / |reportado ajustado|, com modelo congelado até 18h do dia anterior ao release. Reportar também mediana, p75 e erro por subsetor. Baseline ~12% a reconstruir com 4–6 tri históricos.' },
+  { code: 'KR2.1', fam: 'O2', op: true, baseline: '0/4', meta: '4/4', atualSeed: '0/4', leadSeed: '', body: 'Nota de 1 página (delta guidance + tese) para os names Tier 2 (SAPR11, CSMG3, AURE3, ALUP11) em ≤5 dias úteis após cada earnings.' },
+  { code: 'KR2.2', fam: 'O2', op: true, baseline: 'n/a', meta: '2 revisões', atualSeed: '', leadSeed: '', body: 'Reavaliar trimestralmente se algum Tier 2 deve subir p/ Tier 1 ou cair p/ Tier 3.' },
+  { code: 'KR3.1', fam: 'O3', op: true, baseline: '0/7', meta: '7/7', atualSeed: '0/7', leadSeed: 'Alertas Bloomberg revisados 1x/semana', body: 'Monitorar manchetes/eventos dos names Tier 3 (EGIE3, TAEE11, LIGT3, PASS3, MOTV3, ECOR3, AMBP3); alerta configurado p/ 100%. Atenção: PASS3 é Tier 3 mas modelo do-zero prioritário 2026.' },
+  { code: 'KR3.2', fam: 'O3', op: false, baseline: '45%', meta: '60%', atualSeed: '', leadSeed: '1 pre-mortem por tese publicada', body: '≥60% das mudanças de rating/convicção (com timestamp no decision journal) antecipam o consenso Bloomberg (rating/TP/EPS) em ≤90 dias. Reportar N, acertos, falsos positivos/negativos. Bear case (pre-mortem) em 100% das calls novas.' },
+  { code: 'KR4.1', fam: 'O4', op: false, baseline: '0/3', meta: '3/3', atualSeed: '0/3', leadSeed: '', body: 'Publicar ≥3 teses long/short com assimetria clara em energia no H2 (mín. 1 por trimestre), cada uma com upside/downside quantificado e gatilho definido.' },
+  { code: 'KR4.2', fam: 'O4', op: false, baseline: '45%', meta: '60%', atualSeed: '', leadSeed: 'Outcome-âncora: nº de teses que o PM converteu em posição/sizing (proxy honesto de alpha). Pares long/short são funil de ideias (cadência variável), não meta em si.', body: 'Cada tese publicada tem long, hedge/short, benchmark, data/hora de entrada, horizonte, catalisador, upside/downside e sizing. Meta: ≥60% hit rate vs. par em ≥1 tri E medir EV realizado (Σ sizing×retorno relativo). Nota: hit rate com N=3 é indicativo, não estatisticamente significativo.' },
+  { code: 'KR5.1', fam: 'O5', op: true, baseline: '0%', meta: '100%', atualSeed: '0%', leadSeed: '', body: 'Concluir o exercício de Custo Marginal de Expansão (CME) até out/26 — alimenta as calls de geradoras (EGIE3, AURE3, ENEV3, AXIA3) e o Leilão de Energia Existente (13/nov).' },
+  { code: 'KR5.2', fam: 'O5', op: true, baseline: '0/2', meta: '2/2', atualSeed: '', leadSeed: '', body: 'Entregar a nota didática EV/RAB de distribuidoras (jul, "Teach In") e aplicá-la aos names até set–out/26.' },
+];
+const H2_COV_DEFS = [
+  { t: 'SAPR11', sub: 'Saneamento', tier: 2, earn: '13/08', nota: 'A que preço comprar', st: 'updated', note: '1T26', star: false },
+  { t: 'SBSP3', sub: 'Saneamento', tier: 1, earn: '12/08', nota: 'URAE-2', st: 'updated', note: '1T26', star: false },
+  { t: 'CSMG3', sub: 'Saneamento', tier: 2, earn: '14/08', nota: 'First impressions pós-privatização', st: 'updated', note: '1T26', star: false },
+  { t: 'AURE3', sub: 'Geração', tier: 2, earn: '05/08', nota: 'Preço de energia no LP', st: 'fromzero', note: 'clone barato', star: false },
+  { t: 'EGIE3', sub: 'Geração', tier: 3, earn: '05/08', nota: 'Sem ângulo — bond proxy', st: 'fromzero', note: '', star: false },
+  { t: 'ENEV3', sub: 'Geração', tier: 1, earn: '12/08', nota: 'Continuar grande (overweight)', st: 'updated', note: '1T26', star: false },
+  { t: 'ISAE4', sub: 'Transmissão', tier: 1, earn: '30/07', nota: 'Questão fiscal / SEFAZ', st: 'updated', note: '1T26', star: false },
+  { t: 'TAEE11', sub: 'Transmissão', tier: 3, earn: '11/08', nota: 'Sem ângulo — bond proxy', st: 'fromzero', note: '', star: false },
+  { t: 'ALUP11', sub: 'Transmissão', tier: 2, earn: '06/08', nota: 'Sem ângulo — bond proxy', st: 'fromzero', note: '', star: false },
+  { t: 'EQTL3', sub: 'Integrada', tier: 1, earn: '12/08', nota: 'Pd (Fator X) + receitas irrecuperáveis', st: 'updated', note: '1T26', star: false },
+  { t: 'ENGI11', sub: 'Integrada', tier: 1, earn: '06/08', nota: 'Pd (Fator X) + receitas irrecuperáveis', st: 'update', note: 'parou no 1T25', star: false },
+  { t: 'CPFE3', sub: 'Integrada', tier: 1, earn: '13/08', nota: 'Distribuição — clone barato', st: 'fromzero', note: '★ prioritário — escopo mínimo no pico, aprofundar em SET', star: true },
+  { t: 'CMIG4', sub: 'Integrada', tier: 1, earn: '07/08', nota: 'Risco político pós-eleição', st: 'fromzero', note: '★ prioritário — construir em SET', star: true },
+  { t: 'CPLE3', sub: 'Integrada', tier: 1, earn: '05/08', nota: 'Core: carrego + dividend yield (posição ativa)', st: 'updated', note: '1T26', star: false },
+  { t: 'AXIA3', sub: 'Integrada', tier: 1, earn: '05/08', nota: 'Preço de energia + dividendo', st: 'updated', note: '1T26', star: false },
+  { t: 'LIGT3', sub: 'Integrada', tier: 3, earn: '—', nota: 'Pós-RJ', st: 'fromzero', note: '★ prioritário — construir em NOV', star: true },
+  { t: 'PASS3', sub: 'Integrada', tier: 3, earn: '13/08', nota: 'Radar; o preço já precifica o EDGE?', st: 'fromzero', note: '★ template gás — construir em NOV', star: true },
+  { t: 'MOTV3', sub: 'Infra', tier: 3, earn: '29/07', nota: 'Sem ângulo — cobertura leve (modelo 2027)', st: 'fromzero', note: 'leve', star: false },
+  { t: 'ECOR3', sub: 'Infra', tier: 3, earn: '30/07', nota: 'Sem ângulo — cobertura leve (modelo 2027)', st: 'fromzero', note: 'leve', star: false },
+  { t: 'AMBP3', sub: 'Waste', tier: 3, earn: '—', nota: 'Distressed — não modelar', st: 'watch', note: '', star: false },
+  { t: 'ORVR3', sub: 'Waste', tier: 1, earn: '13/08', nota: 'Iniciação de cobertura jul/2026 (pós-M&A Holding Vital)', st: 'fromzero', note: '★ iniciar cobertura jul/2026', star: true },
+];
 
 // -- Tokens de cor no tema escuro (mapeiam as cores semânticas do original) --
 const H2_TOK = {
@@ -5885,7 +5937,9 @@ function renderH2Section() {
   const c = $('#h2Content');
   if (!c) return;
   const D = loadH2();
-  if (h2Active === 'retro') { c.innerHTML = h2SecRetro(D); bindH2Retro(c); }
+  if (h2Active === 'okrs') { c.innerHTML = h2SecOkrs(D); bindH2Okrs(c); }
+  else if (h2Active === 'retro') { c.innerHTML = h2SecRetro(D); bindH2Retro(c); }
+  else if (h2Active === 'tiers') { c.innerHTML = h2SecTiers(D); bindH2Tiers(c); }
   else if (h2Active === 'calendario') c.innerHTML = h2SecCalendario();
   else if (h2Active === 'regulatorio') c.innerHTML = h2SecRegulatorio();
   else {
@@ -5995,6 +6049,123 @@ function h2SecRegulatorio() {
     <div class="h2-eyebrow" style="margin:24px 0 0">Temas macro</div>
     <div class="h2-table-wrap"><table class="h2-table"><thead><tr><th>Tema</th><th>Leitura H2/2026</th><th>Implicação</th></tr></thead><tbody>${macro}</tbody></table></div>
   </div>`;
+}
+
+// -- Seção 01 · OKRs --
+function h2Agg(D, codes) {
+  const vals = codes.map(c => h2Num(D['okr_' + c + '_score'])).filter(x => x != null);
+  if (!vals.length) return { text: '—', filled: '0 de ' + codes.length + ' preenchidos', tok: H2_TOK.gray };
+  const av = vals.reduce((s, x) => s + x, 0) / vals.length;
+  return { text: av.toFixed(2).replace('.', ','), filled: vals.length + ' de ' + codes.length + ' preenchidos', tok: h2ScoreTok(av) };
+}
+const H2_OP_CODES = ['KR1.1', 'KR2.1', 'KR2.2', 'KR3.1', 'KR5.1', 'KR5.2'];
+const H2_AL_CODES = ['KR1.2', 'KR3.2', 'KR4.1', 'KR4.2'];
+
+function h2SecOkrs(D) {
+  const kindBadge = op => op
+    ? `<span class="h2-badge" style="${h2Badge(H2_TOK.gray)}">operacional</span>`
+    : `<span class="h2-badge" style="${h2Badge(H2_TOK.purple)}">alpha</span>`;
+  const groups = ['O1', 'O2', 'O3', 'O4', 'O5'].map(oid => {
+    const krs = H2_KR_DEFS.filter(k => k.fam === oid).map(k => {
+      const score = D['okr_' + k.code + '_score'] != null ? D['okr_' + k.code + '_score'] : '';
+      const atual = D['okr_' + k.code + '_atual'] != null ? D['okr_' + k.code + '_atual'] : k.atualSeed;
+      const lead = D['okr_' + k.code + '_lead'] != null ? D['okr_' + k.code + '_lead'] : k.leadSeed;
+      const st = h2ScoreTok(score);
+      return `
+      <div class="h2-kr">
+        <div class="h2-kr-head"><span class="h2-kr-code">${k.code}</span>${kindBadge(k.op)}</div>
+        <div class="h2-kr-body">${escapeHtml(k.body)}</div>
+        <div class="h2-kr-meta"><span><b>Baseline</b>${escapeHtml(k.baseline)}</span><span><b>Meta</b>${escapeHtml(k.meta)}</span></div>
+        <div class="h2-row2">
+          <div style="flex:1"><label class="h2-flabel">Atual</label><input class="h2-atual" data-h2key="okr_${k.code}_atual" value="${escapeHtml(String(atual))}" placeholder="—"></div>
+          <div><label class="h2-flabel">Score</label><input class="h2-score" data-h2score="okr_${k.code}_score" data-h2agg="1" inputmode="decimal" maxlength="4" value="${escapeHtml(String(score))}" placeholder="0,0" style="border:1px solid ${st.br};background:${st.b};color:${st.c}"></div>
+        </div>
+        <label class="h2-flabel">Lead measures (alavanca semanal)</label>
+        <textarea class="h2-ta" data-h2key="okr_${k.code}_lead" placeholder="alavanca semanal controlável…">${escapeHtml(String(lead))}</textarea>
+      </div>`;
+    }).join('');
+    return `<div class="h2-obj">
+      <div class="h2-obj-head"><span class="h2-obj-id">${oid}</span><input class="h2-obj-title" data-h2key="obj_${oid}" value="${escapeHtml(D['obj_' + oid] || '')}" placeholder="Descreva o objetivo (resultado / lag)…"></div>
+      ${krs}
+    </div>`;
+  }).join('');
+  const opA = h2Agg(D, H2_OP_CODES), alA = h2Agg(D, H2_AL_CODES);
+  const ns = D['northstar'] != null ? D['northstar'] : 'Gerar 3 ideias acionáveis com assimetria clara em energia no H2';
+  return `<div class="h2-sec">
+    <div class="h2-eyebrow">01 · objetivos & key results</div>
+    <h1 class="h2-h1">OKRs — H2 / 2026</h1>
+    <p class="h2-lead">Cada KR é pontuado de 0,0 a 1,0 (0,7–1,0 = sucesso). Operacionais são pass/fail; metas de alpha admitem reflexão qualitativa.</p>
+    <div class="h2-card" style="box-shadow:inset 3px 0 0 var(--accent)">
+      <div class="h2-eyebrow" style="color:var(--accent)">North Star do semestre</div>
+      <textarea class="h2-ta" data-h2key="northstar" style="border:none;background:transparent;font-size:16px;font-weight:500;min-height:50px;padding:8px 0 0" placeholder="Sua frase de direção…">${escapeHtml(String(ns))}</textarea>
+    </div>
+    <div class="h2-card">
+      <div class="h2-eyebrow">Aprovação do PM</div>
+      <label style="display:flex;gap:9px;margin-top:10px;cursor:pointer;font-size:12.5px;line-height:1.42;color:var(--text)"><input type="checkbox" class="h2-check" data-h2check="pm_check"${D['pm_check'] ? ' checked' : ''}><span>Plano validado numa conversa explícita com o PM (alinhamento macro do fundo).</span></label>
+      <div style="display:flex;align-items:center;gap:9px;margin-top:12px;font-size:12px;color:var(--text-muted)">Data <input class="h2-atual" data-h2key="pm_date" style="width:110px" value="${escapeHtml(D['pm_date'] || '')}" placeholder="__/__/__"></div>
+    </div>
+    ${groups}
+    <div class="h2-scoregrid">
+      <div class="h2-card"><div class="h2-eyebrow">Score — operacionais</div><div class="h2-note" style="margin-top:4px">KR1.1 · 2.1 · 2.2 · 3.1 · 5.1 · 5.2 — pass/fail</div><div style="display:flex;align-items:baseline;gap:10px;margin-top:10px"><span class="h2-big" id="h2OpA" style="color:${opA.tok.c}">${opA.text}</span><span class="h2-note" id="h2OpAf">${opA.filled}</span></div></div>
+      <div class="h2-card"><div class="h2-eyebrow">Score — alpha</div><div class="h2-note" style="margin-top:4px">KR1.2 · 3.2 · 4.1 · 4.2 — reflexão qualitativa</div><div style="display:flex;align-items:baseline;gap:10px;margin-top:10px"><span class="h2-big" id="h2AlA" style="color:${alA.tok.c}">${alA.text}</span><span class="h2-note" id="h2AlAf">${alA.filled}</span></div></div>
+    </div>
+    <div class="h2-note" style="margin-top:12px;padding:11px 14px;background:var(--card-elev);border:1px solid var(--border);border-radius:10px"><b style="color:var(--text)">Regra:</b> operacional é pass/fail (não deveria ficar "verde" com 0,7); alpha usa 0,0–1,0 com reflexão qualitativa.</div>
+  </div>`;
+}
+function h2UpdateOkrAgg() {
+  const D = loadH2();
+  const set = (id, fid, a) => { const e = $(id); if (e) { e.textContent = a.text; e.style.color = a.tok.c; } const f = $(fid); if (f) f.textContent = a.filled; };
+  set('#h2OpA', '#h2OpAf', h2Agg(D, H2_OP_CODES));
+  set('#h2AlA', '#h2AlAf', h2Agg(D, H2_AL_CODES));
+}
+function bindH2Okrs(c) {
+  c.querySelectorAll('[data-h2key]').forEach(el => el.addEventListener('input', () => { const D = loadH2(); D[el.dataset.h2key] = el.value; saveH2(D); }));
+  c.querySelectorAll('[data-h2check]').forEach(el => el.addEventListener('change', () => { const D = loadH2(); D[el.dataset.h2check] = el.checked; saveH2(D); }));
+  c.querySelectorAll('[data-h2score]').forEach(el => el.addEventListener('input', () => {
+    const D = loadH2(); D[el.dataset.h2score] = el.value; saveH2(D);
+    const t = h2ScoreTok(el.value); el.style.border = '1px solid ' + t.br; el.style.background = t.b; el.style.color = t.c;
+    if (el.dataset.h2agg) h2UpdateOkrAgg();
+  }));
+}
+
+// -- Seção 04 · Evolução de tiers --
+function h2TierCount(D, t, m) {
+  return H2_COV_DEFS.reduce((acc, c) => { const id = 'te_' + c.t + '_' + m; const v = (D[id] != null ? D[id] : String(c.tier)); return acc + ((+v === t) ? 1 : 0); }, 0);
+}
+function h2TierCountsHtml(D) {
+  const rows = [1, 2, 3].map(t => {
+    const tok = h2TierTok(t);
+    return `<tr><td><span class="h2-badge" style="${h2Badge(tok)}">Tier ${t}</span></td>${H2_MONTHS.map(m => `<td class="mono" style="text-align:center;color:${tok.c}">${h2TierCount(D, t, m)}</td>`).join('')}</tr>`;
+  }).join('');
+  const total = `<tr><td style="font-weight:600">Total</td>${H2_MONTHS.map(() => `<td class="mono" style="text-align:center;color:var(--text-muted)">${H2_COV_DEFS.length}</td>`).join('')}</tr>`;
+  return rows + total;
+}
+function h2SecTiers(D) {
+  const head = `<tr><th style="position:sticky;left:0;background:var(--card)">Name</th>${H2_MONTHS.map(m => `<th style="text-align:center">${m}</th>`).join('')}</tr>`;
+  const rows = H2_COV_DEFS.map(c => {
+    const cells = H2_MONTHS.map(m => {
+      const id = 'te_' + c.t + '_' + m;
+      const v = D[id] != null ? D[id] : String(c.tier);
+      const tok = h2TierTok(+v);
+      return `<td style="padding:5px 4px;min-width:52px"><select class="h2-sel" data-h2sel="${id}" style="border:1px solid ${tok.br};background:${tok.b};color:${tok.c}">${[1, 2, 3].map(n => `<option value="${n}"${+v === n ? ' selected' : ''}>${n}</option>`).join('')}</select></td>`;
+    }).join('');
+    return `<tr><td class="h2-ticker" style="white-space:nowrap;position:sticky;left:0;background:var(--card)">${c.t}<div class="h2-note" style="font-weight:400">${escapeHtml(c.sub)}</div></td>${cells}</tr>`;
+  }).join('');
+  return `<div class="h2-sec">
+    <div class="h2-eyebrow">04 · o tier pode mudar ao longo do semestre</div>
+    <h1 class="h2-h1">Evolução da tierização — H2 / 2026</h1>
+    <p class="h2-lead">Ajuste o tier de atenção de cada name mês a mês. As contagens embaixo se atualizam sozinhas.</p>
+    <div class="h2-table-wrap"><table class="h2-table" style="min-width:560px"><thead>${head}</thead><tbody>${rows}</tbody></table></div>
+    <div class="h2-eyebrow" style="margin:22px 0 0">Contagem por tier</div>
+    <div class="h2-table-wrap"><table class="h2-table" style="min-width:480px"><thead><tr><th>Tier</th>${H2_MONTHS.map(m => `<th style="text-align:center">${m}</th>`).join('')}</tr></thead><tbody id="h2TierCounts">${h2TierCountsHtml(D)}</tbody></table></div>
+  </div>`;
+}
+function bindH2Tiers(c) {
+  c.querySelectorAll('[data-h2sel]').forEach(el => el.addEventListener('change', () => {
+    const D = loadH2(); D[el.dataset.h2sel] = el.value; saveH2(D);
+    const t = h2TierTok(+el.value); el.style.border = '1px solid ' + t.br; el.style.background = t.b; el.style.color = t.c;
+    const cnt = $('#h2TierCounts'); if (cnt) cnt.innerHTML = h2TierCountsHtml(loadH2());
+  }));
 }
 
 // -- Abrir/fechar a sobreposição (tela cheia, dentro do app; back do Android fecha) --

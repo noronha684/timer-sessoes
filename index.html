@@ -1576,7 +1576,80 @@ window.firebaseConfig = {
   .h2-back:hover { filter: brightness(1.12); }
   .h2-back:active { transform: scale(0.97); }
   .h2-bar-title { font-size: 13px; color: var(--text-muted); font-weight: 500; }
-  .h2-frame { flex: 1; width: 100%; border: none; background: #F6F4EF; }
+  .h2-native { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .h2-subnav {
+    flex: none; display: flex; gap: 6px; overflow-x: auto; padding: 10px 14px;
+    background: var(--card); border-bottom: 1px solid var(--border);
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .h2-subnav::-webkit-scrollbar { display: none; }
+  .h2-chip {
+    flex: none; display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 12px; border-radius: 9px; cursor: pointer; white-space: nowrap;
+    background: var(--card-elev); border: 1px solid var(--border);
+    color: var(--text-subtle); font-size: 12px; font-weight: 500; font-family: inherit;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .h2-chip .h2-chip-n { font-size: 10px; opacity: 0.7; font-variant-numeric: tabular-nums; }
+  .h2-chip:hover { color: var(--text-muted); }
+  .h2-chip.active { color: #1a1a2e; background: var(--accent); border-color: var(--accent); }
+  .h2-chip.active .h2-chip-n { opacity: 0.65; }
+  .h2-content { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 16px 40px; -webkit-overflow-scrolling: touch; }
+  .h2-content { --h2-mono: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace; }
+
+  /* Tipografia/estrutura das seções H2 */
+  .h2-sec { max-width: 760px; margin: 0 auto; }
+  .h2-eyebrow { font: 600 10px/1 var(--h2-mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-subtle); }
+  .h2-h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); margin: 9px 0 0; }
+  .h2-lead { font-size: 13px; color: var(--text-muted); margin: 9px 0 0; line-height: 1.55; }
+  .h2-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px 15px; margin-top: 14px;
+  }
+  .h2-card-h {
+    display: flex; align-items: center; gap: 9px; margin: -2px 0 10px;
+    font-size: 12.5px; font-weight: 600; color: var(--text);
+  }
+  .h2-card-h .h2-num { font: 600 11px var(--h2-mono); color: var(--text-subtle); }
+  .h2-note { font-size: 11.5px; color: var(--text-subtle); line-height: 1.5; }
+  .h2-badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+
+  /* Tabelas H2 */
+  .h2-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 12px; }
+  .h2-table { width: 100%; border-collapse: collapse; min-width: 480px; }
+  .h2-table th {
+    text-align: left; padding: 9px 10px; font: 600 9.5px/1.2 var(--h2-mono);
+    letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-subtle);
+    border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  .h2-table td { padding: 10px 10px; font-size: 12.5px; color: var(--text); border-bottom: 1px solid var(--border); vertical-align: top; }
+  .h2-table tr:last-child td { border-bottom: none; }
+  .h2-table td.mono { font-family: var(--h2-mono); color: var(--text-muted); font-size: 12px; }
+  .h2-ticker { font: 600 12px var(--h2-mono); color: var(--text); }
+
+  /* Inputs H2 (textarea/score/select) */
+  .h2-ta {
+    width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 7px;
+    font: 400 12px/1.45 inherit; background: var(--card-elev); color: var(--text);
+    outline: none; min-height: 44px; resize: vertical; font-family: inherit;
+  }
+  .h2-ta:focus { border-color: var(--accent); }
+  .h2-ta::placeholder { color: var(--text-subtle); }
+  .h2-score {
+    width: 58px; text-align: center; padding: 6px 4px; border-radius: 7px;
+    font: 600 13px var(--h2-mono); outline: none;
+  }
+  .h2-sel {
+    appearance: none; -webkit-appearance: none; text-align: center; text-align-last: center;
+    width: 100%; padding: 7px 4px; border-radius: 7px; cursor: pointer;
+    font: 600 12px var(--h2-mono); outline: none;
+  }
+  .h2-cycle { width: 100%; height: 34px; border-radius: 7px; cursor: pointer; font: 600 13px var(--h2-mono); }
+  .h2-check { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
+  .h2-big { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+  .h2-soon { font-size: 13px; color: var(--text-muted); text-align: center; padding: 40px 12px; line-height: 1.6; }
+  .h2-flabel { display: block; font: 600 9.5px var(--h2-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-subtle); margin: 8px 0 5px; }
+  .h2-row2 { display: flex; gap: 12px; align-items: flex-start; margin-top: 4px; }
 
   /* ===== Tarefas (lista unificada) ===== */
   .tasks-card {
@@ -2016,7 +2089,10 @@ window.firebaseConfig = {
     <button class="h2-back" id="h2Back">‹ Voltar</button>
     <span class="h2-bar-title">Plano semestral · H2 2026</span>
   </div>
-  <iframe class="h2-frame" id="h2Frame" title="Plano semestral H2 2026"></iframe>
+  <div class="h2-native">
+    <div class="h2-subnav" id="h2Subnav"></div>
+    <div class="h2-content" id="h2Content"></div>
+  </div>
 </div>
 
 <div class="alarm-overlay" id="alarmModal">
@@ -3376,6 +3452,7 @@ async function pushToCloud() {
         goals: loadGoals(),
         weekPlan: loadWeekPlan(),
         tasks: loadTasks(),
+        h2Plan: loadH2(),
         events: loadEvents(),
         target: loadTarget(),
         journalItems: loadJournalItems(),
@@ -3495,6 +3572,11 @@ function applyServerSnapshot(snap) {
       // Plano semanal: usa do servidor se existir
       if (snap.settings.weekPlan && typeof snap.settings.weekPlan === 'object') {
         localStorage.setItem('timerWeekPlan', JSON.stringify(snap.settings.weekPlan));
+      }
+      // Plano H2 (dashboard semestral): doc único, servidor sobrescreve
+      if (snap.settings.h2Plan && typeof snap.settings.h2Plan === 'object') {
+        localStorage.setItem('timerH2Plan', JSON.stringify(snap.settings.h2Plan));
+        if (typeof renderH2 === 'function' && $('#h2Overlay') && $('#h2Overlay').classList.contains('open')) renderH2();
       }
       // Tarefas (lista unificada): mescla por id; absorve o legado só na transição
       if (Array.isArray(snap.settings.tasks)) {
@@ -5705,15 +5787,224 @@ function renderWeekReview() {
   card.querySelector('#wrNext').addEventListener('click', () => { if (weekReviewOffset < 0) { weekReviewOffset++; renderWeekReview(); } });
 }
 
-// ===== Plano semestral H2 2026: abre embutido (tela cheia, dentro do app) =====
+// ===== Plano semestral H2 2026 — NATIVO (reconstrução do dashboard, tema escuro, sync) =====
+// -- Seeds fixos (definições; só o que o usuário edita persiste em timerH2Plan) --
+const H2_SECTIONS = [
+  { id: 'okrs', n: '01', label: 'OKRs' },
+  { id: 'retro', n: '02', label: 'Retrospectiva H1' },
+  { id: 'cobertura', n: '03', label: 'Cobertura' },
+  { id: 'tiers', n: '04', label: 'Evolução de tiers' },
+  { id: 'scorecard', n: '05', label: 'Scorecard mensal' },
+  { id: 'calendario', n: '06', label: 'Calendário & cadência' },
+  { id: 'regulatorio', n: '07', label: 'Calendário regulatório' },
+];
+const H2_RETRO_NAMES = ['Resultado', 'Processo', 'Aprendizado', 'Energia / capacidade'];
+const H2_RETRO_PREV = [
+  'Gerar ideias acionáveis com assimetria (o alvo do H1)',
+  'Atualizar modelos no prazo, disciplina de pesquisa',
+  'Deep dives, conversas com especialistas, erros documentados',
+  'Sustentar ritmo de deep work sem estourar',
+];
+const H2_EARNINGS = [
+  { per: 'Earnings 2T26', tri: '2º tri de 2026', what: 'Bloco pesado: 21 names reportam. Update ágil de modelos (Tier 1 em ≤48h), guidance vs. consenso. NÃO iniciar relatórios de iniciação aqui.', ini: '29/jul/2026', fim: '14/ago/2026' },
+  { per: 'Earnings 3T26', tri: '3º tri de 2026', what: 'Janela análoga (~final out–meados nov). Confirme datas na Bloomberg quando publicadas.', ini: '~fim out/2026', fim: '~meados nov/2026' },
+];
+const H2_DEEPWORK = [
+  { w: 'Jul (pré-earnings)', f: 'Preparar pré-templates de delta de guidance (KR2.1); montar teses para novos names renováveis (O1).' },
+  { w: 'Set–out (entre temporadas)', f: 'Publicar as 2 notas de iniciação (KR1.1); rodar pre-mortem de cada tese (KR3.2).' },
+  { w: 'Nov–dez (pós-earnings)', f: 'Revisar premissas de valuation; fechar o semestre; retrospectiva e handoff para H1/2027.' },
+];
+const H2_CADENCE = [
+  { fr: 'Semanal (sex)', du: '20 min', w: 'Lead measures: fiz minhas alavancas controláveis esta semana? O que bloqueia?' },
+  { fr: 'Mensal', du: '60–90 min', w: 'KRs no ritmo? Alguma premissa quebrou? Atualizar scorecard + kill/pause/continue.' },
+  { fr: 'Trimestral (fora da earnings season)', du: 'meio dia', w: 'Reset: pontuar cada KR de 0,0 a 1,0, retrospectiva e reescrever OKRs do 2º ciclo.' },
+  { fr: 'Semestral (fim de dez)', du: 'meio dia', w: 'O que mudou estruturalmente? Que capacidades construí? Handoff para H1/2027.' },
+];
+const H2_REG_EVENTS = [
+  { ev: 'Leilão de Transmissão nº 1/2026', data: '03/jul (2ª sessão); assinatura ~09/set', tri: '3T26', names: 'ISAE4, TAEE11, ALUP11', acao: 'Ler RAP, capex, competição e retorno; atualizar pipeline de transmissão.' },
+  { ev: 'Cadastro — Leilão de Baterias', data: 'até 31/jul/2026', tri: '3T26', names: 'ENEV3, geradoras, integradas', acao: 'Mapear opcionalidade de armazenamento; efeito em preço/capacidade.' },
+  { ev: 'Consulta pública Fator X (ANEEL)', data: 'aberta 30/jun; nova fórmula 2027+', tri: '3T26', names: 'EQTL3, ENGI11', acao: 'Rever tese de Pd/Fator X e metodologia TOTEX; não extrapolar só histórico.' },
+  { ev: 'Declaração de Necessidade — LEE', data: '11–21/ago/2026', tri: '3T26', names: 'Distribuidoras + geradoras', acao: 'COLIDE com pico de balanços. Bridge de demanda contratada; antecipar o CME.' },
+  { ev: 'Ratificação — LEE', data: '19–30/out/2026', tri: '4T26', names: 'Geradoras/distribuidoras', acao: 'Confirmar volumes; ajustar curva de preço da tese.' },
+  { ev: 'Leilão de Transmissão 4/2026', data: '30/out/2026 (edital no TCU em set)', tri: '4T26', names: 'Transmissão/integradas', acao: 'Checar disciplina de retorno; impacto setorial.' },
+  { ev: 'Leilão de Energia Existente (A-1/A-2/A-3)', data: '13/nov/2026', tri: '4T26', names: 'AURE3, ENEV3, EGIE3, AXIA3', acao: 'Ponto alto do KR5.1 (CME). Curvas de preço viram tese, não só estudo.' },
+  { ev: 'Leilões de Armazenamento em Baterias', data: '02 e 04/dez/2026', tri: '4T26', names: 'ENEV3, geradoras, integradas', acao: 'Opcionalidade de baterias; efeitos em preço/capacidade.' },
+];
+const H2_MACRO = [
+  { tema: 'Selic / juros reais', leitura: 'Mercado vê Selic ~13,75% até fim/2026', impl: 'Bond proxies (TAEE11, EGIE3, ALUP11) e teses de dividendo (CPLE3, AXIA3) sob pressão de reprecificação — testar Equity Risk Premium.' },
+  { tema: 'Eleições 2026 (MG)', leitura: 'Privatização Cemig travada em ano eleitoral', impl: 'CMIG4: migrar tese de "prêmio de desestatização" para carrego de dividendos/resiliência; bear case status quo até 2027.' },
+  { tema: 'Risco hidrológico / GSF', leitura: 'CCEE liquida passivo histórico; alertas para o 2S26', impl: 'Geradoras (EGIE3, AURE3, ENEV3): forçar stress test de GSF — tail risk de margem hoje ausente das teses.' },
+  { tema: 'Renovação de concessões (distribuição)', leitura: 'Critérios rígidos de DEC/FEC; áreas podem ir a leilão', impl: 'EQTL3 e CPFE3 como consolidadoras: modelar upside orgânico de M&A de ativos não renovados.' },
+  { tema: 'Sabesp × Equatorial', leitura: 'EQTL3 é acionista de referência da SBSP3', impl: 'Tratar como par cruzado (não isolado): alocação de capex e sinergias mudam o xadrez do setor.' },
+];
+
+// -- Tokens de cor no tema escuro (mapeiam as cores semânticas do original) --
+const H2_TOK = {
+  green: { c: '#34d399', b: 'rgba(52,211,153,0.12)', br: 'rgba(52,211,153,0.32)' },
+  gold: { c: '#fbbf24', b: 'rgba(251,191,36,0.12)', br: 'rgba(251,191,36,0.32)' },
+  red: { c: '#f87171', b: 'rgba(248,113,113,0.12)', br: 'rgba(248,113,113,0.32)' },
+  gray: { c: '#9ca3b8', b: 'rgba(255,255,255,0.04)', br: 'rgba(255,255,255,0.12)' },
+  blue: { c: '#93c5fd', b: 'rgba(147,197,253,0.12)', br: 'rgba(147,197,253,0.30)' },
+  purple: { c: '#c4b5fd', b: 'rgba(196,181,253,0.12)', br: 'rgba(196,181,253,0.30)' },
+};
+function h2Num(v) { if (v == null) return null; v = ('' + v).replace(',', '.').replace('%', '').trim(); if (v === '') return null; const f = parseFloat(v); return isFinite(f) ? f : null; }
+function h2TierTok(t) { return t === 1 ? H2_TOK.green : t === 2 ? H2_TOK.gold : H2_TOK.gray; }
+function h2StatusTok(k) { return { updated: H2_TOK.green, fromzero: H2_TOK.red, update: H2_TOK.gold, watch: H2_TOK.gray }[k] || H2_TOK.gray; }
+function h2ScoreTok(v) { const n = h2Num(v); if (n == null) return H2_TOK.gray; if (n >= 0.7) return H2_TOK.green; if (n >= 0.4) return H2_TOK.gold; return H2_TOK.red; }
+function h2Badge(tok) { return `display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap;color:${tok.c};background:${tok.b};border:1px solid ${tok.br}`; }
+
+// -- Store (padrão timerXxx + sync). Migra da versão iframe (localStorage['planoH2_2026']). --
+function loadH2() {
+  const raw = localStorage.getItem('timerH2Plan');
+  if (raw != null) { try { const o = JSON.parse(raw); if (o && typeof o === 'object' && !Array.isArray(o)) return o; } catch {} return {}; }
+  let mig = {};
+  try { const old = JSON.parse(localStorage.getItem('planoH2_2026') || '{}'); if (old && typeof old === 'object' && !Array.isArray(old)) mig = old; } catch {}
+  localStorage.setItem('timerH2Plan', JSON.stringify(mig));
+  return mig;
+}
+function saveH2(o) { localStorage.setItem('timerH2Plan', JSON.stringify(o)); if (typeof triggerSync === 'function') triggerSync(); }
+
+let h2Active = localStorage.getItem('timerH2Tab') || 'okrs';
+
+function renderH2() { loadH2(); renderH2Subnav(); renderH2Section(); }
+
+function renderH2Subnav() {
+  const el = $('#h2Subnav');
+  if (!el) return;
+  el.innerHTML = H2_SECTIONS.map(s =>
+    `<button class="h2-chip${s.id === h2Active ? ' active' : ''}" data-h2sec="${s.id}"><span class="h2-chip-n">${s.n}</span>${escapeHtml(s.label)}</button>`).join('');
+  el.querySelectorAll('[data-h2sec]').forEach(b => b.addEventListener('click', () => {
+    h2Active = b.dataset.h2sec;
+    try { localStorage.setItem('timerH2Tab', h2Active); } catch {}
+    renderH2Subnav(); renderH2Section();
+    const c = $('#h2Content'); if (c) c.scrollTop = 0;
+  }));
+}
+
+function renderH2Section() {
+  const c = $('#h2Content');
+  if (!c) return;
+  const D = loadH2();
+  if (h2Active === 'retro') { c.innerHTML = h2SecRetro(D); bindH2Retro(c); }
+  else if (h2Active === 'calendario') c.innerHTML = h2SecCalendario();
+  else if (h2Active === 'regulatorio') c.innerHTML = h2SecRegulatorio();
+  else {
+    const lbl = (H2_SECTIONS.find(s => s.id === h2Active) || {}).label || '';
+    c.innerHTML = `<div class="h2-sec"><div class="h2-soon">A seção <b>${escapeHtml(lbl)}</b> chega no próximo passo desta reconstrução.</div></div>`;
+  }
+}
+
+function h2RetroAvg(D) { const v = [0, 1, 2, 3].map(i => h2Num(D['retro_' + i + '_nota'])).filter(x => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; }
+
+function h2SecRetro(D) {
+  const dims = H2_RETRO_NAMES.map((dim, i) => {
+    const nota = D['retro_' + i + '_nota'] != null ? D['retro_' + i + '_nota'] : '';
+    const tok = h2ScoreTok(nota);
+    return `
+    <div class="h2-card">
+      <div class="h2-card-h">${escapeHtml(dim)}</div>
+      <div class="h2-note" style="margin-bottom:8px">Previsto (H1): ${escapeHtml(H2_RETRO_PREV[i])}</div>
+      <label class="h2-flabel">O que de fato aconteceu</label>
+      <textarea class="h2-ta" data-h2key="retro_${i}_real" placeholder="o que aconteceu…">${escapeHtml(D['retro_' + i + '_real'] || '')}</textarea>
+      <div class="h2-row2">
+        <div><label class="h2-flabel">Nota (0–1)</label>
+          <input class="h2-score" data-h2score="retro_${i}_nota" inputmode="decimal" maxlength="4" value="${escapeHtml(String(nota))}" placeholder="—" style="border:1px solid ${tok.br};background:${tok.b};color:${tok.c}"></div>
+        <div style="flex:1"><label class="h2-flabel">Causa-raiz</label>
+          <textarea class="h2-ta" data-h2key="retro_${i}_causa" placeholder="por quê?">${escapeHtml(D['retro_' + i + '_causa'] || '')}</textarea></div>
+      </div>
+    </div>`;
+  }).join('');
+  const lessons = [0, 1, 2].map(i => `
+    <div class="h2-card">
+      <div class="h2-card-h"><span class="h2-num">${i + 1}</span> Lição que muda o H2</div>
+      <textarea class="h2-ta" data-h2key="les_${i}_lic" placeholder="a lição aprendida…">${escapeHtml(D['les_' + i + '_lic'] || '')}</textarea>
+      <label class="h2-flabel" style="margin-top:8px">Ação concreta no H2</label>
+      <textarea class="h2-ta" data-h2key="les_${i}_act" placeholder="a ação…">${escapeHtml(D['les_' + i + '_act'] || '')}</textarea>
+    </div>`).join('');
+  const avg = h2RetroAvg(D);
+  return `<div class="h2-sec">
+    <div class="h2-eyebrow">02 · preencha antes de rodar o H2</div>
+    <h1 class="h2-h1">Retrospectiva honesta — H1 / 2026</h1>
+    <p class="h2-lead">Para cada dimensão: o que planejei, o que de fato aconteceu, e a causa-raiz da diferença. Isso alimenta os OKRs do H2.</p>
+    <div class="h2-card" style="display:flex;align-items:center;justify-content:space-between">
+      <span class="h2-note">Média das 4 dimensões</span>
+      <span class="h2-big" id="h2RetroAvg" style="color:${h2ScoreTok(avg).c}">${avg == null ? '—' : avg.toFixed(2).replace('.', ',')}</span>
+    </div>
+    ${dims}
+    <div class="h2-eyebrow" style="margin:24px 0 0">Top 3 lições que mudam o plano do H2</div>
+    ${lessons}
+  </div>`;
+}
+
+function bindH2Retro(c) {
+  c.querySelectorAll('[data-h2key]').forEach(el => {
+    el.addEventListener('input', () => { const D = loadH2(); D[el.dataset.h2key] = el.value; saveH2(D); });
+  });
+  c.querySelectorAll('[data-h2score]').forEach(el => {
+    el.addEventListener('input', () => {
+      const D = loadH2(); D[el.dataset.h2score] = el.value; saveH2(D);
+      const tok = h2ScoreTok(el.value);
+      el.style.border = '1px solid ' + tok.br; el.style.background = tok.b; el.style.color = tok.c;
+      const avg = h2RetroAvg(loadH2());
+      const avgEl = $('#h2RetroAvg');
+      if (avgEl) { avgEl.textContent = avg == null ? '—' : avg.toFixed(2).replace('.', ','); avgEl.style.color = h2ScoreTok(avg).c; }
+    });
+  });
+}
+
+function h2SecCalendario() {
+  const earn = H2_EARNINGS.map(e => `
+    <div class="h2-card">
+      <div class="h2-card-h">${escapeHtml(e.per)} <span class="h2-note" style="font-weight:400">· ${escapeHtml(e.tri)}</span></div>
+      <div class="h2-note" style="margin-bottom:8px;color:var(--text-muted)">${escapeHtml(e.what)}</div>
+      <div style="font-family:var(--h2-mono);font-size:12px;color:var(--accent)">${escapeHtml(e.ini)} → ${escapeHtml(e.fim)}</div>
+    </div>`).join('');
+  const dw = H2_DEEPWORK.map(d => `<tr><td class="mono" style="white-space:nowrap;color:var(--text)">${escapeHtml(d.w)}</td><td>${escapeHtml(d.f)}</td></tr>`).join('');
+  const cad = H2_CADENCE.map(x => `<tr><td style="font-weight:600;white-space:nowrap">${escapeHtml(x.fr)}</td><td class="mono">${escapeHtml(x.du)}</td><td class="h2-note">${escapeHtml(x.w)}</td></tr>`).join('');
+  return `<div class="h2-sec">
+    <div class="h2-eyebrow">06 · quando fazer o quê</div>
+    <h1 class="h2-h1">Calendário & cadência — H2 / 2026</h1>
+    <p class="h2-lead">As duas earnings seasons são os picos; entre elas ficam as janelas de deep work. A cadência de revisão mantém os OKRs vivos.</p>
+    ${earn}
+    <div class="h2-eyebrow" style="margin:24px 0 0">Janelas de deep work</div>
+    <div class="h2-table-wrap"><table class="h2-table"><thead><tr><th>Janela</th><th>Foco</th></tr></thead><tbody>${dw}</tbody></table></div>
+    <div class="h2-eyebrow" style="margin:24px 0 0">Cadência de revisão</div>
+    <div class="h2-table-wrap"><table class="h2-table"><thead><tr><th>Frequência</th><th>Duração</th><th>Pergunta-chave</th></tr></thead><tbody>${cad}</tbody></table></div>
+  </div>`;
+}
+
+function h2SecRegulatorio() {
+  const rows = H2_REG_EVENTS.map(e => {
+    const tok = e.tri === '3T26' ? H2_TOK.blue : H2_TOK.purple;
+    return `<tr>
+      <td><div style="font-weight:600">${escapeHtml(e.ev)}</div><div class="h2-note" style="margin-top:3px">${escapeHtml(e.acao)}</div></td>
+      <td class="mono" style="white-space:nowrap">${escapeHtml(e.data)}<div style="margin-top:6px"><span class="h2-badge" style="${h2Badge(tok)}">${e.tri}</span></div></td>
+      <td class="mono">${escapeHtml(e.names)}</td>
+    </tr>`;
+  }).join('');
+  const macro = H2_MACRO.map(m => `<tr>
+      <td style="font-weight:600;white-space:nowrap">${escapeHtml(m.tema)}</td>
+      <td>${escapeHtml(m.leitura)}</td>
+      <td class="h2-note">${escapeHtml(m.impl)}</td>
+    </tr>`).join('');
+  return `<div class="h2-sec">
+    <div class="h2-eyebrow">07 · gatilhos das teses (KR4.1)</div>
+    <h1 class="h2-h1">Calendário regulatório — H2 / 2026</h1>
+    <p class="h2-lead">Eventos regulatórios do setor elétrico são gatilhos das teses — bloqueie-os como capacidade comprometida. Fonte: MME/ANEEL/CCEE.</p>
+    <div class="h2-table-wrap"><table class="h2-table"><thead><tr><th>Evento</th><th>Data</th><th>Names</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="h2-eyebrow" style="margin:24px 0 0">Temas macro</div>
+    <div class="h2-table-wrap"><table class="h2-table"><thead><tr><th>Tema</th><th>Leitura H2/2026</th><th>Implicação</th></tr></thead><tbody>${macro}</tbody></table></div>
+  </div>`;
+}
+
+// -- Abrir/fechar a sobreposição (tela cheia, dentro do app; back do Android fecha) --
 (function () {
   const overlay = $('#h2Overlay');
-  const frame = $('#h2Frame');
   const openBtn = $('#planH2Open');
   const backBtn = $('#h2Back');
-  if (!overlay || !frame || !openBtn) return;
+  if (!overlay || !openBtn) return;
   function openH2() {
-    if (!frame.getAttribute('src')) frame.setAttribute('src', 'plano-h2.html'); // carrega só no 1º acesso
+    renderH2();
     overlay.classList.add('open');
     document.body.style.overflow = 'hidden';
     try { history.pushState({ h2: 1 }, ''); } catch {}

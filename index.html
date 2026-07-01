@@ -1246,6 +1246,18 @@ window.firebaseConfig = {
   }
   .ev-cat-chip.active { color: #14141f; }
   .ev-cat-chip:hover { filter: brightness(1.15); }
+  .ev-recur-select {
+    flex: 1; min-width: 120px; padding: 8px 10px; background: var(--card-elev);
+    border: 1px solid var(--border); border-radius: 9px; color: var(--text);
+    font-family: inherit; font-size: 13px; cursor: pointer;
+  }
+  .ev-recur-select:focus { outline: none; border-color: var(--accent); }
+  .ev-recur-badge { color: var(--accent); font-weight: 700; margin-right: 3px; }
+  .day-event-item .ev-recur-marker {
+    width: 20px; height: 20px; flex-shrink: 0; display: flex; align-items: center;
+    justify-content: center; color: var(--accent); font-size: 14px;
+  }
+  .ev-recur-note { font-size: 11px; color: var(--text-subtle); margin-left: 6px; }
 
   /* Sync UI */
   .sync-trigger {
@@ -2284,8 +2296,14 @@ window.firebaseConfig = {
       <input type="text" class="new-cat-input" id="newEventInput" placeholder="Novo evento..." maxlength="80">
       <div class="ev-form-row">
         <input type="time" class="ev-time-input" id="newEventTime" aria-label="Horário">
-        <div class="ev-cat-chips" id="newEventCats"></div>
+        <select class="ev-recur-select" id="newEventRecur" aria-label="Repetir">
+          <option value="">Não repete</option>
+          <option value="daily">Todo dia</option>
+          <option value="weekly">Toda semana</option>
+          <option value="monthly">Todo mês</option>
+        </select>
       </div>
+      <div class="ev-cat-chips" id="newEventCats"></div>
       <button class="btn-primary" id="addEventBtn">+ Adicionar evento</button>
     </div>
     <button class="modal-close" id="dayModalClose" style="margin-top:14px;">Fechar</button>
@@ -4923,6 +4941,43 @@ function evCatColor(id) { const c = evCat(id); return c ? c.color : 'var(--accen
 function sortEvents(list) {
   return [...list].sort((a, b) => { const ta = a.time || '99:99', tb = b.time || '99:99'; return ta < tb ? -1 : ta > tb ? 1 : 0; });
 }
+// Eventos que aparecem num dia = pontuais daquele dia + projeções de recorrentes (master em qualquer data <= alvo)
+function eventsForDay(key, events) {
+  events = events || loadEvents();
+  const out = [];
+  const target = new Date(key + 'T00:00:00');
+  for (const startKey in events) {
+    const start = new Date(startKey + 'T00:00:00');
+    for (const e of events[startKey]) {
+      const rec = e.recur;
+      if (!rec || rec === 'none') {
+        if (startKey === key) out.push(e); // pontual, só no próprio dia
+        continue;
+      }
+      if (start > target) continue; // recorrente ainda não começou
+      let match = false;
+      if (rec === 'daily') match = true;
+      else if (rec === 'weekly') match = start.getDay() === target.getDay();
+      else if (rec === 'monthly') match = start.getDate() === target.getDate();
+      if (match) out.push(e);
+    }
+  }
+  return sortEvents(out);
+}
+// Exclui um evento por id em qualquer dia (recorrente → remove a série toda)
+function deleteEventById(id) {
+  const events = loadEvents();
+  for (const k in events) {
+    events[k] = events[k].filter(e => e.id !== id);
+    if (events[k].length === 0) delete events[k];
+  }
+  saveEvents(events);
+}
+function toggleEventDone(id) {
+  const events = loadEvents();
+  for (const k in events) for (const e of events[k]) if (e.id === id) { e.done = !e.done; saveEvents(events); return; }
+}
+const EV_RECUR_LABEL = { daily: 'todo dia', weekly: 'toda semana', monthly: 'todo mês' };
 let newEventCat = '';
 function renderEventCatChips() {
   const el = $('#newEventCats');
@@ -4978,15 +5033,15 @@ function renderCalMonth() {
     d.setDate(gridStart.getDate() + i);
     const key = dateKey(d);
     const otherMonth = d.getMonth() !== month;
-    const dayEvents = events[key] || [];
+    const dayEvents = eventsForDay(key, events);
     const focusMs = focusTotalForDay(key);
     const sleepMs = sleepForDay(key);
 
-    const sortedEv = sortEvents(dayEvents);
-    const evHtml = sortedEv.slice(0, 2).map(e => {
+    const evHtml = dayEvents.slice(0, 2).map(e => {
       const col = evCatColor(e.cat);
       const t = e.time ? `<b>${escapeHtml(e.time)}</b> ` : '';
-      return `<div class="cal-event ${e.done ? 'done' : ''}" style="border-left:2px solid ${col};padding-left:4px">${t}${escapeHtml(e.text)}</div>`;
+      const r = e.recur ? '<span class="ev-recur-badge">↻</span>' : '';
+      return `<div class="cal-event ${e.done ? 'done' : ''}" style="border-left:2px solid ${col};padding-left:4px">${r}${t}${escapeHtml(e.text)}</div>`;
     }).join('');
     const moreHtml = dayEvents.length > 2 ? `<div class="cal-more">+${dayEvents.length - 2}</div>` : '';
     const dots = [];
@@ -5023,6 +5078,7 @@ function openDayModal(key) {
 
   newEventCat = '';
   $('#newEventTime').value = '';
+  $('#newEventRecur').value = '';
   renderEventCatChips();
   renderDayEvents();
   $('#dayModal').classList.add('active');
@@ -5030,19 +5086,22 @@ function openDayModal(key) {
 }
 
 function renderDayEvents() {
-  const events = loadEvents();
-  const list = events[dayModalKey] || [];
+  const list = eventsForDay(dayModalKey);
   const el = $('#dayEventsList');
   if (list.length === 0) {
     el.innerHTML = '<div class="day-events-empty">Nenhum evento neste dia.</div>';
   } else {
-    el.innerHTML = sortEvents(list).map(e => {
+    el.innerHTML = list.map(e => {
       const col = evCatColor(e.cat);
       const t = e.time ? `<span class="ev-time-badge">${escapeHtml(e.time)}</span>` : '';
+      const note = e.recur ? `<span class="ev-recur-note">↻ ${EV_RECUR_LABEL[e.recur] || 'repete'}</span>` : '';
+      const control = e.recur
+        ? `<div class="ev-recur-marker" title="Evento recorrente">↻</div>`
+        : `<div class="todo-check ${e.done ? 'done' : ''}" data-toggle="${e.id}"></div>`;
       return `
       <div class="day-event-item ${e.done ? 'done' : ''}" style="border-left-color:${col}">
-        <div class="todo-check ${e.done ? 'done' : ''}" data-toggle="${e.id}"></div>
-        <span class="ev-text">${t}${escapeHtml(e.text)}</span>
+        ${control}
+        <span class="ev-text">${t}${escapeHtml(e.text)}${note}</span>
         <button class="todo-remove" data-del="${e.id}" aria-label="Remover">×</button>
       </div>`;
     }).join('');
@@ -5054,16 +5113,19 @@ function addEvent() {
   const text = input.value.trim();
   if (!text || !dayModalKey) return;
   const time = ($('#newEventTime').value || '').trim();
+  const recur = $('#newEventRecur').value || '';
   const events = loadEvents();
   if (!events[dayModalKey]) events[dayModalKey] = [];
   const id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'e-' + Date.now();
   const rec = { id, text, done: false };
   if (time) rec.time = time;
   if (newEventCat) rec.cat = newEventCat;
+  if (recur) rec.recur = recur;
   events[dayModalKey].push(rec);
   saveEvents(events);
   input.value = '';
   $('#newEventTime').value = '';
+  $('#newEventRecur').value = '';
   newEventCat = '';
   renderEventCatChips();
   renderDayEvents();
@@ -5083,7 +5145,7 @@ function renderCalWeek() {
   const todayKey = dateKey(new Date());
   $('#calWeekList').innerHTML = days.map(d => {
     const key = dateKey(d);
-    const dayEvents = events[key] || [];
+    const dayEvents = eventsForDay(key, events);
     const focusMs = focusTotalForDay(key);
     const sleepMs = sleepForDay(key);
     const dayName = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'short' });
@@ -5093,10 +5155,11 @@ function renderCalWeek() {
     if (sleepMs > 0) summaryParts.push(`<span><i class="sleep"></i>${formatDuration(sleepMs)}</span>`);
 
     const evHtml = dayEvents.length
-      ? sortEvents(dayEvents).map(e => {
+      ? dayEvents.map(e => {
           const col = evCatColor(e.cat);
           const t = e.time ? `<b>${escapeHtml(e.time)}</b> ` : '';
-          return `<div class="cal-week-event ${e.done ? 'done' : ''}" style="border-left:3px solid ${col};padding-left:8px">${t}${escapeHtml(e.text)}</div>`;
+          const r = e.recur ? '<span class="ev-recur-badge">↻</span>' : '';
+          return `<div class="cal-week-event ${e.done ? 'done' : ''}" style="border-left:3px solid ${col};padding-left:8px">${r}${t}${escapeHtml(e.text)}</div>`;
         }).join('')
       : '<div class="cal-week-empty">Sem eventos</div>';
 
@@ -5138,17 +5201,12 @@ $('#dayModal').addEventListener('click', (e) => { if (e.target.id === 'dayModal'
 $('#dayEventsList').addEventListener('click', (e) => {
   const toggle = e.target.closest('.todo-check');
   const del = e.target.closest('.todo-remove');
-  const events = loadEvents();
-  if (!events[dayModalKey]) return;
   if (toggle) {
-    const ev = events[dayModalKey].find(x => x.id === toggle.dataset.toggle);
-    if (ev) { ev.done = !ev.done; saveEvents(events); renderDayEvents(); renderCalendar(); }
+    toggleEventDone(toggle.dataset.toggle);
+    renderDayEvents(); renderCalendar();
   } else if (del) {
-    events[dayModalKey] = events[dayModalKey].filter(x => x.id !== del.dataset.del);
-    if (events[dayModalKey].length === 0) delete events[dayModalKey];
-    saveEvents(events);
-    renderDayEvents();
-    renderCalendar();
+    deleteEventById(del.dataset.del);
+    renderDayEvents(); renderCalendar();
   }
 });
 

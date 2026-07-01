@@ -5772,17 +5772,29 @@ const H2_MACRO = [
   { tema: 'Sabesp × Equatorial', leitura: 'EQTL3 é acionista de referência da SBSP3', impl: 'Tratar como par cruzado (não isolado): alocação de capex e sinergias mudam o xadrez do setor.' },
 ];
 const H2_MONTHS = ['Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+// OKRs H2/2026 — atualizados pelo Gabriel (planilha plano_atual, jul/26)
+const H2_OBJ_DEFS = {
+  "O1": "Modelos Tier 1 sempre atualizados e os números na ponta da língua (a base que sustenta o alpha)",
+  "O2": "Expandir o universo de cobertura: iniciar modelos de nomes novos que ampliem o funil de ideias de alpha",
+  "O3": "Ter a assimetria mapeada para cada case Tier 1: saber, com número, o preço em que o ativo está barato demais (long) e caro demais (short)",
+  "O4": "Ter earnings preview pronto para cada trimestre: chegar a cada release com o call já no papel",
+  "O5": "Maior interação com os cases dos colegas: ouvir mais a opinião do time e trazer esses ângulos para a minha leitura",
+  "O6": "Ter uma noção de preço de longo prazo (LP) de energia: uma referência própria do preço de LP da energia elétrica no Brasil, para ancorar as premissas de receita das geradoras nas teses.",
+  "O7": "Apresentar quanto vale R$ 1 de capex na RAB: mostrar, de forma clara, o valor criado (ou destruído) para cada R$ 1 investido na base de ativos regulatória de transmissão/distribuição.",
+};
+// Objetivos sem KR numérico (qualitativos)
+const H2_OBJ_QUAL = {
+  "O5": "Objetivo qualitativo — sem KR nem meta numérica. É uma direção de comportamento (engajar com os cases do time, prestar atenção nas opiniões alheias) que se avalia de forma reflexiva, não por score.",
+};
 const H2_KR_DEFS = [
-  { code: 'KR1.1', fam: 'O1', op: true, baseline: '0/3 + 0/7', meta: '3/3 + 7/7', atualSeed: '0/3 + 0/7', leadSeed: '', body: 'Durante a earnings season 2T26, atualizar os names "Core-ativo" (CPLE3, ENEV3, EQTL3 — posição/tese ativa) em ≤48h após o release, e os demais Tier 1 "Core-monitor" em ≤5 dias úteis. Evita a promessa inviável de ≤48h para 10 names simultâneos (pico 05–13/ago).' },
-  { code: 'KR1.2', fam: 'O1', op: false, baseline: '~12%', meta: '≤8%', atualSeed: '', leadSeed: '', body: 'MAPE do EBITDA 2T26 dos 10 names Tier 1 ≤ 8% — |previsto−reportado ajustado| / |reportado ajustado|, com modelo congelado até 18h do dia anterior ao release. Reportar também mediana, p75 e erro por subsetor. Baseline ~12% a reconstruir com 4–6 tri históricos.' },
-  { code: 'KR2.1', fam: 'O2', op: true, baseline: '0/4', meta: '4/4', atualSeed: '0/4', leadSeed: '', body: 'Nota de 1 página (delta guidance + tese) para os names Tier 2 (SAPR11, CSMG3, AURE3, ALUP11) em ≤5 dias úteis após cada earnings.' },
-  { code: 'KR2.2', fam: 'O2', op: true, baseline: 'n/a', meta: '2 revisões', atualSeed: '', leadSeed: '', body: 'Reavaliar trimestralmente se algum Tier 2 deve subir p/ Tier 1 ou cair p/ Tier 3.' },
-  { code: 'KR3.1', fam: 'O3', op: true, baseline: '0/7', meta: '7/7', atualSeed: '0/7', leadSeed: 'Alertas Bloomberg revisados 1x/semana', body: 'Monitorar manchetes/eventos dos names Tier 3 (EGIE3, TAEE11, LIGT3, PASS3, MOTV3, ECOR3, AMBP3); alerta configurado p/ 100%. Atenção: PASS3 é Tier 3 mas modelo do-zero prioritário 2026.' },
-  { code: 'KR3.2', fam: 'O3', op: false, baseline: '45%', meta: '60%', atualSeed: '', leadSeed: '1 pre-mortem por tese publicada', body: '≥60% das mudanças de rating/convicção (com timestamp no decision journal) antecipam o consenso Bloomberg (rating/TP/EPS) em ≤90 dias. Reportar N, acertos, falsos positivos/negativos. Bear case (pre-mortem) em 100% das calls novas.' },
-  { code: 'KR4.1', fam: 'O4', op: false, baseline: '0/3', meta: '3/3', atualSeed: '0/3', leadSeed: '', body: 'Publicar ≥3 teses long/short com assimetria clara em energia no H2 (mín. 1 por trimestre), cada uma com upside/downside quantificado e gatilho definido.' },
-  { code: 'KR4.2', fam: 'O4', op: false, baseline: '45%', meta: '60%', atualSeed: '', leadSeed: 'Outcome-âncora: nº de teses que o PM converteu em posição/sizing (proxy honesto de alpha). Pares long/short são funil de ideias (cadência variável), não meta em si.', body: 'Cada tese publicada tem long, hedge/short, benchmark, data/hora de entrada, horizonte, catalisador, upside/downside e sizing. Meta: ≥60% hit rate vs. par em ≥1 tri E medir EV realizado (Σ sizing×retorno relativo). Nota: hit rate com N=3 é indicativo, não estatisticamente significativo.' },
-  { code: 'KR5.1', fam: 'O5', op: true, baseline: '0%', meta: '100%', atualSeed: '0%', leadSeed: '', body: 'Concluir o exercício de Custo Marginal de Expansão (CME) até out/26 — alimenta as calls de geradoras (EGIE3, AURE3, ENEV3, AXIA3) e o Leilão de Energia Existente (13/nov).' },
-  { code: 'KR5.2', fam: 'O5', op: true, baseline: '0/2', meta: '2/2', atualSeed: '', leadSeed: '', body: 'Entregar a nota didática EV/RAB de distribuidoras (jul, "Teach In") e aplicá-la aos names até set–out/26.' },
+  {"code": "KR1.1", "fam": "O1", "op": true, "baseline": "0/10", "meta": "10/10", "atualSeed": "0/10", "leadSeed": "Na earnings season: atualizar Core-ativo (CPLE3, ENEV3, EQTL3) em ≤48h e demais Tier 1 em ≤5 dias úteis após cada release — é a ação semanal que garante o estado 'atualizado' do KR1.1.", "body": "100% dos names Tier 1 com o último resultado trimestral divulgado já incorporado ao modelo (verificável a qualquer momento: o modelo reflete o último tri reportado? sim/não por name)."},
+  {"code": "KR1.2", "fam": "O1", "op": false, "baseline": "~12%", "meta": "≤8%", "atualSeed": "", "leadSeed": "", "body": "MAPE do EBITDA 2T26 dos 10 names Tier 1 ≤ 8% — |previsto−reportado ajustado|/|reportado ajustado|, usando o modelo congelado até 18h do dia anterior ao release. Reportar também mediana, p75 e erro por subsetor (média sozinha esconde desastre em 1 name). Baseline ~12% a reconstruir com 4–6 tri históricos."},
+  {"code": "KR2.1", "fam": "O2", "op": true, "baseline": "0/3", "meta": "3/3", "atualSeed": "0/3", "leadSeed": "Bloco semanal de construção de modelo do-zero (fora do pico de balanços); checklist de dados regulatórios por nome antes de abrir o modelo.", "body": "iniciar cobertura de ≥3 nomes novos no H2/2026 (CMIG4 em set; LIGT3 e PASS3 em nov, pós-3T26), cada um com modelo completo (P&L + fluxo + valuation), nota inicial com tese/recomendação e alvo de preço definido."},
+  {"code": "KR2.2", "fam": "O2", "op": true, "baseline": "0/1", "meta": "1/1", "atualSeed": "0/1", "leadSeed": "", "body": "≥1 dos nomes iniciados vira tese acionável levada ao PM no H2 — garante que expandir cobertura gera oportunidade de alpha, não só modelo novo na gaveta."},
+  {"code": "KR3.1", "fam": "O3", "op": true, "baseline": "0/10", "meta": "10/10", "atualSeed": "0/10", "leadSeed": "Reprecificar bull/bear de cada Tier 1 logo após cada release; 1 revisão de assimetria por semana no bloco de trabalho.", "body": "100% dos 10 names Tier 1 com a assimetria quantificada — cada case com o preço de long (barato demais) E o preço de short (caro demais) definidos com número, revisados a cada earnings. Um name só conta como pronto quando tem os dois preços."},
+  {"code": "KR4.1", "fam": "O4", "op": true, "baseline": "0%", "meta": "100%", "atualSeed": "0%", "leadSeed": "Fechar o calendário de releases do tri no 1º dia; preview pronto com folga antes de cada data; congelar números 1 dia antes.", "body": "100% dos names cobertos com earnings preview publicado ANTES do release, a cada trimestre — contendo números estimados (receita, EBITDA, lucro), a expectativa vs. consenso Bloomberg e os pontos de atenção do tri."},
+  {"code": "KR6.1", "fam": "O6", "op": true, "baseline": "0/1", "meta": "1/1", "atualSeed": "0/1", "leadSeed": "Bloco quinzenal: consolidar leilões, PLD, curva forward e CME; revisar a premissa de preço de LP a cada dado novo relevante.", "body": "entregar (sim/não) uma referência/curva própria de preço de LP de energia — com premissas explícitas (oferta, demanda, hidrologia, custo marginal de expansão) e ligada aos modelos das geradoras cobertas."},
+  {"code": "KR7.1", "fam": "O7", "op": true, "baseline": "0/1", "meta": "1/1", "atualSeed": "0/1", "leadSeed": "Rodar a conta de WACC regulatório vs. custo de capital a cada revisão tarifária / dado da ANEEL; atualizar o valor por R$1 de capex quando mudar remuneração ou base.", "body": "Entregar (sim/não) a análise de quanto vale R$1 de capex na RAB — o valor criado ou destruído para cada R$1 investido na base de ativos regulatória de transmissão/distribuição."},
 ];
 const H2_COV_DEFS = [
   { t: 'SAPR11', sub: 'Saneamento', tier: 2, earn: '13/08', nota: 'A que preço comprar', st: 'updated', note: '1T26', star: false },
@@ -5988,14 +6000,14 @@ function h2Agg(D, codes) {
   const av = vals.reduce((s, x) => s + x, 0) / vals.length;
   return { text: av.toFixed(2).replace('.', ','), filled: vals.length + ' de ' + codes.length + ' preenchidos', tok: h2ScoreTok(av) };
 }
-const H2_OP_CODES = ['KR1.1', 'KR2.1', 'KR2.2', 'KR3.1', 'KR5.1', 'KR5.2'];
-const H2_AL_CODES = ['KR1.2', 'KR3.2', 'KR4.1', 'KR4.2'];
+const H2_OP_CODES = ['KR1.1', 'KR2.1', 'KR2.2', 'KR3.1', 'KR4.1', 'KR6.1', 'KR7.1'];
+const H2_AL_CODES = ['KR1.2'];
 
 function h2SecOkrs(D) {
   const kindBadge = op => op
     ? `<span class="h2-badge" style="${h2Badge(H2_TOK.gray)}">operacional</span>`
     : `<span class="h2-badge" style="${h2Badge(H2_TOK.purple)}">alpha</span>`;
-  const groups = ['O1', 'O2', 'O3', 'O4', 'O5'].map(oid => {
+  const groups = ['O1', 'O2', 'O3', 'O4', 'O5', 'O6', 'O7'].map(oid => {
     const krs = H2_KR_DEFS.filter(k => k.fam === oid).map(k => {
       const score = D['okr_' + k.code + '_score'] != null ? D['okr_' + k.code + '_score'] : '';
       const atual = D['okr_' + k.code + '_atual'] != null ? D['okr_' + k.code + '_atual'] : k.atualSeed;
@@ -6020,17 +6032,19 @@ function h2SecOkrs(D) {
         <textarea class="h2-ta" data-h2key="okr_${k.code}_lead" placeholder="alavanca semanal controlável…">${escapeHtml(String(lead))}</textarea>
       </div>`;
     }).join('');
+    const objTitle = D['obj_' + oid] != null ? D['obj_' + oid] : (H2_OBJ_DEFS[oid] || '');
+    const inner = krs || (H2_OBJ_QUAL[oid] ? `<div class="h2-kr"><div class="h2-note" style="font-style:italic;line-height:1.55">${escapeHtml(H2_OBJ_QUAL[oid])}</div></div>` : '');
     return `<div class="h2-obj">
-      <div class="h2-obj-head"><span class="h2-obj-id">${oid}</span><input class="h2-obj-title" data-h2key="obj_${oid}" value="${escapeHtml(D['obj_' + oid] || '')}" placeholder="Descreva o objetivo (resultado / lag)…"></div>
-      ${krs}
+      <div class="h2-obj-head"><span class="h2-obj-id">${oid}</span><input class="h2-obj-title" data-h2key="obj_${oid}" value="${escapeHtml(String(objTitle))}" placeholder="Descreva o objetivo (resultado / lag)…"></div>
+      ${inner}
     </div>`;
   }).join('');
   const opA = h2Agg(D, H2_OP_CODES), alA = h2Agg(D, H2_AL_CODES);
-  const ns = D['northstar'] != null ? D['northstar'] : 'Gerar 3 ideias acionáveis com assimetria clara em energia no H2';
+  const ns = D['northstar'] != null ? D['northstar'] : 'Gerar alpha no fundo com minha cobertura de energia';
   return `<div class="h2-sec">
     <div class="h2-eyebrow">01 · objetivos & key results</div>
     <h1 class="h2-h1">OKRs — H2 / 2026</h1>
-    <p class="h2-lead">Cada KR é pontuado de 0,0 a 1,0 (0,7–1,0 = sucesso). Operacionais são pass/fail; metas de alpha admitem reflexão qualitativa.</p>
+    <p class="h2-lead">Cada KR é pontuado de 0,0 a 1,0 (0,7–1,0 = sucesso). Operacionais são pass/fail; metas de alpha admitem reflexão qualitativa. <b style="color:var(--text-muted)">Regra do 1,5×:</b> multiplique toda estimativa de tempo por 1,5 antes de comprometer prazo (corrige o otimismo sistemático).</p>
     <div class="h2-card" style="box-shadow:inset 3px 0 0 var(--accent)">
       <div class="h2-eyebrow" style="color:var(--accent)">North Star do semestre</div>
       <textarea class="h2-ta" data-h2key="northstar" style="border:none;background:transparent;font-family:var(--h2-serif);font-size:18px;font-weight:500;line-height:1.4;min-height:52px;padding:8px 0 0" placeholder="Sua frase de direção…">${escapeHtml(String(ns))}</textarea>
@@ -6042,8 +6056,8 @@ function h2SecOkrs(D) {
     </div>
     ${groups}
     <div class="h2-scoregrid">
-      <div class="h2-card"><div class="h2-eyebrow">Score — operacionais</div><div class="h2-note" style="margin-top:4px">KR1.1 · 2.1 · 2.2 · 3.1 · 5.1 · 5.2 — pass/fail</div><div style="display:flex;align-items:baseline;gap:10px;margin-top:10px"><span class="h2-big" id="h2OpA" style="color:${opA.tok.c}">${opA.text}</span><span class="h2-note" id="h2OpAf">${opA.filled}</span></div></div>
-      <div class="h2-card"><div class="h2-eyebrow">Score — alpha</div><div class="h2-note" style="margin-top:4px">KR1.2 · 3.2 · 4.1 · 4.2 — reflexão qualitativa</div><div style="display:flex;align-items:baseline;gap:10px;margin-top:10px"><span class="h2-big" id="h2AlA" style="color:${alA.tok.c}">${alA.text}</span><span class="h2-note" id="h2AlAf">${alA.filled}</span></div></div>
+      <div class="h2-card"><div class="h2-eyebrow">Score — operacionais</div><div class="h2-note" style="margin-top:4px">KR1.1 · 2.1 · 2.2 · 3.1 · 4.1 · 6.1 · 7.1 — pass/fail</div><div style="display:flex;align-items:baseline;gap:10px;margin-top:10px"><span class="h2-big" id="h2OpA" style="color:${opA.tok.c}">${opA.text}</span><span class="h2-note" id="h2OpAf">${opA.filled}</span></div></div>
+      <div class="h2-card"><div class="h2-eyebrow">Score — alpha</div><div class="h2-note" style="margin-top:4px">KR1.2 — reflexão qualitativa</div><div style="display:flex;align-items:baseline;gap:10px;margin-top:10px"><span class="h2-big" id="h2AlA" style="color:${alA.tok.c}">${alA.text}</span><span class="h2-note" id="h2AlAf">${alA.filled}</span></div></div>
     </div>
     <div class="h2-note" style="margin-top:12px;padding:11px 14px;background:var(--card-elev);border:1px solid var(--border);border-radius:10px"><b style="color:var(--text)">Regra:</b> operacional é pass/fail (não deveria ficar "verde" com 0,7); alpha usa 0,0–1,0 com reflexão qualitativa.</div>
   </div>`;

@@ -102,46 +102,35 @@ window.firebaseConfig = {
     letter-spacing: 0.3px;
   }
 
+  /* Nav em pills roláveis (design Claude): cada tab é um botão; o ativo ganha fundo/borda */
   .tabs {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    display: flex;
+    gap: 2px;
+    overflow-x: auto;
+    scrollbar-width: none;
     margin-bottom: 18px;
     background: var(--card);
     padding: 5px;
     border-radius: 12px;
     border: 1px solid var(--border);
-    position: relative;
   }
-  .tabs::before {
-    content: '';
-    position: absolute;
-    box-sizing: border-box; /* o reset * não pega pseudo-elementos; sem isso a borda soma 2px por slot e o 7º tab estoura o container */
-    top: 5px; bottom: 5px; left: 5px;
-    width: calc((100% - 10px) / 7);
-    background: var(--card-elev);
-    border: 1px solid var(--border-strong);
-    border-radius: 8px;
-    transition: transform 0.32s cubic-bezier(0.4, 0.0, 0.2, 1);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-    z-index: 0;
-  }
-  .tabs.tab-plano::before { transform: translateX(100%); }
-  .tabs.tab-history::before { transform: translateX(200%); }
-  .tabs.tab-sono::before { transform: translateX(300%); }
-  .tabs.tab-agenda::before { transform: translateX(400%); }
-  .tabs.tab-cal::before { transform: translateX(500%); }
-  .tabs.tab-semestre::before { transform: translateX(600%); }
+  .tabs::-webkit-scrollbar { display: none; }
   .tab {
-    padding: 10px 1px; background: transparent;
-    border: none; border-radius: 8px;
-    text-align: center; cursor: pointer; font-size: 10px;
+    flex: 1 0 auto;
+    padding: 9px 15px; background: transparent;
+    border: 1px solid transparent; border-radius: 11px;
+    text-align: center; cursor: pointer; font-size: 13px;
     color: var(--text-subtle); user-select: none; font-weight: 500;
-    transition: color 0.25s ease;
-    position: relative; z-index: 1;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    transition: background 0.25s ease, color 0.25s ease;
+    white-space: nowrap;
   }
   .tab:hover { color: var(--text-muted); }
-  .tab.active { color: var(--text); }
+  .tab.active {
+    color: var(--text);
+    background: var(--card-elev);
+    border-color: var(--border-strong);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  }
 
   .panel { display: none; }
   .panel.active {
@@ -1556,16 +1545,20 @@ window.firebaseConfig = {
   .plan-h2-arrow { flex: none; color: var(--accent); font-size: 18px; font-weight: 600; }
   /* Sub-navegação das 7 seções do Semestre (dentro da aba) — quebra em linhas, nada cortado */
   .h2-subnav {
-    display: flex; flex-wrap: wrap; gap: 6px; padding: 6px;
-    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
+    gap: 6px; padding: 6px;
+    background: oklch(0.185 0.004 70 / 0.8); backdrop-filter: blur(8px);
+    border: 1px solid oklch(0.36 0.006 70 / 0.5); border-radius: 12px;
+    box-shadow: inset 0 1px 0 oklch(0.42 0.006 72 / 0.3), 0 8px 24px oklch(0 0 0 / 0.2);
     margin-bottom: 14px;
   }
+  .h2-subnav::-webkit-scrollbar { display: none; }
   .h2-chip {
     flex: none; display: inline-flex; align-items: center; gap: 6px;
-    padding: 7px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap;
+    padding: 8px 13px; border-radius: 8px; cursor: pointer; white-space: nowrap;
     background: var(--card-elev); border: 1px solid var(--border);
-    color: var(--text-subtle); font-size: 12px; font-weight: 500; font-family: inherit;
-    transition: color 0.15s ease, border-color 0.15s ease;
+    color: var(--text-subtle); font-size: 12.5px; font-weight: 500; font-family: inherit;
+    transition: background 0.2s ease, color 0.2s ease;
   }
   .h2-chip .h2-chip-n { font-size: 10px; opacity: 0.7; font-variant-numeric: tabular-nums; }
   .h2-chip:hover { color: var(--text-muted); }
@@ -1594,7 +1587,11 @@ window.firebaseConfig = {
   .h2-badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
 
   /* Tabelas H2 */
-  .h2-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 12px; }
+  .h2-table-wrap {
+    overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 12px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 2px 14px 8px; box-shadow: 0 16px 40px oklch(0 0 0 / 0.18);
+  }
   .h2-table { width: 100%; border-collapse: collapse; min-width: 480px; }
   .h2-table th {
     text-align: left; padding: 9px 10px; font: 600 9.5px/1.2 var(--h2-mono);
@@ -1608,11 +1605,11 @@ window.firebaseConfig = {
 
   /* Inputs H2 (textarea/score/select) */
   .h2-ta {
-    width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 7px;
-    font: 400 12px/1.45 inherit; background: var(--card-elev); color: var(--text);
+    width: 100%; padding: 11px 13px; border: 1px solid oklch(0.36 0.006 70 / 0.5); border-radius: 10px;
+    font: 400 13px/1.55 inherit; background: oklch(0.21 0.005 70); color: var(--text);
     outline: none; min-height: 44px; resize: vertical; font-family: inherit;
   }
-  .h2-ta:focus { border-color: var(--accent); }
+  .h2-ta:focus { border-color: oklch(0.83 0.045 78 / 0.5); }
   .h2-ta::placeholder { color: var(--text-subtle); }
   .h2-score {
     width: 58px; text-align: center; padding: 6px 4px; border-radius: 7px;
@@ -1627,23 +1624,29 @@ window.firebaseConfig = {
   .h2-check { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
   .h2-big { font-family: var(--h2-serif); font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
   .h2-soon { font-size: 13px; color: var(--text-muted); text-align: center; padding: 40px 12px; line-height: 1.6; }
-  .h2-flabel { display: block; font: 600 9.5px var(--h2-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-subtle); margin: 8px 0 5px; }
+  .h2-flabel { display: block; font: 600 10px var(--h2-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-subtle); margin: 8px 0 6px; }
   .h2-row2 { display: flex; gap: 12px; align-items: flex-start; margin-top: 4px; }
-  .h2-obj { border: 1px solid var(--border); border-radius: 13px; overflow: hidden; margin-top: 14px; }
-  .h2-obj-head { display: flex; align-items: center; gap: 10px; padding: 11px 13px; background: var(--card-elev); border-bottom: 1px solid var(--border); }
-  .h2-obj-id { font: 600 11px var(--h2-mono); color: var(--accent); border: 1px solid var(--accent); background: oklch(0.83 0.045 78 /0.08); padding: 3px 8px; border-radius: 6px; flex: none; }
-  .h2-obj-title { flex: 1; min-width: 0; border: none; background: transparent; outline: none; color: var(--text); font-size: 15.5px; font-weight: 600; font-family: var(--h2-serif); }
+  .h2-obj {
+    background: var(--card); border: 1px solid oklch(0.34 0.006 70 / 0.45); border-radius: 16px;
+    overflow: hidden; margin-top: 14px; box-shadow: 0 16px 40px oklch(0 0 0 / 0.18);
+  }
+  .h2-obj-head { display: flex; align-items: center; gap: 10px; padding: 14px 14px 8px; }
+  .h2-obj-id { font: 600 10.5px var(--h2-mono); color: var(--accent); border: 1px solid oklch(0.83 0.045 78 / 0.4); background: transparent; padding: 3px 7px; border-radius: 6px; flex: none; }
+  .h2-obj-title { flex: 1; min-width: 0; border: none; background: transparent; outline: none; color: var(--text); font-size: 15px; font-weight: 600; line-height: 1.35; font-family: var(--h2-serif); }
   .h2-obj-title::placeholder { color: var(--text-subtle); font-weight: 400; }
-  .h2-kr { padding: 13px 14px; border-top: 1px solid var(--border); }
-  .h2-obj .h2-kr:first-of-type { border-top: none; }
+  .h2-kr {
+    background: oklch(0.205 0.005 70); border: 1px solid oklch(0.32 0.006 70 / 0.45);
+    border-radius: 12px; padding: 13px 14px; margin: 6px 12px;
+  }
+  .h2-kr .h2-ta, .h2-kr .h2-atual { background: var(--card); }
   .h2-kr-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .h2-kr-code { font: 600 11px var(--h2-mono); color: var(--accent); }
   .h2-kr-body { font-size: 12px; line-height: 1.5; color: var(--text-muted); }
   .h2-kr-body-ta { min-height: 58px; font-size: 12.5px; line-height: 1.5; margin-top: 2px; }
   .h2-kr-meta { display: flex; gap: 16px; margin: 9px 0 4px; font: 500 12px var(--h2-mono); color: var(--text); flex-wrap: wrap; }
   .h2-kr-meta b { color: var(--text-subtle); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; font-size: 9.5px; margin-right: 5px; }
-  .h2-atual { width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font: 500 12px var(--h2-mono); background: var(--card-elev); color: var(--text); outline: none; text-align: center; }
-  .h2-atual:focus { border-color: var(--accent); }
+  .h2-atual { width: 100%; padding: 10px; border: 1px solid oklch(0.36 0.006 70 / 0.5); border-radius: 10px; font: 500 12.5px var(--h2-mono); background: oklch(0.21 0.005 70); color: var(--text); outline: none; text-align: center; }
+  .h2-atual:focus { border-color: oklch(0.83 0.045 78 / 0.5); }
   .h2-scoregrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
   @media (max-width: 480px) { .h2-scoregrid { grid-template-columns: 1fr; } }
   .h2-add-btn {
@@ -1654,7 +1657,8 @@ window.firebaseConfig = {
     transition: color 0.15s ease, border-color 0.15s ease;
   }
   .h2-add-btn:hover { color: var(--accent); border-color: var(--accent); }
-  .h2-obj-foot { padding: 10px 14px; border-top: 1px solid var(--border); }
+  .h2-obj-foot { padding: 6px 12px 12px; }
+  .h2-obj-foot .h2-add-btn { width: 100%; justify-content: center; padding: 11px; border-radius: 11px; background: transparent; }
   .h2-add-obj { width: 100%; justify-content: center; margin-top: 16px; padding: 12px; }
   .h2-krdel, .h2-objdel {
     margin-left: auto; flex: none; width: 24px; height: 24px; border: none; background: transparent;
@@ -1662,10 +1666,26 @@ window.firebaseConfig = {
   }
   .h2-krdel:hover, .h2-objdel:hover { opacity: 1; color: var(--danger); background: var(--card-elev); }
   .h2-kindbtn { cursor: pointer; font-family: inherit; }
-  .h2-score-out { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; cursor: default; }
+  .h2-score-out {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 64px; min-height: 38px; padding: 0 12px; border-radius: 10px;
+    font: 600 12.5px var(--h2-mono); font-variant-numeric: tabular-nums; cursor: default;
+  }
   .h2-cov-checks { display: flex; flex-direction: column; gap: 6px; flex: none; }
-  .h2-cov-q { display: flex; align-items: center; gap: 5px; font: 600 10px var(--h2-mono); color: var(--text-subtle); cursor: pointer; white-space: nowrap; }
-  .h2-cov-q .h2-check { width: 17px; height: 17px; }
+  /* Toggles 2T26/3T26 como chips (o checkbox nativo fica escondido; :has liga o estado) */
+  .h2-cov-q {
+    display: inline-flex; align-items: center; padding: 5px 9px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--card);
+    font: 600 10.5px var(--h2-mono); color: var(--text-subtle);
+    cursor: pointer; white-space: nowrap; user-select: none;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .h2-cov-q .h2-check { display: none; }
+  .h2-cov-q::before { content: '○ '; white-space: pre; }
+  .h2-cov-q:has(.h2-check:checked) {
+    background: oklch(0.83 0.045 78 / 0.14); border-color: oklch(0.83 0.045 78 / 0.5); color: var(--accent);
+  }
+  .h2-cov-q:has(.h2-check:checked)::before { content: '✓ '; }
   .h2-nota-in { text-align: left; font-size: 12px; font-family: inherit; }
   .h2-cov-main .h2-nota-in { margin-top: 7px; }
   .h2-st-sel { width: auto; min-width: 96px; padding: 5px 8px; font-size: 11px; }
@@ -1681,6 +1701,12 @@ window.firebaseConfig = {
   .h2-cov-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 5px; line-height: 1.45; }
   .h2-cov-tag { font-size: 11px; color: var(--warn); margin-top: 4px; line-height: 1.4; }
   .h2-cyc { width: 100%; height: 34px; border-radius: 7px; cursor: pointer; font: 600 13px var(--h2-mono); }
+  /* Cards de evento (Calendário regulatório / Temas macro) */
+  .h2-evcard { margin-top: 10px; padding: 14px 15px; }
+  .h2-ev-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .h2-ev-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .h2-ev-date { font-family: var(--h2-mono); font-size: 11.5px; color: var(--accent); margin: 7px 0 5px; line-height: 1.5; }
+  .h2-ev-read { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; margin: 6px 0 5px; }
 
   /* ===== Tarefas (lista unificada) ===== */
   .tasks-card {
@@ -1821,14 +1847,31 @@ window.firebaseConfig = {
     --success: oklch(0.72 0.13 155);
   }
   body {
-    background: var(--bg);
+    background: radial-gradient(130% 90% at 50% -8%, oklch(0.205 0.008 74), oklch(0.14 0.004 70) 55%);
+    background-attachment: fixed;
     font-family: 'Hanken Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
   }
-  .tabs { border-radius: 15px; }
-  .tabs::before { border-radius: 11px; }
+  .tabs {
+    border-radius: 15px;
+    background: oklch(0.185 0.004 70 / 0.8);
+    backdrop-filter: blur(8px);
+    box-shadow: inset 0 1px 0 oklch(0.42 0.006 72 / 0.3), 0 8px 24px oklch(0 0 0 / 0.28);
+  }
 
   /* Hero do timer */
-  .focus-card { border-radius: 30px; padding: clamp(30px, 6vw, 48px) clamp(20px, 5vw, 40px); }
+  .focus-card {
+    border-radius: 30px; padding: clamp(30px, 6vw, 48px) clamp(20px, 5vw, 40px);
+    position: relative; overflow: hidden;
+    background: linear-gradient(180deg, oklch(0.205 0.005 72), oklch(0.178 0.004 70));
+    border: 1px solid oklch(0.36 0.006 70 / 0.5);
+    box-shadow: 0 30px 70px oklch(0 0 0 / 0.4), inset 0 1px 0 oklch(0.5 0.008 74 / 0.25);
+  }
+  .focus-card::before {
+    content: ''; position: absolute; top: -30%; left: 50%; transform: translateX(-50%);
+    width: 70%; height: 60%; border-radius: 50%;
+    background: radial-gradient(circle, oklch(0.83 0.045 78 / 0.12), transparent 70%);
+    filter: blur(30px); pointer-events: none;
+  }
   .focus-eyebrow {
     font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase;
     color: var(--text-subtle); text-align: center; margin-bottom: clamp(18px, 4vw, 28px);
@@ -1844,6 +1887,8 @@ window.firebaseConfig = {
   #focusIdle .picker-value {
     font-size: clamp(88px, 24vw, 140px); font-weight: 600; line-height: 0.9;
     font-variant-numeric: tabular-nums; color: var(--text); width: auto;
+    background: linear-gradient(180deg, oklch(0.99 0.008 90), oklch(0.87 0.045 78));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
   }
   #focusIdle .picker-label { font-size: 14px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--text-subtle); }
   .preset-row { display: flex; gap: 8px; justify-content: center; margin: clamp(18px, 4vw, 26px) 0 0; }
@@ -1866,10 +1911,13 @@ window.firebaseConfig = {
   .category-chip .chip-arrow { color: var(--text-subtle); }
   #startBtn {
     width: 100%; margin-top: clamp(20px, 5vw, 30px); padding: 18px;
-    border: none; border-radius: 18px; background: oklch(0.88 0.03 80);
+    border: none; border-radius: 18px;
+    background: linear-gradient(180deg, oklch(0.92 0.035 82), oklch(0.85 0.045 76));
+    box-shadow: 0 10px 26px oklch(0.83 0.045 78 / 0.24), inset 0 1px 0 oklch(0.99 0.02 88 / 0.5);
     color: oklch(0.18 0.01 80); font-size: 16px; font-weight: 600; letter-spacing: 0.01em;
+    transition: transform 0.15s ease, filter 0.2s ease;
   }
-  #startBtn:hover { background: oklch(0.92 0.03 80); }
+  #startBtn:hover { filter: brightness(1.05); }
   #startBtn:active { transform: scale(0.99); }
 
   /* Modo rodando */
@@ -1886,16 +1934,19 @@ window.firebaseConfig = {
     filter: blur(28px); animation: tmr-breathe 6s ease-in-out infinite; pointer-events: none;
   }
   .timer-ring { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .ring-bg { fill: none; stroke: oklch(0.30 0.005 70); stroke-width: 3; }
+  .ring-bg { fill: none; stroke: oklch(0.28 0.005 70); stroke-width: 3.2; }
   .ring-progress {
-    fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round;
+    fill: none; stroke: url(#ringGrad); stroke-width: 4; stroke-linecap: round;
     stroke-dasharray: 565.49; transform: rotate(-90deg); transform-origin: center;
     transition: stroke-dashoffset 0.95s linear;
+    filter: drop-shadow(0 0 6px oklch(0.83 0.045 78 / 0.5));
   }
   .timer-center { display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 1; }
   .timer-display {
     position: static; font-size: clamp(54px, 16vw, 84px); font-weight: 600;
     line-height: 1; font-variant-numeric: tabular-nums; color: var(--text); transform: none;
+    background: linear-gradient(180deg, oklch(0.99 0.008 90), oklch(0.88 0.045 78));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
   }
   .timer-sub { font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-subtle); }
   #focusRunning .controls { display: flex; gap: 12px; width: 100%; margin-top: clamp(20px, 5vw, 30px); }
@@ -2009,6 +2060,8 @@ window.firebaseConfig = {
   .cal-view-toggle { border-radius: 15px; }
   .cal-view-toggle button { border-radius: 11px; font-weight: 600; }
   .cal-view-toggle button.active { color: oklch(0.9 0.04 80); }
+  .cal-grid { gap: 6px; }
+  .cal-cell { border-radius: 12px; }
   .cal-cell.today { box-shadow: inset 0 0 0 1px var(--accent); }
   .cal-week-day, .alarm-item { border-radius: 16px; }
   .tl-day { border-radius: 6px; }
@@ -2067,6 +2120,12 @@ window.firebaseConfig = {
       <div class="timer-ring-container">
         <div class="ring-glow"></div>
         <svg class="timer-ring" viewBox="0 0 200 200">
+          <defs>
+            <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="oklch(0.93 0.05 84)"/>
+              <stop offset="100%" stop-color="oklch(0.78 0.05 72)"/>
+            </linearGradient>
+          </defs>
           <circle class="ring-bg" cx="100" cy="100" r="90"/>
           <circle class="ring-progress" id="ringProgress" cx="100" cy="100" r="90"/>
         </svg>
@@ -6213,27 +6272,28 @@ function h2SecCalendario() {
 }
 
 function h2SecRegulatorio() {
-  const rows = H2_REG_EVENTS.map(e => {
-    const tok = e.tri === '3T26' ? H2_TOK.blue : H2_TOK.purple;
-    return `<tr>
-      <td><div style="font-weight:600">${escapeHtml(e.ev)}</div><div class="h2-note" style="margin-top:3px">${escapeHtml(e.acao)}</div></td>
-      <td class="mono" style="white-space:nowrap">${escapeHtml(e.data)}<div style="margin-top:6px"><span class="h2-badge" style="${h2Badge(tok)}">${e.tri}</span></div></td>
-      <td class="mono">${escapeHtml(e.names)}</td>
-    </tr>`;
+  // 3T26 = champagne (temporada em curso), 4T26 = azul — igual ao design
+  const cards = H2_REG_EVENTS.map(e => {
+    const tok = e.tri === '3T26' ? H2_TOK.purple : H2_TOK.blue;
+    return `<div class="h2-card h2-evcard">
+      <div class="h2-ev-top"><span class="h2-ev-title">${escapeHtml(e.ev)}</span><span class="h2-badge" style="${h2Badge(tok)}">${e.tri}</span></div>
+      <div class="h2-ev-date">${escapeHtml(e.data)} · ${escapeHtml(e.names)}</div>
+      <div class="h2-note">${escapeHtml(e.acao)}</div>
+    </div>`;
   }).join('');
-  const macro = H2_MACRO.map(m => `<tr>
-      <td style="font-weight:600;white-space:nowrap">${escapeHtml(m.tema)}</td>
-      <td>${escapeHtml(m.leitura)}</td>
-      <td class="h2-note">${escapeHtml(m.impl)}</td>
-    </tr>`).join('');
+  const macro = H2_MACRO.map(m => `<div class="h2-card h2-evcard">
+      <div class="h2-ev-title">${escapeHtml(m.tema)}</div>
+      <div class="h2-ev-read">${escapeHtml(m.leitura)}</div>
+      <div class="h2-note">${escapeHtml(m.impl)}</div>
+    </div>`).join('');
   return `<div class="h2-sec">
     <div class="h2-eyebrow">06 · gatilhos das teses</div>
     <h1 class="h2-h1">Calendário regulatório — H2 / 2026</h1>
     <p class="h2-lead">Eventos regulatórios do setor elétrico são gatilhos das teses — bloqueie-os como capacidade comprometida. Fonte: MME/ANEEL/CCEE.</p>
-    <button id="h2RegAdd" style="margin-top:14px;padding:9px 14px;border-radius:9px;border:1px solid var(--border-strong);background:var(--card-elev);color:var(--text);font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer">📅 Adicionar os 8 ao calendário</button>
-    <div class="h2-table-wrap"><table class="h2-table"><thead><tr><th>Evento</th><th>Data</th><th>Names</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <button id="h2RegAdd" style="margin-top:14px;padding:10px 16px;border-radius:10px;border:1px solid var(--border-strong);background:var(--card-elev);color:var(--text);font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer">📅 Adicionar os 8 ao calendário</button>
+    ${cards}
     <div class="h2-eyebrow" style="margin:24px 0 0">Temas macro</div>
-    <div class="h2-table-wrap"><table class="h2-table"><thead><tr><th>Tema</th><th>Leitura H2/2026</th><th>Implicação</th></tr></thead><tbody>${macro}</tbody></table></div>
+    ${macro}
   </div>`;
 }
 
@@ -6510,8 +6570,8 @@ function h2SecCobertura(D) {
   const notaVal = c => D['covnota_' + c.t] != null ? D['covnota_' + c.t] : c.nota;
   const checks = c => `
     <div class="h2-cov-checks">
-      <label class="h2-cov-q"><input type="checkbox" class="h2-check" data-h2check="cov_${c.t}"${D['cov_' + c.t] ? ' checked' : ''}>2T</label>
-      <label class="h2-cov-q"><input type="checkbox" class="h2-check" data-h2check="cov3_${c.t}"${D['cov3_' + c.t] ? ' checked' : ''}>3T</label>
+      <label class="h2-cov-q"><input type="checkbox" class="h2-check" data-h2check="cov_${c.t}"${D['cov_' + c.t] ? ' checked' : ''}>2T26</label>
+      <label class="h2-cov-q"><input type="checkbox" class="h2-check" data-h2check="cov3_${c.t}"${D['cov3_' + c.t] ? ' checked' : ''}>3T26</label>
     </div>`;
   const covCard = c => {
     const eff = h2EffTier(D, c);

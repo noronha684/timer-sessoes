@@ -1924,6 +1924,58 @@ window.firebaseConfig = {
   .mg-ring-bg { stroke: oklch(0.30 0.005 70); stroke-width: 6; }
   .mg-ring-fill { stroke: var(--accent); stroke-width: 6; }
   .mg-side-value { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* Aba Plano no idioma do design (charcoal + champagne) */
+  .plan-today-card, .tasks-card, .weekreview-card, .plan-grid-card {
+    border-radius: 26px; padding: clamp(22px, 5vw, 30px); margin-bottom: 14px;
+  }
+  .plan-today-day { font-size: 16px; }
+  .plan-today-day small { font-size: 16px; }
+  .plan-today-pct { font-size: 15px; color: oklch(0.86 0.04 80); }
+  .plan-today-big { font-size: 40px; font-weight: 600; letter-spacing: -0.01em; }
+  .plan-today-big .of { font-size: 20px; }
+  .plan-today-label { font-size: 13px; margin-bottom: 16px; }
+  .plan-bar { height: 8px; border: none; background: oklch(0.26 0.005 70); border-radius: 999px; }
+  .plan-bar-fill { background: var(--accent); border-radius: 999px; }
+  .plan-bar-fill.done { background: var(--success); }
+  .plan-cat-name { font-size: 14.5px; font-weight: 600; color: oklch(0.9 0.005 85); }
+  .plan-cat-vals { font-size: 14px; }
+  .plan-cat-bar { height: 6px; border: none; background: oklch(0.26 0.005 70); border-radius: 999px; }
+  .plan-cat-bar-fill { border-radius: 999px; }
+  .plan-today-cats { gap: 14px; }
+
+  .dp-title { font-size: 20px; font-weight: 600; }
+  .tasks-sec-title, .tasks-done-toggle {
+    font-size: 11px; letter-spacing: 0.28em; color: var(--text-subtle); font-weight: 500;
+  }
+  .tasks-count {
+    min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+    background: oklch(0.28 0.005 70); border: none; color: oklch(0.72 0.006 80);
+    font-size: 11px; letter-spacing: 0;
+  }
+  .dp-list { gap: 0; }
+  .dp-task { gap: 14px; padding: 11px 0; border-top: 1px solid oklch(0.30 0.006 70 / 0.35); }
+  .dp-check {
+    width: 26px; height: 26px; border-radius: 8px;
+    border: 1.5px solid oklch(0.42 0.006 70 / 0.6); background: transparent; color: transparent;
+  }
+  .dp-task.done .dp-check { background: var(--success); border-color: var(--success); color: oklch(0.16 0.02 155); font-weight: 700; }
+  .dp-text { font-size: 15.5px; color: oklch(0.9 0.005 85); }
+  .dp-star { font-size: 18px; color: oklch(0.44 0.006 80); opacity: 1; }
+  .dp-star:hover { background: transparent; color: oklch(0.7 0.02 80); }
+  .dp-star.on { color: var(--accent); }
+  .dp-del { color: oklch(0.48 0.006 80); }
+  .dp-del:hover { background: transparent; }
+  .dp-add { gap: 10px; margin-top: 4px; }
+  .dp-input {
+    height: 50px; padding: 0 18px; border-radius: 14px;
+    background: oklch(0.21 0.005 70); border: 1px solid oklch(0.36 0.006 70 / 0.6); font-size: 15px;
+  }
+  .dp-add-btn {
+    width: 54px; height: 50px; border-radius: 14px;
+    background: oklch(0.88 0.03 80); color: oklch(0.18 0.01 80); font-size: 26px;
+  }
+  .dp-add-btn:hover { filter: none; background: oklch(0.92 0.03 80); }
 </style>
 </head>
 <body>

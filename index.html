@@ -1992,6 +1992,8 @@ window.firebaseConfig = {
   .cal-cell.today { box-shadow: inset 0 0 0 1px var(--accent); }
   .cal-week-day, .alarm-item { border-radius: 16px; }
   .tl-day { border-radius: 6px; }
+  .h2-covsort-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  .h2-covsort-lbl { font: 600 10px var(--h2-mono, monospace); letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-subtle); flex: none; }
 </style>
 </head>
 <body>
@@ -6390,6 +6392,13 @@ function h2CurQuarter() { return ['Out', 'Nov', 'Dez'].includes(h2CurMonth()) ? 
 function h2CovKey(q, t) { return (q === '3T26' ? 'cov3_' : 'cov_') + t; }
 
 let h2CovView = localStorage.getItem('timerH2CovView') || 'cards';
+let h2CovSort = localStorage.getItem('timerH2CovSort') || 'seed';
+// Ordena os names da tabela: 'seed' (ordem original), 'tier' (1→3, tier do mês corrente), 'name' (A→Z)
+function h2CovSorted(D) {
+  if (h2CovSort === 'tier') return H2_COV_DEFS.map((c, i) => ({ c, i })).sort((a, b) => (h2EffTier(D, a.c) - h2EffTier(D, b.c)) || (a.i - b.i)).map(x => x.c);
+  if (h2CovSort === 'name') return [...H2_COV_DEFS].sort((a, b) => a.t.localeCompare(b.t));
+  return H2_COV_DEFS;
+}
 function h2SecCobertura(D) {
   const mes = h2CurMonth();
   const t1 = H2_COV_DEFS.filter(c => h2EffTier(D, c) === 1), t2 = H2_COV_DEFS.filter(c => h2EffTier(D, c) === 2), t3 = H2_COV_DEFS.filter(c => h2EffTier(D, c) === 3);
@@ -6421,7 +6430,7 @@ function h2SecCobertura(D) {
   if (h2CovView === 'cards') {
     body = group(t1, 1, 'Core') + group(t2, 2, 'Periódico') + group(t3, 3, 'Radar');
   } else {
-    const rows = H2_COV_DEFS.map(c => {
+    const rows = h2CovSorted(D).map(c => {
       const eff = h2EffTier(D, c);
       return `<tr>
       <td style="text-align:center"><input type="checkbox" class="h2-check" data-h2check="cov_${c.t}"${D['cov_' + c.t] ? ' checked' : ''}></td>
@@ -6446,6 +6455,7 @@ function h2SecCobertura(D) {
       <span class="h2-badge" style="${h2Badge(h2TierTok(3))}">${t3.length} Tier 3</span>
     </div>
     <div class="h2-toggle"><button data-h2cov="cards"${h2CovView === 'cards' ? ' class="active"' : ''}>Cards</button><button data-h2cov="table"${h2CovView === 'table' ? ' class="active"' : ''}>Tabela</button></div>
+    ${h2CovView === 'table' ? `<div class="h2-covsort-row"><span class="h2-covsort-lbl">Ordenar</span><div class="h2-toggle" style="margin:0"><button data-h2covsort="seed"${h2CovSort === 'seed' ? ' class="active"' : ''}>Padrão</button><button data-h2covsort="tier"${h2CovSort === 'tier' ? ' class="active"' : ''}>Tier</button><button data-h2covsort="name"${h2CovSort === 'name' ? ' class="active"' : ''}>Nome</button></div></div>` : ''}
     ${body}
   </div>`;
 }
@@ -6457,6 +6467,7 @@ function bindH2Cobertura(c) {
     const tok = h2StatusTok(el.value); el.style.border = '1px solid ' + tok.br; el.style.background = tok.b; el.style.color = tok.c;
   }));
   c.querySelectorAll('[data-h2cov]').forEach(el => el.addEventListener('click', () => { h2CovView = el.dataset.h2cov; try { localStorage.setItem('timerH2CovView', h2CovView); } catch {} renderH2Section(); }));
+  c.querySelectorAll('[data-h2covsort]').forEach(el => el.addEventListener('click', () => { h2CovSort = el.dataset.h2covsort; try { localStorage.setItem('timerH2CovSort', h2CovSort); } catch {} renderH2Section(); }));
 }
 
 // -- Seção 05 · Scorecard mensal --

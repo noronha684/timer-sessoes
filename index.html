@@ -1992,8 +1992,11 @@ window.firebaseConfig = {
   .cal-cell.today { box-shadow: inset 0 0 0 1px var(--accent); }
   .cal-week-day, .alarm-item { border-radius: 16px; }
   .tl-day { border-radius: 6px; }
-  .h2-covsort-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
-  .h2-covsort-lbl { font: 600 10px var(--h2-mono, monospace); letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-subtle); flex: none; }
+  .h2-th-sort { cursor: pointer; user-select: none; white-space: nowrap; transition: color 0.12s ease; }
+  .h2-th-sort:hover { color: var(--text-muted); }
+  .h2-th-sort.active { color: var(--accent); }
+  .h2-th-car { margin-left: 5px; font-size: 9px; opacity: 0.4; }
+  .h2-th-sort.active .h2-th-car { opacity: 1; }
 </style>
 </head>
 <body>
@@ -6392,12 +6395,27 @@ function h2CurQuarter() { return ['Out', 'Nov', 'Dez'].includes(h2CurMonth()) ? 
 function h2CovKey(q, t) { return (q === '3T26' ? 'cov3_' : 'cov_') + t; }
 
 let h2CovView = localStorage.getItem('timerH2CovView') || 'cards';
-let h2CovSort = localStorage.getItem('timerH2CovSort') || 'seed';
-// Ordena os names da tabela: 'seed' (ordem original), 'tier' (1→3, tier do mês corrente), 'name' (A→Z)
+let h2CovSortKey = localStorage.getItem('timerH2CovSortKey') || '';   // coluna ativa ('' = ordem original)
+let h2CovSortDir = localStorage.getItem('timerH2CovSortDir') || 'asc';
+// Valor de ordenação por coluna (estilo filtro do Excel: clicar no cabeçalho)
+const H2_COV_ACCESSOR = {
+  '2t': (D, c) => (D['cov_' + c.t] ? 0 : 1),
+  '3t': (D, c) => (D['cov3_' + c.t] ? 0 : 1),
+  name: (D, c) => c.t,
+  tier: (D, c) => h2EffTier(D, c),
+  sub: (D, c) => c.sub,
+  earn: (D, c) => { const m = String(c.earn || '').match(/(\d{2})\/(\d{2})/); return m ? (+m[2]) * 100 + (+m[1]) : 9999; },
+  status: (D, c) => ({ updated: 0, update: 1, fromzero: 2, watch: 3 }[D['covst_' + c.t] || c.st] ?? 9),
+  tese: (D, c) => String(D['covnota_' + c.t] != null ? D['covnota_' + c.t] : c.nota).toLowerCase(),
+};
 function h2CovSorted(D) {
-  if (h2CovSort === 'tier') return H2_COV_DEFS.map((c, i) => ({ c, i })).sort((a, b) => (h2EffTier(D, a.c) - h2EffTier(D, b.c)) || (a.i - b.i)).map(x => x.c);
-  if (h2CovSort === 'name') return [...H2_COV_DEFS].sort((a, b) => a.t.localeCompare(b.t));
-  return H2_COV_DEFS;
+  const acc = H2_COV_ACCESSOR[h2CovSortKey];
+  if (!acc) return H2_COV_DEFS; // sem ordenação → ordem original
+  const dir = h2CovSortDir === 'desc' ? -1 : 1;
+  const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
+  return H2_COV_DEFS.map((c, i) => ({ c, i }))
+    .sort((a, b) => (dir * cmp(acc(D, a.c), acc(D, b.c))) || (a.i - b.i))
+    .map(x => x.c);
 }
 function h2SecCobertura(D) {
   const mes = h2CurMonth();
@@ -6443,7 +6461,17 @@ function h2SecCobertura(D) {
       <td style="min-width:220px"><input class="h2-atual h2-nota-in" data-h2key="covnota_${c.t}" value="${escapeHtml(String(notaVal(c)))}" placeholder="tese…"></td>
     </tr>`;
     }).join('');
-    body = `<div class="h2-table-wrap"><table class="h2-table" style="min-width:780px"><thead><tr><th>2T26</th><th>3T26</th><th>Name</th><th>Tier (${mes})</th><th>Subsetor</th><th>Earn 2T26</th><th>Status</th><th>Tese</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    const cols = [
+      { key: '2t', label: '2T26' }, { key: '3t', label: '3T26' }, { key: 'name', label: 'Name' },
+      { key: 'tier', label: 'Tier (' + mes + ')' }, { key: 'sub', label: 'Subsetor' },
+      { key: 'earn', label: 'Earn 2T26' }, { key: 'status', label: 'Status' }, { key: 'tese', label: 'Tese' },
+    ];
+    const head = cols.map(col => {
+      const on = h2CovSortKey === col.key;
+      const car = on ? (h2CovSortDir === 'asc' ? '▲' : '▼') : '⇕';
+      return `<th class="h2-th-sort${on ? ' active' : ''}" data-h2covsort="${col.key}" title="Ordenar por ${escapeHtml(col.label)}">${escapeHtml(col.label)}<span class="h2-th-car">${car}</span></th>`;
+    }).join('');
+    body = `<div class="h2-table-wrap"><table class="h2-table" style="min-width:780px"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
   }
   return `<div class="h2-sec">
     <div class="h2-eyebrow">02 · universo de cobertura</div>
@@ -6455,7 +6483,7 @@ function h2SecCobertura(D) {
       <span class="h2-badge" style="${h2Badge(h2TierTok(3))}">${t3.length} Tier 3</span>
     </div>
     <div class="h2-toggle"><button data-h2cov="cards"${h2CovView === 'cards' ? ' class="active"' : ''}>Cards</button><button data-h2cov="table"${h2CovView === 'table' ? ' class="active"' : ''}>Tabela</button></div>
-    ${h2CovView === 'table' ? `<div class="h2-covsort-row"><span class="h2-covsort-lbl">Ordenar</span><div class="h2-toggle" style="margin:0"><button data-h2covsort="seed"${h2CovSort === 'seed' ? ' class="active"' : ''}>Padrão</button><button data-h2covsort="tier"${h2CovSort === 'tier' ? ' class="active"' : ''}>Tier</button><button data-h2covsort="name"${h2CovSort === 'name' ? ' class="active"' : ''}>Nome</button></div></div>` : ''}
+    ${h2CovView === 'table' ? `<div class="h2-note" style="margin-top:8px;font-size:11px">Clique num cabeçalho pra ordenar (clique de novo inverte).</div>` : ''}
     ${body}
   </div>`;
 }
@@ -6467,7 +6495,13 @@ function bindH2Cobertura(c) {
     const tok = h2StatusTok(el.value); el.style.border = '1px solid ' + tok.br; el.style.background = tok.b; el.style.color = tok.c;
   }));
   c.querySelectorAll('[data-h2cov]').forEach(el => el.addEventListener('click', () => { h2CovView = el.dataset.h2cov; try { localStorage.setItem('timerH2CovView', h2CovView); } catch {} renderH2Section(); }));
-  c.querySelectorAll('[data-h2covsort]').forEach(el => el.addEventListener('click', () => { h2CovSort = el.dataset.h2covsort; try { localStorage.setItem('timerH2CovSort', h2CovSort); } catch {} renderH2Section(); }));
+  c.querySelectorAll('[data-h2covsort]').forEach(el => el.addEventListener('click', () => {
+    const k = el.dataset.h2covsort;
+    if (h2CovSortKey === k) h2CovSortDir = (h2CovSortDir === 'asc' ? 'desc' : 'asc');
+    else { h2CovSortKey = k; h2CovSortDir = 'asc'; }
+    try { localStorage.setItem('timerH2CovSortKey', h2CovSortKey); localStorage.setItem('timerH2CovSortDir', h2CovSortDir); } catch {}
+    renderH2Section();
+  }));
 }
 
 // -- Seção 05 · Scorecard mensal --

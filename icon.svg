@@ -1,10 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#1a1a25"/>
-  <rect x="226" y="70" width="60" height="36" rx="8" fill="#c4b5fd"/>
-  <rect x="246" y="50" width="20" height="28" rx="4" fill="#c4b5fd"/>
-  <circle cx="256" cy="288" r="160" fill="#1f1f2e" stroke="#c4b5fd" stroke-width="18"/>
-  <circle cx="256" cy="288" r="6" fill="#c4b5fd"/>
-  <line x1="256" y1="288" x2="256" y2="180" stroke="#fff" stroke-width="14" stroke-linecap="round"/>
-  <line x1="256" y1="288" x2="334" y2="288" stroke="#fff" stroke-width="12" stroke-linecap="round"/>
-  <circle cx="256" cy="288" r="10" fill="#fff"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#221d16"/>
+      <stop offset="1" stop-color="#141009"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="114" fill="url(#bg)"/>
+  <!-- botão + haste do cronômetro -->
+  <rect x="226" y="66" width="60" height="36" rx="10" fill="#e6d0a8"/>
+  <rect x="247" y="46" width="18" height="28" rx="5" fill="#e6d0a8"/>
+  <!-- trilho -->
+  <circle cx="256" cy="300" r="150" fill="none" stroke="#3a3226" stroke-width="26"/>
+  <!-- anel de progresso (~70%) champagne -->
+  <circle cx="256" cy="300" r="150" fill="none" stroke="#e6d0a8" stroke-width="26"
+          stroke-linecap="round" stroke-dasharray="942.5" stroke-dashoffset="283"
+          transform="rotate(-90 256 300)"/>
+  <!-- ponteiros -->
+  <line x1="256" y1="300" x2="256" y2="206" stroke="#f4efe6" stroke-width="16" stroke-linecap="round"/>
+  <line x1="256" y1="300" x2="332" y2="300" stroke="#f4efe6" stroke-width="13" stroke-linecap="round"/>
+  <circle cx="256" cy="300" r="14" fill="#e6d0a8"/>
 </svg>

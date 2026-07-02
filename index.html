@@ -1119,30 +1119,62 @@ window.firebaseConfig = {
   }
   .cal-view-toggle button.active { background: var(--card-elev); color: var(--text); }
 
-  .cal-week-list { display: flex; flex-direction: column; gap: 8px; }
-  .cal-week-day {
+  /* Visão semanal: trilho de data numa mesa contínua (o container É o card; linhas flat com hairline) */
+  .cal-week-list {
+    display: flex; flex-direction: column;
     background: var(--card); border: 1px solid var(--border);
-    border-radius: 12px; padding: 14px 16px; cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
+    border-radius: 16px; box-shadow: 0 16px 40px oklch(0 0 0 / 0.18);
+    overflow: hidden;
   }
-  .cal-week-day:hover { background: var(--card-elev); border-color: var(--border-strong); }
-  .cal-week-day.today { border-color: var(--accent); }
-  .cal-week-day-head {
-    display: flex; justify-content: space-between; align-items: baseline;
-    margin-bottom: 8px;
+  .cal-week-day {
+    --rail: 50px;
+    display: grid; grid-template-columns: var(--rail) 1fr; column-gap: 15px;
+    align-items: start; padding: 13px 16px;
+    border-top: 1px solid var(--border);
+    cursor: pointer; transition: background 0.14s ease;
   }
-  .cal-week-dayname { font-size: 14px; font-weight: 600; color: var(--text); text-transform: capitalize; }
-  .cal-week-day.today .cal-week-dayname { color: var(--accent); }
-  .cal-week-summary { font-size: 11px; color: var(--text-subtle); display: flex; gap: 10px; }
-  .cal-week-summary i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  .cal-week-day:first-child { border-top: none; }
+  .cal-week-day:hover { background: var(--card-elev); }
+  /* Gutter esquerdo: a data (hierarquia primária) */
+  .cal-week-date { display: flex; flex-direction: column; align-items: center; gap: 3px; user-select: none; padding-top: 1px; }
+  .cal-week-weekday { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; line-height: 1; text-transform: uppercase; color: var(--text-subtle); }
+  .cal-week-daynum {
+    width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+    font-size: 25px; font-weight: 700; line-height: 1; letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums; color: var(--text); border-radius: 12px;
+  }
+  /* Hoje: chip champagne preenchido */
+  .cal-week-day.today .cal-week-daynum { background: var(--accent); color: oklch(0.20 0.02 78); box-shadow: 0 4px 14px oklch(0.83 0.045 78 / 0.30); }
+  .cal-week-day.today .cal-week-weekday { color: var(--accent); }
+  /* Corpo direito */
+  .cal-week-body { min-width: 0; padding-top: 2px; }
+  .cal-week-summary { display: flex; gap: 14px; align-items: center; margin-bottom: 9px; font-size: 12px; color: var(--text-muted); font-weight: 500; }
+  .cal-week-summary:empty { display: none; }
+  .cal-week-summary span { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+  .cal-week-summary i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
   .cal-week-summary i.focus { background: var(--accent); }
   .cal-week-summary i.sleep { background: oklch(0.70 0.06 250); }
-  .cal-week-events { display: flex; flex-direction: column; gap: 5px; }
-  .cal-week-event { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
-  .cal-week-event::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
-  .cal-week-event.done { color: var(--text-subtle); text-decoration: line-through; }
-  .cal-week-event.done::before { background: var(--text-subtle); }
-  .cal-week-empty { font-size: 12px; color: var(--text-subtle); }
+  .cal-week-events { display: flex; flex-direction: column; gap: 6px; }
+  .cal-week-event {
+    font-size: 13px; color: var(--text); line-height: 1.35;
+    display: flex; align-items: baseline; gap: 8px;
+    padding: 4px 0 4px 10px; border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0;
+  }
+  .cal-week-event > span { min-width: 0; overflow-wrap: anywhere; }
+  .cal-week-event b { font-weight: 600; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .cal-week-event .ev-recur-badge { color: var(--text-subtle); flex-shrink: 0; font-size: 11px; }
+  .cal-week-event.done { color: var(--text-subtle); text-decoration: line-through; text-decoration-color: var(--text-subtle); opacity: 0.75; }
+  .cal-week-empty { font-size: 12px; color: var(--text-subtle); font-style: italic; opacity: 0.6; }
+  /* Dias vazios recuam */
+  .cal-week-day.empty { padding-top: 9px; padding-bottom: 9px; }
+  .cal-week-day.empty .cal-week-daynum { color: var(--text-subtle); font-weight: 600; }
+  .cal-week-day.empty .cal-week-weekday { color: oklch(0.44 0.006 80); }
+  .cal-week-day.empty.today .cal-week-daynum { color: oklch(0.20 0.02 78); }
+  /* Fins de semana recuam levemente (hoje vence) */
+  .cal-week-day.weekend { background: oklch(0.145 0.004 70 / 0.4); }
+  .cal-week-day.weekend .cal-week-daynum { color: var(--text-muted); }
+  .cal-week-day.weekend:hover { background: var(--card-elev); }
+  .cal-week-day.today.weekend .cal-week-daynum { color: oklch(0.20 0.02 78); }
 
   .cal-weekdays {
     display: grid; grid-template-columns: repeat(7, 1fr);
@@ -2055,7 +2087,7 @@ window.firebaseConfig = {
   }
   .sono-section-title { font-size: 11px; letter-spacing: 0.28em; font-weight: 500; }
   .sono-add-btn { border-radius: 999px; }
-  .agenda-range, .cal-week-dayname { text-transform: capitalize; }
+  .agenda-range { text-transform: capitalize; }
   .agenda-nav-btn, .cal-view-toggle { border-radius: 12px; }
   .cal-view-toggle { border-radius: 15px; }
   .cal-view-toggle button { border-radius: 11px; font-weight: 600; }
@@ -2063,7 +2095,7 @@ window.firebaseConfig = {
   .cal-grid { gap: 6px; }
   .cal-cell { border-radius: 12px; }
   .cal-cell.today { box-shadow: inset 0 0 0 1px var(--accent); }
-  .cal-week-day, .alarm-item { border-radius: 16px; }
+  .alarm-item { border-radius: 16px; }
   .tl-day { border-radius: 6px; }
   .h2-th-sort { cursor: pointer; user-select: none; white-space: nowrap; transition: color 0.12s ease; }
   .h2-th-sort:hover { color: var(--text-muted); }
@@ -5449,7 +5481,10 @@ function renderCalWeek() {
     const dayEvents = eventsForDay(key, events);
     const focusMs = focusTotalForDay(key);
     const sleepMs = sleepForDay(key);
-    const dayName = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'short' });
+    const dayNum = d.toLocaleDateString('pt-BR', { day: '2-digit' });       // "02"
+    const weekdayAbbr = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''); // "seg" (CSS deixa maiúsculo)
+    const isWeekend = (d.getDay() === 0 || d.getDay() === 6);
+    const isEmpty = dayEvents.length === 0;
 
     const summaryParts = [];
     if (focusMs > 0) summaryParts.push(`<span><i class="focus"></i>${formatDuration(focusMs)}</span>`);
@@ -5458,19 +5493,22 @@ function renderCalWeek() {
     const evHtml = dayEvents.length
       ? dayEvents.map(e => {
           const col = evCatColor(e.cat);
-          const t = e.time ? `<b>${escapeHtml(e.time)}</b> ` : '';
+          const t = e.time ? `<b>${escapeHtml(e.time)}</b>` : '';
           const r = e.recur ? '<span class="ev-recur-badge">↻</span>' : '';
-          return `<div class="cal-week-event ${e.done ? 'done' : ''}" style="border-left:3px solid ${col};padding-left:8px">${r}${t}${escapeHtml(e.text)}</div>`;
+          return `<div class="cal-week-event ${e.done ? 'done' : ''}" style="border-left-color:${col}">${r}${t}<span>${escapeHtml(e.text)}</span></div>`;
         }).join('')
       : '<div class="cal-week-empty">Sem eventos</div>';
 
     return `
-      <div class="cal-week-day ${key === todayKey ? 'today' : ''}" data-key="${key}">
-        <div class="cal-week-day-head">
-          <span class="cal-week-dayname">${dayName}</span>
-          <span class="cal-week-summary">${summaryParts.join('')}</span>
+      <div class="cal-week-day ${key === todayKey ? 'today' : ''} ${isWeekend ? 'weekend' : ''} ${isEmpty ? 'empty' : ''}" data-key="${key}">
+        <div class="cal-week-date">
+          <span class="cal-week-weekday">${weekdayAbbr}</span>
+          <span class="cal-week-daynum">${dayNum}</span>
         </div>
-        <div class="cal-week-events">${evHtml}</div>
+        <div class="cal-week-body">
+          <div class="cal-week-summary">${summaryParts.join('')}</div>
+          <div class="cal-week-events">${evHtml}</div>
+        </div>
       </div>`;
   }).join('');
 }

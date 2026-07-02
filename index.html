@@ -1976,6 +1976,22 @@ window.firebaseConfig = {
     background: oklch(0.88 0.03 80); color: oklch(0.18 0.01 80); font-size: 26px;
   }
   .dp-add-btn:hover { filter: none; background: oklch(0.92 0.03 80); }
+  /* Backlog central de demandas (agrupado por categoria) */
+  .bk-hint { margin-left: auto; font-size: 10.5px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--text-subtle); }
+  .bk-add { flex-wrap: wrap; }
+  .bk-cat-in { flex: 0 0 34%; min-width: 108px; }
+  .bk-group { margin-top: 2px; }
+  .bk-group-h {
+    width: 100%; display: flex; align-items: center; gap: 8px;
+    background: transparent; border: none; cursor: pointer; padding: 9px 0 7px; font-family: inherit;
+    color: var(--text-muted); font-size: 13px; font-weight: 600; text-align: left;
+    border-top: 1px solid oklch(0.30 0.006 70 / 0.35);
+  }
+  .bk-group:first-child .bk-group-h { border-top: none; }
+  .bk-group-h .chev { font-size: 11px; color: var(--text-subtle); width: 12px; flex: none; }
+  .bk-group-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bk-group-h:hover { color: var(--text); }
+  .bk-group .dp-list { margin-left: 4px; margin-bottom: 4px; }
 
   /* Capricho: Sono / Agenda / Calendário no mesmo idioma (charcoal + champagne) */
   .sono-section {
@@ -5731,6 +5747,10 @@ function mergeTasksById(local, incoming) {
 }
 
 let tasksDoneOpen = localStorage.getItem('timerTasksDoneOpen') === '1';
+const H2_BK_NOCAT = 'Sem categoria';
+function loadBacklogCollapsed() { try { return new Set(JSON.parse(localStorage.getItem('timerBacklogCollapsed') || '[]')); } catch { return new Set(); } }
+let backlogCollapsed = loadBacklogCollapsed();
+let backlogAddCat = ''; // mantém a categoria digitada entre adições
 
 function renderTasks() {
   const card = $('#tasksCard');
@@ -5770,11 +5790,31 @@ function renderTasks() {
       <button class="dp-add-btn" id="taskAddBtn" aria-label="Adicionar">+</button>
     </div>`;
 
-  if (backlog.length) {
+  {
+    // Backlog central agrupado por categoria (hub de demandas)
+    const groups = {};
+    backlog.forEach(t => { const k = (t.cat && t.cat.trim()) || H2_BK_NOCAT; (groups[k] = groups[k] || []).push(t); });
+    const groupNames = Object.keys(groups).sort((a, b) =>
+      a === H2_BK_NOCAT ? 1 : b === H2_BK_NOCAT ? -1 : a.localeCompare(b, 'pt'));
+    const allCats = [...new Set(tasks.map(t => (t.cat || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt'));
+    const groupsHtml = groupNames.map(cn => {
+      const list = groups[cn];
+      const collapsed = backlogCollapsed.has(cn);
+      return `<div class="bk-group">
+        <button class="bk-group-h" data-bkgroup="${escapeHtml(cn)}"><span class="chev">${collapsed ? '▸' : '▾'}</span><span class="bk-group-name">${escapeHtml(cn)}</span><span class="tasks-count">${list.length}</span></button>
+        ${collapsed ? '' : `<div class="dp-list">${list.map(t => rowHtml(t, 'backlog')).join('')}</div>`}
+      </div>`;
+    }).join('');
     html += `
       <div class="tasks-sec tasks-sec-gap">
-        <div class="tasks-sec-title">A fazer <span class="tasks-count">${backlog.length}</span></div>
-        <div class="dp-list">${backlog.map(t => rowHtml(t, 'backlog')).join('')}</div>
+        <div class="tasks-sec-title">A fazer <span class="tasks-count">${backlog.length}</span><span class="bk-hint">demandas — ★ puxa pro Hoje</span></div>
+        <div class="dp-add bk-add">
+          <input class="dp-input" id="bkInput" placeholder="Nova demanda…" maxlength="140">
+          <input class="dp-input bk-cat-in" id="bkCat" placeholder="categoria" maxlength="40" list="bkCats" value="${escapeHtml(backlogAddCat)}">
+          <button class="dp-add-btn" id="bkAddBtn" aria-label="Adicionar demanda">+</button>
+        </div>
+        <datalist id="bkCats">${allCats.map(x => `<option value="${escapeHtml(x)}"></option>`).join('')}</datalist>
+        ${backlog.length ? groupsHtml : '<div class="dp-empty">Sem demandas no backlog. Despeje tudo aqui 👇</div>'}
       </div>`;
   }
   if (concluidas.length) {
@@ -5799,6 +5839,34 @@ function renderTasks() {
   };
   card.querySelector('#taskAddBtn').addEventListener('click', add);
   input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+
+  // Adicionar demanda ao backlog (com categoria)
+  const bkInput = card.querySelector('#bkInput');
+  const bkCat = card.querySelector('#bkCat');
+  const addBk = () => {
+    const text = bkInput.value.trim();
+    if (!text) return;
+    const cat = bkCat.value.trim();
+    backlogAddCat = cat; // mantém a categoria pras próximas demandas
+    const list = loadTasks();
+    list.push({ id: genId(), text, done: false, ...(cat ? { cat } : {}) }); // sem focusDate → vai pro backlog
+    saveTasks(list);
+    renderTasks();
+    const i = $('#tasksCard #bkInput'); if (i) i.focus();
+  };
+  if (bkInput) {
+    card.querySelector('#bkAddBtn').addEventListener('click', addBk);
+    bkInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addBk(); } });
+    bkCat.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addBk(); } });
+    bkCat.addEventListener('input', () => { backlogAddCat = bkCat.value; });
+  }
+  // Recolher / expandir grupos de categoria do backlog
+  card.querySelectorAll('[data-bkgroup]').forEach(b => b.addEventListener('click', () => {
+    const cn = b.dataset.bkgroup;
+    if (backlogCollapsed.has(cn)) backlogCollapsed.delete(cn); else backlogCollapsed.add(cn);
+    try { localStorage.setItem('timerBacklogCollapsed', JSON.stringify([...backlogCollapsed])); } catch {}
+    renderTasks();
+  }));
 
   const dt = card.querySelector('#tasksDoneToggle');
   if (dt) dt.addEventListener('click', () => {

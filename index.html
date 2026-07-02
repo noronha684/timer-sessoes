@@ -55,9 +55,9 @@ window.firebaseConfig = {
     --card-elev: #1d1d35;
     --border: rgba(255,255,255,0.06);
     --border-strong: rgba(255,255,255,0.1);
-    --accent: #c4b5fd;
-    --accent-2: #a78bfa;
-    --accent-glow: rgba(196,181,253,0.25);
+    --accent: oklch(0.83 0.045 78);
+    --accent-2: oklch(0.78 0.05 74);
+    --accent-glow: oklch(0.83 0.045 78 /0.25);
     --text: #f0f0f5;
     --text-muted: #9ca3b8;
     --text-subtle: #6b7088;
@@ -69,7 +69,7 @@ window.firebaseConfig = {
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', Roboto, system-ui, sans-serif;
     background:
-      radial-gradient(ellipse at top, rgba(196,181,253,0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at top, oklch(0.83 0.045 78 /0.06) 0%, transparent 50%),
       radial-gradient(ellipse at bottom, rgba(167,139,250,0.04) 0%, transparent 50%),
       var(--bg);
     background-attachment: fixed;
@@ -151,8 +151,8 @@ window.firebaseConfig = {
 
   .remote-timer-banner {
     display: flex; align-items: center; gap: 10px;
-    background: linear-gradient(180deg, rgba(196,181,253,0.12), rgba(196,181,253,0.05));
-    border: 1px solid rgba(196,181,253,0.25);
+    background: linear-gradient(180deg, oklch(0.83 0.045 78 /0.12), oklch(0.83 0.045 78 /0.05));
+    border: 1px solid oklch(0.83 0.045 78 /0.25);
     border-radius: 14px;
     padding: 12px 16px; margin-bottom: 12px;
     font-size: 13px; color: var(--text);
@@ -250,9 +250,9 @@ window.firebaseConfig = {
     cursor: pointer;
     letter-spacing: 0.01em;
     transition: transform 0.1s ease, box-shadow 0.2s ease, filter 0.2s ease;
-    box-shadow: 0 4px 20px rgba(196,181,253,0.2), inset 0 1px 0 rgba(255,255,255,0.2);
+    box-shadow: 0 4px 20px oklch(0.83 0.045 78 /0.2), inset 0 1px 0 rgba(255,255,255,0.2);
   }
-  .btn-primary:hover { filter: brightness(1.05); box-shadow: 0 6px 28px rgba(196,181,253,0.32), inset 0 1px 0 rgba(255,255,255,0.2); }
+  .btn-primary:hover { filter: brightness(1.05); box-shadow: 0 6px 28px oklch(0.83 0.045 78 /0.32), inset 0 1px 0 rgba(255,255,255,0.2); }
   .btn-primary:active { transform: scale(0.98); }
 
   .running-cat {
@@ -345,8 +345,8 @@ window.firebaseConfig = {
   }
   .streak-badge {
     display: inline-flex; align-items: center; gap: 6px;
-    background: rgba(196,181,253,0.1);
-    border: 1px solid rgba(196,181,253,0.2);
+    background: oklch(0.83 0.045 78 /0.1);
+    border: 1px solid oklch(0.83 0.045 78 /0.2);
     padding: 4px 10px; border-radius: 6px;
     font-size: 11px; font-weight: 600; color: var(--accent);
     letter-spacing: 0.3px; text-transform: none;
@@ -767,13 +767,13 @@ window.firebaseConfig = {
   }
   .cat-item:hover { background: rgba(255,255,255,0.08); }
   .cat-item.active {
-    background: rgba(196,181,253,0.12);
-    border-color: #c4b5fd;
+    background: oklch(0.83 0.045 78 /0.12);
+    border-color: oklch(0.83 0.045 78);
   }
   .cat-name { font-size: 15px; flex: 1; cursor: pointer; }
   .cat-subcount {
     font-size: 11px; color: var(--accent);
-    background: rgba(196,181,253,0.15); border-radius: 999px;
+    background: oklch(0.83 0.045 78 /0.15); border-radius: 999px;
     padding: 1px 7px; margin-left: 4px; vertical-align: middle;
   }
   .cat-actions { display: flex; align-items: center; gap: 2px; }
@@ -819,10 +819,10 @@ window.firebaseConfig = {
     color: #eee; font-size: 15px;
     -webkit-appearance: none; appearance: none;
   }
-  .new-cat-input:focus { outline: none; border-color: #c4b5fd; background: rgba(255,255,255,0.06); }
+  .new-cat-input:focus { outline: none; border-color: oklch(0.83 0.045 78); background: rgba(255,255,255,0.06); }
   .add-cat-btn {
     padding: 12px 18px;
-    background: #c4b5fd; color: #1a1a25;
+    background: oklch(0.83 0.045 78); color: #1a1a25;
     border: none; border-radius: 8px;
     font-size: 20px; font-weight: bold; cursor: pointer; line-height: 1;
   }
@@ -854,16 +854,16 @@ window.firebaseConfig = {
     font-weight: 600;
   }
   .sono-add-btn {
-    background: rgba(196,181,253,0.12);
-    border: 1px solid rgba(196,181,253,0.2);
+    background: oklch(0.83 0.045 78 /0.12);
+    border: 1px solid oklch(0.83 0.045 78 /0.2);
     border-radius: 999px;
     color: var(--accent); font-size: 12px; font-weight: 600;
     padding: 5px 12px; cursor: pointer;
     transition: all 0.2s ease;
   }
   .sono-add-btn:hover:not(:disabled) {
-    background: rgba(196,181,253,0.2);
-    border-color: rgba(196,181,253,0.35);
+    background: oklch(0.83 0.045 78 /0.2);
+    border-color: oklch(0.83 0.045 78 /0.35);
   }
   .sono-add-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -959,8 +959,8 @@ window.firebaseConfig = {
     transition: all 0.15s ease;
   }
   .day-btn.active {
-    background: rgba(196,181,253,0.18);
-    border-color: rgba(196,181,253,0.35);
+    background: oklch(0.83 0.045 78 /0.18);
+    border-color: oklch(0.83 0.045 78 /0.35);
     color: var(--accent);
   }
 
@@ -992,13 +992,13 @@ window.firebaseConfig = {
   }
   .sleep-bar {
     flex: 1; min-width: 0;
-    background: rgba(196,181,253,0.18);
+    background: oklch(0.83 0.045 78 /0.18);
     border-radius: 4px 4px 0 0;
     position: relative;
     transition: background 0.2s ease;
   }
   .sleep-bar.empty { background: rgba(255,255,255,0.04); }
-  .sleep-bar:hover { background: rgba(196,181,253,0.32); }
+  .sleep-bar:hover { background: oklch(0.83 0.045 78 /0.32); }
   .sleep-chart-labels {
     display: flex; gap: 4px;
     margin-top: 6px;
@@ -1084,7 +1084,7 @@ window.firebaseConfig = {
       rgba(255,255,255,0.05) calc(25% - 1px), rgba(255,255,255,0.05) 25%
     );
   }
-  .tl-day.today { background-color: rgba(196,181,253,0.05); }
+  .tl-day.today { background-color: oklch(0.83 0.045 78 /0.05); }
   .tl-block {
     position: absolute; left: 2px; right: 2px;
     border-radius: 3px;
@@ -1094,11 +1094,11 @@ window.firebaseConfig = {
   .tl-block.focus.approx {
     background: repeating-linear-gradient(
       45deg, var(--accent), var(--accent) 4px,
-      rgba(196,181,253,0.45) 4px, rgba(196,181,253,0.45) 8px
+      oklch(0.83 0.045 78 /0.45) 4px, oklch(0.83 0.045 78 /0.45) 8px
     );
     opacity: 0.75;
   }
-  .tl-block.sleep { background: #6f8fff; opacity: 0.85; }
+  .tl-block.sleep { background: oklch(0.70 0.06 250); opacity: 0.85; }
   .agenda-legend {
     display: flex; gap: 18px; justify-content: center;
     margin-bottom: 14px;
@@ -1109,7 +1109,7 @@ window.firebaseConfig = {
     border-radius: 3px; margin-right: 5px; vertical-align: middle;
   }
   .agenda-dot.focus { background: var(--accent); }
-  .agenda-dot.sleep { background: #6f8fff; }
+  .agenda-dot.sleep { background: oklch(0.70 0.06 250); }
 
   /* ====== Calendário (planner mensal) ====== */
   .cal-view-toggle {
@@ -1143,7 +1143,7 @@ window.firebaseConfig = {
   .cal-week-summary { font-size: 11px; color: var(--text-subtle); display: flex; gap: 10px; }
   .cal-week-summary i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
   .cal-week-summary i.focus { background: var(--accent); }
-  .cal-week-summary i.sleep { background: #6f8fff; }
+  .cal-week-summary i.sleep { background: oklch(0.70 0.06 250); }
   .cal-week-events { display: flex; flex-direction: column; gap: 5px; }
   .cal-week-event { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
   .cal-week-event::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
@@ -1185,7 +1185,7 @@ window.firebaseConfig = {
   .cal-events { display: flex; flex-direction: column; gap: 2px; overflow: hidden; flex: 1; }
   .cal-event {
     font-size: 9px; line-height: 1.25;
-    background: rgba(196,181,253,0.16);
+    background: oklch(0.83 0.045 78 /0.16);
     color: var(--text);
     border-radius: 3px; padding: 1px 4px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -1195,7 +1195,7 @@ window.firebaseConfig = {
   .cal-dots { display: flex; gap: 3px; margin-top: 2px; }
   .cal-dot { width: 5px; height: 5px; border-radius: 50%; }
   .cal-dot.focus { background: var(--accent); }
-  .cal-dot.sleep { background: #6f8fff; }
+  .cal-dot.sleep { background: oklch(0.70 0.06 250); }
 
   /* Modal do dia */
   .day-summary {
@@ -1210,7 +1210,7 @@ window.firebaseConfig = {
   }
   .day-summary .chip i { width: 7px; height: 7px; border-radius: 50%; }
   .day-summary .chip i.focus { background: var(--accent); }
-  .day-summary .chip i.sleep { background: #6f8fff; }
+  .day-summary .chip i.sleep { background: oklch(0.70 0.06 250); }
   .day-event-item {
     display: flex; align-items: center; gap: 10px;
     padding: 9px 0;
@@ -1257,15 +1257,15 @@ window.firebaseConfig = {
 
   /* Sync UI */
   .sync-trigger {
-    background: rgba(196,181,253,0.12);
-    border: 1px solid rgba(196,181,253,0.2);
+    background: oklch(0.83 0.045 78 /0.12);
+    border: 1px solid oklch(0.83 0.045 78 /0.2);
     border-radius: 999px;
     color: var(--accent); font-size: 12px; font-weight: 600;
     padding: 6px 14px; cursor: pointer;
     letter-spacing: 0.02em;
     transition: all 0.2s ease;
   }
-  .sync-trigger:hover { background: rgba(196,181,253,0.2); border-color: rgba(196,181,253,0.35); }
+  .sync-trigger:hover { background: oklch(0.83 0.045 78 /0.2); border-color: oklch(0.83 0.045 78 /0.35); }
   .sync-trigger.connected {
     background: rgba(52,211,153,0.12);
     border-color: rgba(52,211,153,0.25);
@@ -1294,7 +1294,7 @@ window.firebaseConfig = {
     border-radius: 8px;
     font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
     font-size: 12px;
-    color: #c4b5fd;
+    color: oklch(0.83 0.045 78);
     word-break: break-all;
     text-align: center;
     margin-bottom: 12px;
@@ -1534,7 +1534,7 @@ window.firebaseConfig = {
   }
   .plan-h2-link {
     display: flex; align-items: center; gap: 13px;
-    background: linear-gradient(135deg, rgba(196,181,253,0.10), rgba(167,139,250,0.05)), var(--card);
+    background: linear-gradient(135deg, oklch(0.83 0.045 78 /0.10), rgba(167,139,250,0.05)), var(--card);
     border: 1px solid var(--border-strong); border-radius: 16px;
     padding: 15px 16px; margin-bottom: 14px; text-decoration: none;
     transition: border-color 0.15s ease, transform 0.1s ease;
@@ -1627,7 +1627,7 @@ window.firebaseConfig = {
   .h2-row2 { display: flex; gap: 12px; align-items: flex-start; margin-top: 4px; }
   .h2-obj { border: 1px solid var(--border); border-radius: 13px; overflow: hidden; margin-top: 14px; }
   .h2-obj-head { display: flex; align-items: center; gap: 10px; padding: 11px 13px; background: var(--card-elev); border-bottom: 1px solid var(--border); }
-  .h2-obj-id { font: 600 11px var(--h2-mono); color: var(--accent); border: 1px solid var(--accent); background: rgba(196,181,253,0.08); padding: 3px 8px; border-radius: 6px; flex: none; }
+  .h2-obj-id { font: 600 11px var(--h2-mono); color: var(--accent); border: 1px solid var(--accent); background: oklch(0.83 0.045 78 /0.08); padding: 3px 8px; border-radius: 6px; flex: none; }
   .h2-obj-title { flex: 1; min-width: 0; border: none; background: transparent; outline: none; color: var(--text); font-size: 15.5px; font-weight: 600; font-family: var(--h2-serif); }
   .h2-obj-title::placeholder { color: var(--text-subtle); font-weight: 400; }
   .h2-kr { padding: 13px 14px; border-top: 1px solid var(--border); }
@@ -1976,6 +1976,22 @@ window.firebaseConfig = {
     background: oklch(0.88 0.03 80); color: oklch(0.18 0.01 80); font-size: 26px;
   }
   .dp-add-btn:hover { filter: none; background: oklch(0.92 0.03 80); }
+
+  /* Capricho: Sono / Agenda / Calendário no mesmo idioma (charcoal + champagne) */
+  .sono-section {
+    background: var(--card); box-shadow: none;
+    border-radius: 22px; padding: clamp(20px, 5vw, 26px);
+  }
+  .sono-section-title { font-size: 11px; letter-spacing: 0.28em; font-weight: 500; }
+  .sono-add-btn { border-radius: 999px; }
+  .agenda-range, .cal-week-dayname { text-transform: capitalize; }
+  .agenda-nav-btn, .cal-view-toggle { border-radius: 12px; }
+  .cal-view-toggle { border-radius: 15px; }
+  .cal-view-toggle button { border-radius: 11px; font-weight: 600; }
+  .cal-view-toggle button.active { color: oklch(0.9 0.04 80); }
+  .cal-cell.today { box-shadow: inset 0 0 0 1px var(--accent); }
+  .cal-week-day, .alarm-item { border-radius: 16px; }
+  .tl-day { border-radius: 6px; }
 </style>
 </head>
 <body>
@@ -2600,7 +2616,7 @@ function drawPipFrame() {
   if (ratio > 0) {
     ctx.beginPath();
     ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + ratio * Math.PI * 2);
-    ctx.strokeStyle = state.paused ? '#fbbf24' : '#c4b5fd';
+    ctx.strokeStyle = state.paused ? '#fbbf24' : '#e2cdaa';
     ctx.lineWidth = lw;
     ctx.lineCap = 'round';
     ctx.stroke();
@@ -2674,7 +2690,7 @@ async function openDocPiP() {
       .pip-ring { width: 100%; height: 100%; transform: rotate(-90deg); }
       .pip-ring-bg { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 9; }
       .pip-ring-fill {
-        fill: none; stroke: #c4b5fd; stroke-width: 9; stroke-linecap: round;
+        fill: none; stroke: oklch(0.83 0.045 78); stroke-width: 9; stroke-linecap: round;
         stroke-dasharray: 408.4; stroke-dashoffset: 0;
         transition: stroke-dashoffset 0.5s linear, stroke 0.2s ease;
       }
@@ -2691,7 +2707,7 @@ async function openDocPiP() {
         cursor: pointer; font-size: 18px;
         display: flex; align-items: center; justify-content: center;
       }
-      .pip-pause { background: #c4b5fd; color: #1a1a25; }
+      .pip-pause { background: oklch(0.83 0.045 78); color: #1a1a25; }
       .pip-stop { background: rgba(255,255,255,0.08); color: #f87171; }
       .pip-start { background: #34d399; color: #0a2818; }
     </style>`;
@@ -3486,7 +3502,7 @@ function updateChartDetail() {
     }).join('');
   const sessCount = countSessionsForDate(selectedDate);
   const sessLine = sessCount > 0
-    ? `<div class="chart-detail-line" style="color:#c4b5fd; font-size:13px; margin-top:4px;"><span>${sessCount === 1 ? '1 sessão de foco' : sessCount + ' sessões de foco'}</span><span>✓</span></div>`
+    ? `<div class="chart-detail-line" style="color:oklch(0.83 0.045 78); font-size:13px; margin-top:4px;"><span>${sessCount === 1 ? '1 sessão de foco' : sessCount + ' sessões de foco'}</span><span>✓</span></div>`
     : '';
   detail.innerHTML = `
     <div class="chart-detail-date">${formatted}</div>
@@ -5122,7 +5138,7 @@ const EV_CATS = [
   { id: 'trabalho', label: 'Trabalho', color: '#93c5fd' },
   { id: 'pessoal', label: 'Pessoal', color: '#6ee7b7' },
   { id: 'saude', label: 'Saúde', color: '#f9a8d4' },
-  { id: 'estudo', label: 'Estudo', color: '#c4b5fd' },
+  { id: 'estudo', label: 'Estudo', color: 'oklch(0.83 0.045 78)' },
   { id: 'financeiro', label: 'Financeiro', color: '#fcd34d' },
   { id: 'outro', label: 'Outro', color: '#9ca3b8' },
 ];
@@ -6032,7 +6048,7 @@ const H2_TOK = {
   red: { c: '#f87171', b: 'rgba(248,113,113,0.12)', br: 'rgba(248,113,113,0.32)' },
   gray: { c: '#9ca3b8', b: 'rgba(255,255,255,0.04)', br: 'rgba(255,255,255,0.12)' },
   blue: { c: '#93c5fd', b: 'rgba(147,197,253,0.12)', br: 'rgba(147,197,253,0.30)' },
-  purple: { c: '#c4b5fd', b: 'rgba(196,181,253,0.12)', br: 'rgba(196,181,253,0.30)' },
+  purple: { c: 'oklch(0.83 0.045 78)', b: 'oklch(0.83 0.045 78 /0.12)', br: 'oklch(0.83 0.045 78 /0.30)' },
 };
 function h2Num(v) { if (v == null) return null; v = ('' + v).replace(',', '.').replace('%', '').trim(); if (v === '') return null; const f = parseFloat(v); return isFinite(f) ? f : null; }
 function h2TierTok(t) { return t === 1 ? H2_TOK.green : t === 2 ? H2_TOK.gold : H2_TOK.gray; }

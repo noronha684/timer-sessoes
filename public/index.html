@@ -35,7 +35,7 @@ window.firebaseConfig = {
 </script>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, browserLocalPersistence, setPersistence } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, browserLocalPersistence, setPersistence } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
   if (window.firebaseConfig && window.firebaseConfig.apiKey) {
     try {
       const app = initializeApp(window.firebaseConfig);
@@ -43,7 +43,7 @@ window.firebaseConfig = {
       await setPersistence(auth, browserLocalPersistence).catch(() => {});
       // Captura resultado de redirect (caso popup não tenha funcionado e usamos redirect)
       try { await getRedirectResult(auth); } catch {}
-      window._fb = { auth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut };
+      window._fb = { auth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail };
       window.dispatchEvent(new Event('firebase-ready'));
     } catch (e) { console.warn('Firebase init falhou:', e); }
   }
@@ -2102,9 +2102,99 @@ window.firebaseConfig = {
   .h2-th-sort.active { color: var(--accent); }
   .h2-th-car { margin-left: 5px; font-size: 9px; opacity: 0.4; }
   .h2-th-sort.active .h2-th-car { opacity: 1; }
+
+  /* ===== Portão de login (aparece até autenticar) ===== */
+  #authGate {
+    position: fixed; inset: 0; z-index: 1000;
+    display: flex; align-items: center; justify-content: center; padding: 24px 18px;
+    background: radial-gradient(130% 90% at 50% -8%, oklch(0.205 0.008 74), oklch(0.14 0.004 70) 55%);
+    -webkit-font-smoothing: antialiased;
+  }
+  body.authed #authGate { display: none; }
+  #authGate .ag-card {
+    width: 100%; max-width: 380px;
+    background: linear-gradient(180deg, oklch(0.205 0.005 72), oklch(0.178 0.004 70));
+    border: 1px solid oklch(0.36 0.006 70 / 0.5); border-radius: 26px;
+    padding: clamp(28px, 6vw, 40px) clamp(22px, 5vw, 32px);
+    box-shadow: 0 30px 70px oklch(0 0 0 / 0.4), inset 0 1px 0 oklch(0.5 0.008 74 / 0.25);
+    display: flex; flex-direction: column; gap: 15px;
+  }
+  #authGate .ag-form { display: none; flex-direction: column; gap: 15px; }
+  #authGate.ready .ag-form { display: flex; }
+  #authGate.ready .ag-loading { display: none; }
+  .ag-loading { text-align: center; color: var(--text-subtle); font-size: 14px; padding: 24px 0; }
+  .ag-brand { text-align: center; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); }
+  .ag-sub { text-align: center; font-size: 13px; color: var(--text-muted); line-height: 1.5; margin: -6px 0 2px; }
+  .ag-field { display: flex; flex-direction: column; gap: 6px; }
+  .ag-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-subtle); }
+  .ag-input {
+    width: 100%; padding: 13px 14px; border-radius: 13px;
+    background: oklch(0.21 0.005 70); border: 1px solid oklch(0.36 0.006 70 / 0.55);
+    color: var(--text); font: inherit; font-size: 15px; outline: none; transition: border-color 0.15s ease;
+  }
+  .ag-input:focus { border-color: oklch(0.83 0.045 78 / 0.6); }
+  .ag-input::placeholder { color: var(--text-subtle); }
+  .ag-primary {
+    width: 100%; padding: 15px; border: none; border-radius: 14px; cursor: pointer;
+    background: linear-gradient(180deg, oklch(0.92 0.035 82), oklch(0.85 0.045 76));
+    box-shadow: 0 10px 26px oklch(0.83 0.045 78 / 0.24), inset 0 1px 0 oklch(0.99 0.02 88 / 0.5);
+    color: oklch(0.18 0.01 80); font: inherit; font-size: 15.5px; font-weight: 600;
+    transition: filter 0.15s ease, transform 0.1s ease;
+  }
+  .ag-primary:hover { filter: brightness(1.05); }
+  .ag-primary:active { transform: scale(0.99); }
+  .ag-primary:disabled { opacity: 0.6; cursor: default; filter: none; }
+  .ag-toggle { text-align: center; font-size: 13px; color: var(--text-muted); }
+  .ag-toggle button { background: none; border: none; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; padding: 0 2px; }
+  .ag-forgot { text-align: center; margin-top: -4px; }
+  .ag-forgot button { background: none; border: none; color: var(--text-subtle); font: inherit; font-size: 12.5px; cursor: pointer; text-decoration: underline; }
+  .ag-divider { display: flex; align-items: center; gap: 12px; color: var(--text-subtle); font-size: 12px; }
+  .ag-divider::before, .ag-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .ag-google {
+    width: 100%; padding: 13px; border-radius: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    background: oklch(0.235 0.005 70); border: 1px solid oklch(0.40 0.006 70 / 0.55);
+    color: var(--text); font: inherit; font-size: 14.5px; font-weight: 500; transition: background 0.15s ease;
+  }
+  .ag-google:hover { background: oklch(0.27 0.005 70); }
+  .ag-msg { font-size: 13px; line-height: 1.45; text-align: center; }
+  .ag-msg:empty { display: none; }
+  .ag-msg.error { color: var(--danger); }
+  .ag-msg.ok { color: var(--success); }
 </style>
 </head>
 <body>
+<div id="authGate">
+  <div class="ag-card">
+    <div class="ag-loading">Carregando…</div>
+    <div class="ag-form">
+      <div class="ag-brand">⏱️ Timer de Sessões</div>
+      <div class="ag-sub" id="agSub">Entre para acessar suas sessões, metas e sincronização.</div>
+      <div class="ag-field">
+        <label class="ag-label" for="agEmail">E-mail</label>
+        <input class="ag-input" id="agEmail" type="email" autocomplete="email" inputmode="email" placeholder="voce@email.com">
+      </div>
+      <div class="ag-field">
+        <label class="ag-label" for="agPass">Senha</label>
+        <input class="ag-input" id="agPass" type="password" autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <div class="ag-msg" id="agMsg"></div>
+      <button class="ag-primary" id="agSubmit">Entrar</button>
+      <div class="ag-toggle"><span id="agToggleText">Não tem conta?</span> <button type="button" id="agToggleBtn">Criar conta</button></div>
+      <div class="ag-forgot"><button type="button" id="agForgot">Esqueci a senha</button></div>
+      <div class="ag-divider">ou</div>
+      <button class="ag-google" id="agGoogle">
+        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        Entrar com Google
+      </button>
+    </div>
+  </div>
+</div>
 <div class="container">
   <h1>⏱️ Timer de Sessões</h1>
 
@@ -6793,6 +6883,119 @@ restoreTimerState();
       startBtn.click();
     }
   } catch {}
+})();
+</script>
+<script>
+// ===== Portão de login: bloqueia o app até autenticar (Firebase e-mail/senha + Google) =====
+(function () {
+  const gate = document.getElementById('authGate');
+  if (!gate) return;
+  const emailEl = document.getElementById('agEmail');
+  const passEl = document.getElementById('agPass');
+  const msgEl = document.getElementById('agMsg');
+  const submitBtn = document.getElementById('agSubmit');
+  const toggleText = document.getElementById('agToggleText');
+  const toggleBtn = document.getElementById('agToggleBtn');
+  const forgotBtn = document.getElementById('agForgot');
+  const googleBtn = document.getElementById('agGoogle');
+  const subEl = document.getElementById('agSub');
+  let mode = 'signin';
+
+  const setMsg = (t, kind) => { msgEl.textContent = t || ''; msgEl.className = 'ag-msg' + (kind ? ' ' + kind : ''); };
+  const ready = () => gate.classList.add('ready');
+  const showApp = () => document.body.classList.add('authed');
+  const showGate = () => { document.body.classList.remove('authed'); ready(); };
+
+  function mapErr(e) {
+    const c = (e && e.code) || '';
+    const m = {
+      'auth/invalid-email': 'E-mail inválido.',
+      'auth/missing-password': 'Digite sua senha.',
+      'auth/weak-password': 'Senha muito curta (mínimo 6 caracteres).',
+      'auth/email-already-in-use': 'Esse e-mail já tem conta — use "Entrar".',
+      'auth/invalid-credential': 'E-mail ou senha incorretos.',
+      'auth/wrong-password': 'E-mail ou senha incorretos.',
+      'auth/user-not-found': 'Não achei conta com esse e-mail. Crie uma conta.',
+      'auth/operation-not-allowed': 'Login por e-mail/senha ainda não está ativado no Firebase.',
+      'auth/too-many-requests': 'Muitas tentativas. Espere um pouco e tente de novo.',
+      'auth/network-request-failed': 'Sem conexão. Verifique a internet.',
+      'auth/popup-blocked': 'O popup foi bloqueado — tente de novo.',
+    };
+    return m[c] || (e && e.message) || 'Não foi possível autenticar.';
+  }
+
+  function setMode(m) {
+    mode = m;
+    const signup = m === 'signup';
+    submitBtn.textContent = signup ? 'Criar conta' : 'Entrar';
+    subEl.textContent = signup
+      ? 'Crie sua conta para salvar e sincronizar tudo.'
+      : 'Entre para acessar suas sessões, metas e sincronização.';
+    toggleText.textContent = signup ? 'Já tem conta?' : 'Não tem conta?';
+    toggleBtn.textContent = signup ? 'Entrar' : 'Criar conta';
+    passEl.setAttribute('autocomplete', signup ? 'new-password' : 'current-password');
+    setMsg('');
+  }
+
+  async function doSubmit() {
+    if (!window._fb || !window._fb.signInWithEmailAndPassword) { setMsg('Autenticação ainda carregando…'); return; }
+    const email = emailEl.value.trim();
+    const pass = passEl.value;
+    if (!email) { setMsg('Digite seu e-mail.', 'error'); return; }
+    if (!pass) { setMsg('Digite sua senha.', 'error'); return; }
+    submitBtn.disabled = true;
+    setMsg(mode === 'signup' ? 'Criando conta…' : 'Entrando…');
+    try {
+      if (mode === 'signup') await window._fb.createUserWithEmailAndPassword(window._fb.auth, email, pass);
+      else await window._fb.signInWithEmailAndPassword(window._fb.auth, email, pass);
+      // onAuthStateChanged libera o app
+    } catch (e) {
+      setMsg(mapErr(e), 'error');
+    } finally {
+      submitBtn.disabled = false;
+    }
+  }
+
+  async function doGoogle() {
+    if (!window._fb) { setMsg('Autenticação ainda carregando…'); return; }
+    if (!navigator.onLine) { setMsg('Conexão necessária para entrar com Google.', 'error'); return; }
+    try {
+      await window._fb.signInWithPopup(window._fb.auth, new window._fb.GoogleAuthProvider());
+    } catch (e) {
+      const c = e && e.code;
+      if (c === 'auth/popup-blocked' || c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request') {
+        try { await window._fb.signInWithRedirect(window._fb.auth, new window._fb.GoogleAuthProvider()); }
+        catch (err) { setMsg(mapErr(err), 'error'); }
+      } else setMsg(mapErr(e), 'error');
+    }
+  }
+
+  async function doForgot() {
+    if (!window._fb || !window._fb.sendPasswordResetEmail) { setMsg('Indisponível agora.', 'error'); return; }
+    const email = emailEl.value.trim();
+    if (!email) { setMsg('Digite seu e-mail no campo acima primeiro.', 'error'); return; }
+    try {
+      await window._fb.sendPasswordResetEmail(window._fb.auth, email);
+      setMsg('Enviamos um link de redefinição para seu e-mail.', 'ok');
+    } catch (e) { setMsg(mapErr(e), 'error'); }
+  }
+
+  submitBtn.addEventListener('click', doSubmit);
+  emailEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); passEl.focus(); } });
+  passEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSubmit(); } });
+  toggleBtn.addEventListener('click', () => setMode(mode === 'signup' ? 'signin' : 'signup'));
+  forgotBtn.addEventListener('click', doForgot);
+  googleBtn.addEventListener('click', doGoogle);
+  setMode('signin');
+
+  // Reage ao login/logout (listener próprio, além do de sync)
+  function wire() {
+    window._fb.onAuthStateChanged(window._fb.auth, (user) => { if (user) showApp(); else showGate(); });
+  }
+  if (window._fb) wire();
+  else window.addEventListener('firebase-ready', wire);
+  // Segurança: se o Firebase não carregar em 3s, mostra o formulário (não trava no "Carregando…")
+  setTimeout(() => { if (!document.body.classList.contains('authed')) ready(); }, 3000);
 })();
 </script>
 </body>

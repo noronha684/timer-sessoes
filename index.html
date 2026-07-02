@@ -244,7 +244,7 @@ window.firebaseConfig = {
     padding: 17px;
     background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
     border: none; border-radius: 12px;
-    color: #1a1a25;
+    color: #1e1a12;
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
@@ -316,7 +316,7 @@ window.firebaseConfig = {
   }
   .btn:hover { filter: brightness(1.08); }
   .btn:active { transform: scale(0.98); }
-  .btn-pause { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #1a1a25; }
+  .btn-pause { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #1e1a12; }
   .btn-resume { background: linear-gradient(135deg, #34d399, #10b981); color: #0a2818; }
   .btn-stop { background: linear-gradient(135deg, #f87171, #ef4444); }
   .btn-pip {
@@ -511,7 +511,7 @@ window.firebaseConfig = {
     transition: background 0.15s, border-color 0.15s;
   }
   .todo-check.done { background: var(--accent); border-color: var(--accent); }
-  .todo-check.done::after { content: '✓'; color: #1a1a25; font-size: 13px; font-weight: 700; }
+  .todo-check.done::after { content: '✓'; color: #1e1a12; font-size: 13px; font-weight: 700; }
   .todo-text { flex: 1; font-size: 14px; color: var(--text); }
   .todo-item.done .todo-text { color: var(--text-subtle); text-decoration: line-through; }
   .todo-remove {
@@ -822,7 +822,7 @@ window.firebaseConfig = {
   .new-cat-input:focus { outline: none; border-color: oklch(0.83 0.045 78); background: rgba(255,255,255,0.06); }
   .add-cat-btn {
     padding: 12px 18px;
-    background: oklch(0.83 0.045 78); color: #1a1a25;
+    background: oklch(0.83 0.045 78); color: #1e1a12;
     border: none; border-radius: 8px;
     font-size: 20px; font-weight: bold; cursor: pointer; line-height: 1;
   }
@@ -1218,7 +1218,7 @@ window.firebaseConfig = {
   .day-event-item + .day-event-item { border-top: 1px solid var(--border); }
   .day-event-item .todo-check { width: 20px; height: 20px; flex-shrink: 0; border: 1.5px solid var(--border-strong); border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .day-event-item .todo-check.done { background: var(--accent); border-color: var(--accent); }
-  .day-event-item .todo-check.done::after { content: '✓'; color: #1a1a25; font-size: 13px; font-weight: 700; }
+  .day-event-item .todo-check.done::after { content: '✓'; color: #1e1a12; font-size: 13px; font-weight: 700; }
   .day-event-item .ev-text { flex: 1; font-size: 14px; color: var(--text); }
   .day-event-item.done .ev-text { color: var(--text-subtle); text-decoration: line-through; }
   .day-events-empty { color: var(--text-subtle); font-size: 13px; padding: 6px 0 10px; }
@@ -1344,7 +1344,7 @@ window.firebaseConfig = {
     border-radius: 50%;
     background: linear-gradient(135deg, var(--accent), var(--accent-2));
     display: flex; align-items: center; justify-content: center;
-    color: #1a1a25; font-weight: 700; font-size: 17px;
+    color: #1e1a12; font-weight: 700; font-size: 17px;
     flex-shrink: 0;
     object-fit: cover;
   }
@@ -1403,7 +1403,7 @@ window.firebaseConfig = {
     from { transform: scale(0); opacity: 0; }
     to { transform: scale(1); opacity: 1; }
   }
-  .alert-check svg { width: 30px; height: 30px; color: #1a1a25; }
+  .alert-check svg { width: 30px; height: 30px; color: #1e1a12; }
   .alert-title {
     font-size: 20px; font-weight: 600;
     margin-bottom: 22px;
@@ -1428,7 +1428,7 @@ window.firebaseConfig = {
     width: 100%; padding: 14px;
     background: linear-gradient(135deg, var(--accent), var(--accent-2));
     border: none; border-radius: 12px;
-    color: #1a1a25; font-size: 15px; font-weight: 600;
+    color: #1e1a12; font-size: 15px; font-weight: 600;
     cursor: pointer;
     transition: filter 0.2s ease, transform 0.1s ease;
     box-shadow: 0 4px 16px var(--accent-glow);
@@ -2603,7 +2603,7 @@ function drawPipFrame() {
   const W = pipCanvas.width, H = pipCanvas.height;
   const cx = W / 2, cy = H / 2, r = 138;
   const lw = 22;
-  ctx.fillStyle = '#0f0f17';
+  ctx.fillStyle = '#16130f';
   ctx.fillRect(0, 0, W, H);
 
   // Anel de fundo
@@ -2682,8 +2682,8 @@ async function openDocPiP() {
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        background: #0f0f17; color: #f0f0f5;
+        font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #16130f; color: #f2ede4;
         height: 100vh; padding: 14px;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center; gap: 12px;
@@ -2701,7 +2701,7 @@ async function openDocPiP() {
         position: absolute; inset: 0;
         display: flex; align-items: center; justify-content: center;
       }
-      .pip-time { font-size: 40px; font-weight: 700; color: #fff; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+      .pip-time { font-size: 40px; font-weight: 600; color: #f2ede4; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
       .pip-time.paused { color: #fbbf24; }
       .pip-controls { display: flex; gap: 10px; align-items: center; }
       .pip-btn {
@@ -2709,7 +2709,7 @@ async function openDocPiP() {
         cursor: pointer; font-size: 18px;
         display: flex; align-items: center; justify-content: center;
       }
-      .pip-pause { background: oklch(0.83 0.045 78); color: #1a1a25; }
+      .pip-pause { background: oklch(0.83 0.045 78); color: #1e1a12; }
       .pip-stop { background: rgba(255,255,255,0.08); color: #f87171; }
       .pip-start { background: #34d399; color: #0a2818; }
     </style>`;

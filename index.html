@@ -599,148 +599,129 @@ window.firebaseConfig = {
 
   /* History — chart view */
   .range-tabs {
-    display: flex; gap: 4px; margin-bottom: 14px;
+    display: flex; gap: 2px; margin-bottom: 14px;
     background: var(--card); padding: 5px;
-    border-radius: 12px; border: 1px solid var(--border);
+    border-radius: 15px; border: 1px solid var(--border);
   }
   .range-tab {
-    flex: 1; padding: 9px;
+    flex: 1; padding: 12px;
     background: transparent;
-    border: none; border-radius: 8px;
-    color: var(--text-subtle); font-size: 13px; cursor: pointer;
-    font-weight: 500;
+    border: none; border-radius: 11px;
+    color: var(--text-subtle); font-size: 14px; cursor: pointer;
+    font-weight: 600; font-family: inherit;
     transition: background 0.2s, color 0.2s;
   }
   .range-tab:hover { color: var(--text-muted); }
   .range-tab.active {
-    background: rgba(196,181,253,0.12);
-    color: var(--accent);
-    font-weight: 600;
+    background: var(--card-elev);
+    color: oklch(0.9 0.04 80);
   }
 
   .chart-card {
-    background: linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0) 100%), var(--card);
+    background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 18px;
-    padding: 22px;
+    border-radius: 26px;
+    padding: clamp(24px, 5vw, 32px);
     margin-bottom: 14px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.15);
   }
   .chart-header {
     display: flex; justify-content: space-between; align-items: baseline;
-    margin-bottom: 18px;
+    margin-bottom: 22px;
   }
-  .chart-title { font-size: 11px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600; }
+  .chart-title { font-size: 11px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.28em; font-weight: 500; }
   .chart-total {
-    font-size: 24px; font-weight: 700;
-    letter-spacing: -0.02em;
-    background: linear-gradient(180deg, var(--text) 0%, var(--text-muted) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    font-size: 34px; font-weight: 600; line-height: 1;
+    letter-spacing: -0.01em; color: var(--text);
+    font-variant-numeric: tabular-nums;
   }
 
   .chart {
-    display: flex; align-items: flex-end; gap: 3px;
-    height: 150px;
-    margin-bottom: 8px;
+    display: flex; align-items: flex-end; gap: 8px;
+    height: 280px;
+    margin-bottom: 12px;
   }
   .bar-col {
     flex: 1; min-width: 0;
     height: 100%;
     display: flex; flex-direction: column;
     justify-content: flex-end;
-    background: rgba(255,255,255,0.02);
-    border-radius: 4px 4px 0 0;
+    background: oklch(0.20 0.005 70);
+    border: none; border-bottom: 2px solid transparent;
+    border-radius: 10px 10px 0 0;
+    overflow: hidden;
     cursor: pointer;
-    transition: opacity 0.15s, transform 0.15s;
+    transition: background 0.15s ease;
   }
-  .bar-col:hover { opacity: 0.85; transform: translateY(-2px); }
-  .bar-col.selected {
-    outline: 2px solid var(--accent);
-    outline-offset: -2px;
-    background: rgba(196,181,253,0.08);
-  }
-  .bar-col.today {
-    background: rgba(196,181,253,0.06);
-    box-shadow: inset 0 -2px 0 var(--accent);
-  }
+  .bar-col:hover { background: oklch(0.24 0.005 70); }
+  .bar-col.selected { background: oklch(0.27 0.006 70); }
+  .bar-col.today { border-bottom-color: var(--accent); }
   .bar-fill {
     width: 100%;
-    border-radius: 4px 4px 0 0;
-    overflow: hidden;
     display: flex; flex-direction: column;
     transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  .bar-stack {
-    width: 100%;
-    position: relative;
-  }
-  .bar-stack::after {
-    content: '';
-    position: absolute; inset: 0;
-    background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(0,0,0,0.08) 100%);
-    pointer-events: none;
-  }
+  .bar-stack { width: 100%; }
 
   .chart-labels {
-    display: flex; gap: 3px;
-    font-size: 10px; color: var(--text-subtle);
+    display: flex; gap: 8px;
+    font-size: 13px; color: var(--text-subtle);
     text-align: center;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
     font-weight: 500;
   }
   .chart-label { flex: 1; min-width: 0; overflow: hidden; }
   .chart-label.muted { visibility: hidden; }
 
   .chart-detail {
-    background: rgba(255,255,255,0.025);
+    background: oklch(0.20 0.005 70);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin-bottom: 14px;
-    font-size: 14px;
-    min-height: 56px;
+    border-radius: 14px;
+    padding: 16px 20px;
+    margin-bottom: 16px;
+    font-size: 14.5px;
+    color: oklch(0.68 0.006 80);
+    min-height: 54px;
   }
   .chart-detail-date { font-weight: 600; margin-bottom: 8px; color: var(--accent); text-transform: capitalize; font-size: 13px; letter-spacing: 0.2px; }
   .chart-detail-line { display: flex; justify-content: space-between; padding: 3px 0; color: var(--text); font-size: 14px; }
   .chart-detail-line.subline { padding: 1px 0 1px 12px; color: var(--text-subtle); font-size: 12px; }
-  .chart-detail-empty { color: var(--text-subtle); font-size: 13px; }
+  .chart-detail-empty { color: oklch(0.68 0.006 80); font-size: 14.5px; text-align: center; }
 
   .chart-legend {
-    display: flex; gap: 14px; flex-wrap: wrap;
-    font-size: 12px; color: var(--text-muted);
+    display: flex; gap: 22px; flex-wrap: wrap;
+    font-size: 13.5px; color: oklch(0.72 0.006 80);
     font-weight: 500;
   }
-  .legend-item { display: flex; align-items: center; gap: 7px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; }
   .legend-dot {
-    width: 10px; height: 10px;
+    width: 11px; height: 11px;
     border-radius: 3px;
     flex-shrink: 0;
-    box-shadow: inset 0 -1px 0 rgba(0,0,0,0.15);
   }
 
   .stats-grid {
     display: grid; grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    gap: 14px;
   }
   .stat-box {
-    background: linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0) 100%), var(--card);
+    background: var(--card);
     border: 1px solid var(--border);
-    padding: 14px 16px;
-    border-radius: 14px;
-    transition: transform 0.2s ease, border-color 0.2s ease;
+    padding: 22px 24px;
+    border-radius: 20px;
+    display: flex; flex-direction: column; gap: 8px;
+    transition: border-color 0.2s ease;
   }
-  .stat-box:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+  .stat-box:hover { border-color: var(--border-strong); }
   .stat-label {
-    font-size: 10px; color: var(--text-subtle);
-    text-transform: uppercase; letter-spacing: 1.2px; font-weight: 600;
+    font-size: 11px; color: var(--text-subtle);
+    text-transform: uppercase; letter-spacing: 0.26em; font-weight: 500;
     display: flex; align-items: center; gap: 5px;
   }
   .stat-icon { font-size: 13px; filter: grayscale(0.2); }
   .stat-value {
-    font-size: 18px; font-weight: 700; margin-top: 5px;
-    letter-spacing: -0.015em;
+    font-size: 30px; font-weight: 600; margin-top: 0;
+    letter-spacing: -0.01em; color: var(--text);
+    font-variant-numeric: tabular-nums;
   }
 
   .alert-overlay, .modal-overlay {
@@ -3377,7 +3358,8 @@ function renderToday() {
 }
 
 // Cores estáveis por categoria (hash do nome → paleta)
-const CATEGORY_COLORS = ['#c4b5fd', '#fbcfe8', '#fde68a', '#bbf7d0', '#bae6fd', '#fed7aa', '#f9a8d4', '#a5b4fc'];
+// Paleta quente, harmônica com o tema champagne (charcoal quente) — nada de lavanda/pastel frio
+const CATEGORY_COLORS = ['oklch(0.83 0.045 78)', 'oklch(0.88 0.045 92)', 'oklch(0.75 0.075 45)', 'oklch(0.79 0.055 145)', 'oklch(0.76 0.055 235)', 'oklch(0.76 0.07 340)', 'oklch(0.80 0.09 70)', 'oklch(0.72 0.06 20)'];
 function getCategoryColor(category) {
   let hash = 0;
   for (let i = 0; i < category.length; i++) hash = (hash * 31 + category.charCodeAt(i)) | 0;

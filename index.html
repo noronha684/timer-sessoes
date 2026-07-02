@@ -115,6 +115,7 @@ window.firebaseConfig = {
   .tabs::before {
     content: '';
     position: absolute;
+    box-sizing: border-box; /* o reset * não pega pseudo-elementos; sem isso a borda soma 2px por slot e o 7º tab estoura o container */
     top: 5px; bottom: 5px; left: 5px;
     width: calc((100% - 10px) / 7);
     background: var(--card-elev);

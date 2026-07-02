@@ -1,0 +1,14 @@
+{
+  // Worker que serve o APP estático (timer.gnoronha.app).
+  // Deploy direto, sem GitHub:  wrangler deploy
+  "name": "timer-app",
+  "compatibility_date": "2025-06-01",
+  // Assets-only: publica SÓ a pasta public/ (worker.js, .git, .claude etc. ficam fora, na raiz).
+  "assets": {
+    "directory": "./public"
+  },
+  // Domínio próprio já ligado a este Worker. custom_domain:true é idempotente.
+  "routes": [
+    { "pattern": "timer.gnoronha.app", "custom_domain": true }
+  ]
+}

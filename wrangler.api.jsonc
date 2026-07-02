@@ -1,0 +1,25 @@
+{
+  // Worker da API (timer-sessoes.gabriel-noronha-o-p.workers.dev): /api/* e OAuth do Whoop.
+  // Deploy direto, sem GitHub:  wrangler deploy -c wrangler.api.jsonc
+  "name": "timer-sessoes",
+  "main": "worker.js",
+  "compatibility_date": "2025-06-01",
+  "workers_dev": true,
+  // WHOOP_CLIENT_ID é público (aparece no index.html) — vai como var.
+  // WHOOP_CLIENT_SECRET NÃO entra aqui: é secret (ver nota no fim).
+  "vars": {
+    "WHOOP_CLIENT_ID": "72038c31-8035-40bc-9b3a-4e4254dea54e"
+  },
+  // Binding D1 usado no código como env.DB
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "timer-sessoes",
+      "database_id": "63f9fce0-a3e3-4e68-87ef-3390c40babdc"
+    }
+  ]
+  // Segredos (WHOOP_CLIENT_ID / WHOOP_CLIENT_SECRET) NÃO ficam aqui:
+  // já existem no Worker e o deploy os preserva. Para (re)definir:
+  //   wrangler secret put WHOOP_CLIENT_ID   -c wrangler.api.jsonc
+  //   wrangler secret put WHOOP_CLIENT_SECRET -c wrangler.api.jsonc
+}

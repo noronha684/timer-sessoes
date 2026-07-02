@@ -3732,6 +3732,16 @@ async function pullFromCloud() {
   } catch (e) { console.warn('pullFromCloud:', e); }
 }
 
+// True se o usuário está digitando num campo editável (evita re-render que rouba o foco)
+function isEditingField() {
+  const el = document.activeElement;
+  if (!el) return false;
+  const tag = el.tagName;
+  if (tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable) return true;
+  if (tag === 'INPUT') return !['checkbox', 'radio', 'button', 'submit', 'range'].includes((el.type || 'text').toLowerCase());
+  return false;
+}
+
 function applyServerSnapshot(snap) {
   if (!snap) return;
   isApplyingRemote = true;
@@ -3813,7 +3823,7 @@ function applyServerSnapshot(snap) {
       // Plano H2 (dashboard semestral): doc único, servidor sobrescreve
       if (snap.settings.h2Plan && typeof snap.settings.h2Plan === 'object') {
         localStorage.setItem('timerH2Plan', JSON.stringify(snap.settings.h2Plan));
-        if (typeof renderH2 === 'function' && $('#semestre-panel') && $('#semestre-panel').classList.contains('active')) renderH2();
+        if (typeof renderH2 === 'function' && $('#semestre-panel') && $('#semestre-panel').classList.contains('active') && !isEditingField()) renderH2();
       }
       // Tarefas (lista unificada): mescla por id; absorve o legado só na transição
       if (Array.isArray(snap.settings.tasks)) {
@@ -3862,8 +3872,8 @@ function applyServerSnapshot(snap) {
     renderToday();
     if (typeof renderGoals === 'function') renderGoals();
     if (typeof renderBurndown === 'function') renderBurndown();
-    if ($('#history-panel').classList.contains('active')) renderHistory();
-    if (typeof renderPlano === 'function' && $('#plano-panel').classList.contains('active')) renderPlano();
+    if ($('#history-panel').classList.contains('active') && !isEditingField()) renderHistory();
+    if (typeof renderPlano === 'function' && $('#plano-panel').classList.contains('active') && !isEditingField()) renderPlano();
   } finally {
     isApplyingRemote = false;
   }

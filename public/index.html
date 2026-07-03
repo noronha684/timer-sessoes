@@ -3855,6 +3855,16 @@ function buildSyncPayload() {
   };
 }
 
+// Cabeçalhos autenticados: anexa o ID token do Firebase (Bearer) pra API verificar quem é
+async function authHeaders(base, forceRefresh) {
+  const h = Object.assign({}, base || {});
+  try {
+    const u = window._fb && window._fb.auth && window._fb.auth.currentUser;
+    if (u) h['Authorization'] = 'Bearer ' + (await u.getIdToken(!!forceRefresh));
+  } catch (e) { console.warn('getIdToken:', e); }
+  return h;
+}
+
 async function pushToCloud() {
   if (!window.API_BASE || !syncCode || isApplyingRemote) return;
   try {
@@ -3888,11 +3898,15 @@ async function pushToCloud() {
         } : null,
       },
     };
-    const res = await fetch(`${window.API_BASE}/api/sync`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+    const bodyStr = JSON.stringify(payload);
+    let res = await fetch(`${window.API_BASE}/api/sync`, {
+      method: 'POST', headers: await authHeaders({ 'Content-Type': 'application/json' }), body: bodyStr,
     });
+    if (res.status === 401) { // token pode ter expirado → renova e tenta 1x
+      res = await fetch(`${window.API_BASE}/api/sync`, {
+        method: 'POST', headers: await authHeaders({ 'Content-Type': 'application/json' }, true), body: bodyStr,
+      });
+    }
     if (!res.ok) throw new Error('sync failed ' + res.status);
     const merged = await res.json();
     // O servidor já mesclou — aplica de volta como remoto (mas sem device check pois é nossa resposta)
@@ -3905,7 +3919,9 @@ async function pushToCloud() {
 async function pullFromCloud() {
   if (!window.API_BASE || !syncCode) return;
   try {
-    const res = await fetch(`${window.API_BASE}/api/snapshot?uid=${encodeURIComponent(syncCode)}`);
+    const surl = `${window.API_BASE}/api/snapshot?uid=${encodeURIComponent(syncCode)}`;
+    let res = await fetch(surl, { headers: await authHeaders() });
+    if (res.status === 401) res = await fetch(surl, { headers: await authHeaders(null, true) });
     if (!res.ok) throw new Error('snapshot failed ' + res.status);
     const snap = await res.json();
     applyServerSnapshot(snap);
@@ -4690,7 +4706,7 @@ async function checkWhoopStatus() {
     return;
   }
   try {
-    const res = await fetch(`${window.API_BASE}/api/whoop/status?uid=${encodeURIComponent(uid)}`);
+    const res = await fetch(`${window.API_BASE}/api/whoop/status?uid=${encodeURIComponent(uid)}`, { headers: await authHeaders() });
     const data = await res.json();
     if (data.connected) {
       statusEl.textContent = '✓ Conectado';
@@ -4711,11 +4727,16 @@ async function checkWhoopStatus() {
   }
 }
 
-$('#whoopConnectBtn').addEventListener('click', () => {
-  const uid = whoopUid();
-  if (!uid) { alert('Entre com Google primeiro (aba Timer → Sincronização).'); return; }
-  // Abre o fluxo OAuth do Whoop via Worker
-  window.location.href = `${window.API_BASE}/oauth/whoop/login?uid=${encodeURIComponent(uid)}`;
+$('#whoopConnectBtn').addEventListener('click', async () => {
+  const u = window._fb && window._fb.auth && window._fb.auth.currentUser;
+  if (!u) { alert('Entre primeiro para conectar o Whoop.'); return; }
+  // Pede a URL de autorização ao Worker (Bearer no header); o token NÃO vai na URL.
+  try {
+    const res = await fetch(`${window.API_BASE}/api/whoop/connect`, { method: 'POST', headers: await authHeaders() });
+    const data = await res.json();
+    if (data && data.url) window.location.href = data.url;
+    else alert('Não foi possível iniciar a conexão com o Whoop.');
+  } catch (e) { alert('Erro ao conectar Whoop: ' + e.message); }
 });
 
 $('#whoopSyncBtn').addEventListener('click', async () => {
@@ -4728,7 +4749,7 @@ $('#whoopSyncBtn').addEventListener('click', async () => {
   try {
     const res = await fetch(`${window.API_BASE}/api/whoop/sync`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await authHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ uid }),
     });
     const data = await res.json();
@@ -4759,7 +4780,7 @@ $('#whoopDisconnectBtn').addEventListener('click', async () => {
   if (!confirm('Desconectar o Whoop?')) return;
   await fetch(`${window.API_BASE}/api/whoop/disconnect`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ uid }),
   });
   checkWhoopStatus();
@@ -6995,7 +7016,11 @@ restoreTimerState();
   if (window._fb) wire();
   else window.addEventListener('firebase-ready', wire);
   // Segurança: se o Firebase não carregar em 3s, mostra o formulário (não trava no "Carregando…")
-  setTimeout(() => { if (!document.body.classList.contains('authed')) ready(); }, 3000);
+  setTimeout(() => {
+    if (document.body.classList.contains('authed')) return;
+    ready();
+    if (!window._fb) setMsg('Não consegui carregar a autenticação. Verifique a conexão e recarregue a página.', 'error');
+  }, 3000);
 })();
 </script>
 </body>

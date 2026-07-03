@@ -2,11 +2,15 @@
 // Binding: DB → D1 'timer-sessoes' (já declarado em wrangler.api.jsonc)
 // Deploy direto (sem GitHub):  wrangler deploy -c wrangler.api.jsonc
 // Secret do Whoop:             wrangler secret put WHOOP_CLIENT_SECRET -c wrangler.api.jsonc
+//
+// Segurança: todo /api/* (exceto /api/ping) exige um ID token do Firebase no
+// header Authorization: Bearer <token>. O uid usado é o do token VERIFICADO
+// (payload.sub), nunca o que o cliente manda — assim ninguém acessa dados de outro.
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Access-Control-Max-Age': '86400',
 };
 
@@ -21,6 +25,117 @@ function json(data, status = 200) {
   });
 }
 
+// ====== Verificação de ID token do Firebase (JWT RS256) ======
+const FB_PROJECT_ID = 'timer-sessoes';
+const FB_ISS = 'https://securetoken.google.com/' + FB_PROJECT_ID;
+const JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
+
+let _jwks = null;         // hot cache em memória: { keys, exp }
+let _jwksLastGood = null; // último conjunto importado com sucesso (fallback stale)
+
+function b64urlBytes(s) {
+  s = String(s).replace(/-/g, '+').replace(/_/g, '/');
+  const pad = s.length % 4;
+  if (pad) s += '='.repeat(4 - pad);
+  const bin = atob(s);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+function b64urlJson(s) {
+  return JSON.parse(new TextDecoder().decode(b64urlBytes(s)));
+}
+
+async function importJwkSet(body) {
+  const keys = {};
+  for (const k of (body.keys || [])) {
+    if (k.kty !== 'RSA' || (k.alg && k.alg !== 'RS256') || !k.kid) continue;
+    try {
+      keys[k.kid] = await crypto.subtle.importKey('jwk', k, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+    } catch { /* ignora chave inválida */ }
+  }
+  return keys;
+}
+
+// Robusto contra blip do Google: hot cache → fetch (edge-cache) → cache de colo (stale) → last-good.
+// Nunca cacheia conjunto vazio; só lança se JAMAIS houve JWKS bom.
+async function getJwksKeys(force) {
+  const now = Date.now();
+  if (!force && _jwks && _jwks.exp > now) return _jwks.keys;
+  const cache = caches.default;
+  const cacheKey = new Request(JWKS_URL);
+  try {
+    const res = await fetch(JWKS_URL, { cf: { cacheEverything: true, cacheTtl: 3600 } });
+    if (res.ok) {
+      const body = await res.json();
+      const keys = await importJwkSet(body);
+      if (Object.keys(keys).length > 0) {
+        let ttl = 3600 * 1000;
+        const cc = res.headers.get('cache-control');
+        const m = cc && cc.match(/max-age=(\d+)/);
+        if (m) ttl = parseInt(m[1], 10) * 1000;
+        _jwks = { keys, exp: now + Math.max(60000, Math.min(ttl, 6 * 3600 * 1000)) };
+        _jwksLastGood = keys;
+        try {
+          const copy = new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=86400' } });
+          await cache.put(cacheKey, copy);
+        } catch { /* cache best-effort */ }
+        return keys;
+      }
+    }
+  } catch { /* rede falhou → fallback abaixo */ }
+  // Fallback stale: cache de colo (sobrevive a cold start), depois last-good deste isolate.
+  try {
+    const cached = await cache.match(cacheKey);
+    if (cached) {
+      const keys = await importJwkSet(await cached.json());
+      if (Object.keys(keys).length > 0) { _jwksLastGood = keys; return keys; }
+    }
+  } catch { /* ignora */ }
+  if (_jwksLastGood) return _jwksLastGood;
+  throw new Error('jwks_unavailable');
+}
+
+// Verifica assinatura + claims; devolve o payload (payload.sub = uid) ou lança.
+async function verifyIdToken(token) {
+  if (!token || typeof token !== 'string') throw new Error('no_token');
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('malformed');
+  const header = b64urlJson(parts[0]);
+  if (header.alg !== 'RS256') throw new Error('bad_alg');   // rejeita 'none'/HS256 (algorithm confusion)
+  if (header.typ !== 'JWT') throw new Error('bad_typ');      // exige typ=JWT (validação estrita)
+  if (!header.kid) throw new Error('no_kid');
+
+  let keys = await getJwksKeys(false);
+  let key = keys[header.kid];
+  if (!key) { keys = await getJwksKeys(true); key = keys[header.kid]; } // rotação de chave → refetch
+  if (!key) throw new Error('unknown_kid');
+
+  const data = new TextEncoder().encode(parts[0] + '.' + parts[1]);
+  const sig = b64urlBytes(parts[2]);
+  const ok = await crypto.subtle.verify({ name: 'RSASSA-PKCS1-v1_5' }, key, sig, data);
+  if (!ok) throw new Error('bad_signature');
+
+  const p = b64urlJson(parts[1]);
+  const now = Math.floor(Date.now() / 1000);
+  const TOL = 60; // tolerância pequena de relógio (não estende a validade materialmente)
+  if (typeof p.exp !== 'number' || p.exp + TOL < now) throw new Error('expired');
+  if (typeof p.iat !== 'number' || p.iat - TOL > now) throw new Error('bad_iat');
+  if (typeof p.auth_time !== 'number' || p.auth_time - TOL > now) throw new Error('bad_auth_time');
+  if (p.aud !== FB_PROJECT_ID) throw new Error('bad_aud');
+  if (p.iss !== FB_ISS) throw new Error('bad_iss');
+  if (typeof p.sub !== 'string' || !p.sub || p.sub.length > 128) throw new Error('bad_sub');
+  return p;
+}
+
+// Extrai o Bearer, verifica, devolve o uid (payload.sub). Lança se inválido.
+async function requireUid(request) {
+  const auth = request.headers.get('Authorization') || '';
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  if (!m) throw new Error('no_bearer');
+  return (await verifyIdToken(m[1].trim())).sub;
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') {
@@ -29,18 +144,27 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
     try {
-      if (path === '/api/snapshot' && request.method === 'GET') return apiSnapshot(request, env);
-      if (path === '/api/session' && request.method === 'POST') return apiAddSession(request, env);
-      if (path === '/api/categories' && request.method === 'PUT') return apiPutCategories(request, env);
-      if (path === '/api/settings' && request.method === 'PUT') return apiPutSetting(request, env);
-      if (path === '/api/sync' && request.method === 'POST') return apiBulkSync(request, env);
+      // Aberto (healthcheck)
       if (path === '/api/ping' && request.method === 'GET') return json({ ok: true, now: Date.now() });
-      // ===== Whoop OAuth =====
-      if (path === '/oauth/whoop/login' && request.method === 'GET') return whoopLogin(request, env);
+
+      // Whoop OAuth callback: vem do Whoop, autenticado pelo `state` single-use que emitimos.
       if (path === '/oauth/whoop/callback' && request.method === 'GET') return whoopCallback(request, env);
-      if (path === '/api/whoop/status' && request.method === 'GET') return whoopStatus(request, env);
-      if (path === '/api/whoop/sync' && request.method === 'POST') return whoopSync(request, env);
-      if (path === '/api/whoop/disconnect' && request.method === 'POST') return whoopDisconnect(request, env);
+
+      // Daqui pra baixo, tudo exige Bearer válido.
+      let uid;
+      try { uid = await requireUid(request); }
+      catch (e) { return json({ error: 'unauthorized', detail: e.message }, 401); }
+
+      if (path === '/api/snapshot' && request.method === 'GET') return apiSnapshot(env, uid);
+      if (path === '/api/session' && request.method === 'POST') return apiAddSession(request, env, uid);
+      if (path === '/api/categories' && request.method === 'PUT') return apiPutCategories(request, env, uid);
+      if (path === '/api/settings' && request.method === 'PUT') return apiPutSetting(request, env, uid);
+      if (path === '/api/sync' && request.method === 'POST') return apiBulkSync(request, env, uid);
+      if (path === '/api/whoop/connect' && request.method === 'POST') return apiWhoopConnect(request, env, uid);
+      if (path === '/api/whoop/status' && request.method === 'GET') return whoopStatus(env, uid);
+      if (path === '/api/whoop/sync' && request.method === 'POST') return whoopSync(env, uid);
+      if (path === '/api/whoop/disconnect' && request.method === 'POST') return whoopDisconnect(env, uid);
+
       return json({ error: 'not found', path }, 404);
     } catch (e) {
       return json({ error: e.message, stack: e.stack }, 500);
@@ -60,15 +184,12 @@ function randomState() {
   return [...arr].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// Inicia o fluxo OAuth: ?uid=... → redireciona pro Whoop
-async function whoopLogin(request, env) {
-  const uid = new URL(request.url).searchParams.get('uid');
-  if (!uid) return json({ error: 'uid required' }, 400);
+// Inicia o fluxo OAuth do Whoop (Bearer verificado → uid). Devolve a URL de autorização;
+// o ID token do Firebase NÃO trafega na URL (evita vazamento por Referer/logs/histórico).
+async function apiWhoopConnect(request, env, uid) {
   if (!env.WHOOP_CLIENT_ID) return json({ error: 'WHOOP_CLIENT_ID not configured' }, 500);
-
   const state = randomState();
   await env.DB.prepare('INSERT OR REPLACE INTO oauth_states (state, uid) VALUES (?, ?)').bind(state, uid).run();
-
   const redirectUri = `${new URL(request.url).origin}/oauth/whoop/callback`;
   const authUrl = new URL(WHOOP_AUTH_URL);
   authUrl.searchParams.set('response_type', 'code');
@@ -76,7 +197,7 @@ async function whoopLogin(request, env) {
   authUrl.searchParams.set('redirect_uri', redirectUri);
   authUrl.searchParams.set('scope', WHOOP_SCOPES);
   authUrl.searchParams.set('state', state);
-  return Response.redirect(authUrl.toString(), 302);
+  return json({ url: authUrl.toString() });
 }
 
 // Whoop redireciona de volta com ?code=...&state=...
@@ -154,26 +275,18 @@ async function getValidWhoopToken(env, uid) {
   return tok.access_token;
 }
 
-async function whoopStatus(request, env) {
-  const uid = new URL(request.url).searchParams.get('uid');
-  if (!uid) return json({ error: 'uid required' }, 400);
+async function whoopStatus(env, uid) {
   const row = await env.DB.prepare('SELECT uid, expires_at FROM whoop_tokens WHERE uid = ?').bind(uid).first();
   return json({ connected: !!row });
 }
 
-async function whoopDisconnect(request, env) {
-  const body = await request.json();
-  const uid = body && body.uid;
-  if (!uid) return json({ error: 'uid required' }, 400);
+async function whoopDisconnect(env, uid) {
   await env.DB.prepare('DELETE FROM whoop_tokens WHERE uid = ?').bind(uid).run();
   return json({ ok: true });
 }
 
 // Busca sleep records do Whoop e grava como settings/sleep no D1
-async function whoopSync(request, env) {
-  const body = await request.json();
-  const uid = body && body.uid;
-  if (!uid) return json({ error: 'uid required' }, 400);
+async function whoopSync(env, uid) {
   const token = await getValidWhoopToken(env, uid);
   if (!token) return json({ error: 'not_connected' }, 401);
 
@@ -265,19 +378,17 @@ async function loadFullSnapshot(env, uid) {
   };
 }
 
-// ====== Endpoints ======
-async function apiSnapshot(request, env) {
-  const uid = new URL(request.url).searchParams.get('uid');
-  if (!uid) return json({ error: 'uid required' }, 400);
+// ====== Endpoints (uid vem sempre do token verificado) ======
+async function apiSnapshot(env, uid) {
   const snap = await loadFullSnapshot(env, uid);
   return json(snap);
 }
 
-async function apiAddSession(request, env) {
+async function apiAddSession(request, env, uid) {
   const body = await request.json();
-  const { uid, date, category, durationMs, startedAt } = body || {};
-  if (!uid || !date || !category || !durationMs) {
-    return json({ error: 'missing fields', need: ['uid', 'date', 'category', 'durationMs'] }, 400);
+  const { date, category, durationMs, startedAt } = body || {};
+  if (!date || !category || !durationMs) {
+    return json({ error: 'missing fields', need: ['date', 'category', 'durationMs'] }, 400);
   }
   await env.DB.prepare(
     'INSERT OR IGNORE INTO sessions (uid, date, category, duration_ms, started_at) VALUES (?, ?, ?, ?, ?)'
@@ -285,10 +396,10 @@ async function apiAddSession(request, env) {
   return json({ ok: true });
 }
 
-async function apiPutCategories(request, env) {
+async function apiPutCategories(request, env, uid) {
   const body = await request.json();
-  const { uid, categories } = body || {};
-  if (!uid || !Array.isArray(categories)) return json({ error: 'invalid body' }, 400);
+  const { categories } = body || {};
+  if (!Array.isArray(categories)) return json({ error: 'invalid body' }, 400);
   const stmts = [env.DB.prepare('DELETE FROM categories WHERE uid = ?').bind(uid)];
   categories.forEach((name, idx) => {
     if (typeof name === 'string' && name.trim()) {
@@ -299,20 +410,19 @@ async function apiPutCategories(request, env) {
   return json({ ok: true });
 }
 
-async function apiPutSetting(request, env) {
+async function apiPutSetting(request, env, uid) {
   const body = await request.json();
-  const { uid, key, value } = body || {};
-  if (!uid || !key) return json({ error: 'invalid body' }, 400);
+  const { key, value } = body || {};
+  if (!key) return json({ error: 'invalid body' }, 400);
   await env.DB.prepare(
     'INSERT INTO settings (uid, key, value, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(uid, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at'
   ).bind(uid, key, JSON.stringify(value), Date.now()).run();
   return json({ ok: true });
 }
 
-async function apiBulkSync(request, env) {
+async function apiBulkSync(request, env, uid) {
   const body = await request.json();
-  const { uid, sessions, categories, settings } = body || {};
-  if (!uid) return json({ error: 'uid required' }, 400);
+  const { sessions, categories, settings } = body || {};
 
   const stmts = [];
 

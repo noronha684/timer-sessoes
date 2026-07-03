@@ -2,7 +2,9 @@
 
 App pessoal de foco (estilo Windows Focus Sessions) para acompanhar horas de estudo (CFA) e trabalho, com sono, agenda, calendário, diário de hábitos e metas. PWA instalável.
 
-**No ar:** https://timer.gnoronha.app (e o endereço direto https://timer-app.gabriel-noronha-o-p.workers.dev)
+**No ar:** https://timer.gnoronha.app
+
+> **Trabalhando no código (com Claude ou não)?** Leia **[`CLAUDE.md`](CLAUDE.md)** — estado atual, deploy por `wrangler` e ciladas. Deploy mudou em jul/2026: **não é mais `git push`**.
 
 ---
 
@@ -10,10 +12,10 @@ App pessoal de foco (estilo Windows Focus Sessions) para acompanhar horas de est
 
 | Camada | Onde | Detalhe |
 |---|---|---|
-| **Frontend** | Cloudflare Pages/Worker `timer-app` | Arquivo único `index.html` (HTML+CSS+JS inline). Deploy automático no `git push` deste repo. |
-| **API** | Cloudflare Worker `timer-sessoes` | `worker.js` — REST `/api/*` + OAuth do Whoop. Deploy **manual** (colar no painel). |
+| **App (frontend)** | Worker **`timer-app`** (static assets) | Serve `./public/` (`index.html` = app inteiro num arquivo só). Domínio `timer.gnoronha.app`. Deploy: `wrangler deploy`. |
+| **API** | Cloudflare Worker `timer-sessoes` | `worker.js` — REST `/api/*` + OAuth do Whoop. Deploy: `wrangler deploy -c wrangler.api.jsonc`. |
 | **Banco** | Cloudflare D1 `timer-sessoes` | id `63f9fce0-a3e3-4e68-87ef-3390c40babdc`. Tabelas: `sessions`, `categories`, `settings`, `whoop_tokens`, `oauth_states`. |
-| **Login/Auth** | Firebase Auth (projeto `timer-sessoes`) | Só Google Sign-In. O UID do Google é a chave de sincronização. |
+| **Login/Auth** | Firebase Auth (projeto `timer-sessoes`) | Google + e-mail/senha. **Login obrigatório** (portão de entrada). UID = chave de dados. A API valida o ID token (Bearer). |
 | **Sono** | Whoop API v2 | OAuth via Worker; importa duração + início/fim do sono. |
 
 Domínio `gnoronha.app` (Cloudflare Registrar) é guarda-chuva: `timer.`, `adega.` (wineislife), `finance.` (organizador), `bbce.` etc.
@@ -33,20 +35,18 @@ Extras no Timer: metas mensais (anel de meta diária por dias úteis + marcador 
 
 ---
 
-## Deploy
+## Deploy (por `wrangler`, direto — sem GitHub)
 
-**Frontend (automático):**
 ```bash
-git add -A && git commit -m "..." && git push
+wrangler deploy                        # app  → timer.gnoronha.app
+wrangler deploy -c wrangler.api.jsonc  # API  (só quando mexer no worker.js)
 ```
-Cloudflare Pages re-deploya em ~1min. Service worker é **stale-while-revalidate** + auto-reload (`controllerchange`), então o app atualiza sozinho na próxima abertura. Bumpar `CACHE_NAME` no `service-worker.js` a cada mudança.
-
-**API/Worker (manual):** colar `worker.js` no painel do Worker `timer-sessoes` → Deploy. Binding `DB` → D1 `timer-sessoes`. Secrets: `WHOOP_CLIENT_ID`, `WHOOP_CLIENT_SECRET`.
+O GitHub **não deploya** (Workers Builds desconectado) — é só backup. Service worker é **stale-while-revalidate** + auto-reload, então o app atualiza sozinho na próxima abertura; **bumpar `CACHE_NAME` em `public/service-worker.js` a cada mudança do app**. Secret da API: `wrangler secret put WHOOP_CLIENT_SECRET -c wrangler.api.jsonc` (deploy preserva secrets). Rollback da API: `wrangler rollback -c wrangler.api.jsonc`.
 
 ---
 
 ## ⚠️ Perrengues conhecidos (não repetir)
-- **`worker.js` NÃO pode estar no repo do frontend** — o Cloudflare detecta e quebra o deploy (404). Está no `.gitignore`. Mantido local só pra referência; a API é deployada manual no Worker `timer-sessoes`.
+- **Publicar só a pasta `public/`** — `worker.js`, `.git`, configs ficam na raiz e **não** vão pro ar (o `wrangler.jsonc` aponta assets pra `./public`). Isso corrigiu o `.git` que já vazou público. (`.assetsignore` não resolve quando o dir de assets é a raiz — por isso `public/`.) O `worker.js` agora é **rastreado** no git.
 - **Domínio novo no Firebase:** ao usar um endereço novo (ex: workers.dev), adicionar em Firebase → Authentication → Settings → Authorized domains, senão login dá `auth/unauthorized-domain`.
 - **"App não abre" / timeout:** geralmente cache de DNS do roteador local (funciona no 4G). Reiniciar roteador ou usar DNS `1.1.1.1`. Não é o Cloudflare.
 - **Subcategorias** ainda não vão pro D1 (tabela `sessions` não tem a coluna). Salvam local; corrigir no worker depois (ALTER TABLE + INSERT).

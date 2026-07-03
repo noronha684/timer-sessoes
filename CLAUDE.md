@@ -26,7 +26,7 @@ wrangler deploy                        # app  → timer.gnoronha.app
 wrangler deploy -c wrangler.api.jsonc  # API  (só quando mexer no worker.js)
 ```
 - O GitHub **não deploya** nada (o Workers Builds foi desconectado). GitHub = backup do código.
-- **Ao mudar o app, SEMPRE bumpar `CACHE_NAME`** em `public/service-worker.js` (é stale-while-revalidate + auto-reload). Versão atual: **v94**.
+- **Ao mudar o app, SEMPRE bumpar `CACHE_NAME`** em `public/service-worker.js` (é stale-while-revalidate + auto-reload). Versão atual: **v98**.
 - Segredo da API: `wrangler secret put WHOOP_CLIENT_SECRET -c wrangler.api.jsonc` (já setado; `wrangler deploy` preserva secrets).
 - Rollback rápido da API: `wrangler rollback -c wrangler.api.jsonc`.
 
@@ -34,7 +34,7 @@ wrangler deploy -c wrangler.api.jsonc  # API  (só quando mexer no worker.js)
 - **Portão de login** (`#authGate` no `index.html`): o app só abre autenticado (e-mail/senha via Firebase **ou** Google). `body.authed` esconde o portão.
 - **API valida o ID token do Firebase**: todo `/api/*` (exceto `/api/ping`) exige `Authorization: Bearer <idToken>`. O Worker verifica o JWT (RS256 contra a JWKS do Google), e usa **sempre `payload.sub` como uid** — ignora uid vindo de body/query (fecha IDOR). Cliente anexa o token via `authHeaders()`.
 - Whoop connect: `POST /api/whoop/connect` (Bearer) devolve a URL de autorização — o token **não** vai na URL.
-- Chip de conta no topo (`#accountChip`) mostra quem está logado; clique abre o painel com "Desconectar".
+- Chip de conta no topo (`#accountChip`) mostra quem está logado; clique abre o painel de conta (`#syncModal`) com "Sair da conta" (signOut → volta pro portão). O sync é 100% automático (push debounced a cada save, pull ao abrir/voltar + polling 30s) — não existe mais botão "Sincronizar agora", login dentro do modal nem código manual (jul/2026); conexões legadas por código manual seguem funcionando sem UI.
 
 ## Convenções e ciladas (não repetir)
 - **Verificar visualmente com Chrome headless**, não com o preview (screenshots do preview travam por causa do Firebase):

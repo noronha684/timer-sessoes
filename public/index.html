@@ -2367,7 +2367,7 @@ window.firebaseConfig = {
       </div>
       <div class="option">
         <label>🔄 Sincronização</label>
-        <button class="sync-trigger" id="syncBtn">Configurar</button>
+        <button class="sync-trigger" id="syncBtn">Conta</button>
       </div>
     </div>
   </div>
@@ -2590,48 +2590,15 @@ window.firebaseConfig = {
   </div>
 </div>
 
+<!-- Painel de conta (o login mora no portão #authGate; o sync é automático: push a cada save, pull ao abrir/voltar + polling 30s) -->
 <div class="modal-overlay" id="syncModal">
   <div class="modal-content">
-    <div class="modal-title">Sincronização</div>
+    <div class="modal-title">Conta</div>
     <div class="sync-status" id="syncStatus"></div>
-
-    <div id="syncDisconnected">
-      <button class="google-signin-btn" id="googleSignInBtn">
-        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-        </svg>
-        Entrar com Google
-      </button>
-      <div style="font-size:12px;color:var(--text-subtle);text-align:center;margin-top:10px;line-height:1.5;">
-        Faça login com a mesma conta nos dois<br>dispositivos pra sincronizar automaticamente.
-      </div>
-      <details class="manual-sync-details">
-        <summary>Usar código manual</summary>
-        <div style="margin-top:12px;">
-          <button class="sync-secondary-btn" id="generateCodeBtn">Gerar novo código</button>
-          <div class="modal-divider"><span>ou</span></div>
-          <div class="add-cat-row">
-            <input type="text" class="new-cat-input" id="syncCodeInput" placeholder="Cole código de outro dispositivo...">
-            <button class="add-cat-btn" id="connectCodeBtn" aria-label="Conectar">→</button>
-          </div>
-        </div>
-      </details>
-    </div>
-
     <div id="syncConnected" style="display:none">
       <div class="user-info" id="userInfo"></div>
-      <div id="manualCodeInfo" style="display:none">
-        <div style="font-size:11px;color:var(--text-subtle);margin-bottom:6px;text-transform:uppercase;letter-spacing:1.2px;font-weight:600;">Código manual</div>
-        <div class="sync-code-display" id="syncCodeDisplay"></div>
-        <button class="sync-secondary-btn" id="copyCodeBtn">📋 Copiar código</button>
-      </div>
-      <button class="sync-secondary-btn" id="syncNowBtn">🔄 Sincronizar agora</button>
-      <button class="sync-danger-btn" id="disconnectBtn">Desconectar</button>
+      <button class="sync-danger-btn" id="disconnectBtn">Sair da conta</button>
     </div>
-
     <button class="modal-close" id="syncModalClose">Fechar</button>
   </div>
 </div>
@@ -3864,11 +3831,6 @@ function recomputeSyncCode() {
 }
 recomputeSyncCode();
 
-function generateSyncCode() {
-  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
-  return 'sync-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
-}
-
 function buildSyncPayload() {
   return {
     history: loadHistory(),
@@ -4222,17 +4184,6 @@ function stopSyncListener() {
   if (syncPollTimer) { clearInterval(syncPollTimer); syncPollTimer = null; }
 }
 
-async function connectSync(code) {
-  if (!code) return;
-  manualSyncCode = code.trim();
-  localStorage.setItem('timerManualSyncCode', manualSyncCode);
-  recomputeSyncCode();
-  await pullFromCloud();
-  await pushToCloud();
-  startSyncListener();
-  updateSyncUI();
-}
-
 function disconnectSync() {
   stopSyncListener();
   if (currentUser) {
@@ -4246,23 +4197,7 @@ function disconnectSync() {
   updateSyncUI();
 }
 
-async function signInWithGoogle() {
-  if (!window._fb) { alert('Firebase ainda carregando, tente em alguns segundos.'); return; }
-  if (!navigator.onLine) { alert('Conexão necessária pra entrar com Google.'); return; }
-  const provider = new window._fb.GoogleAuthProvider();
-  try {
-    await window._fb.signInWithPopup(window._fb.auth, provider);
-  } catch (e) {
-    // Popup falhou (bloqueado / fechado / mobile) → fallback redirect
-    if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
-      try { await window._fb.signInWithRedirect(window._fb.auth, provider); }
-      catch (err) { console.warn('redirect auth falhou:', err); alert('Não foi possível autenticar: ' + err.message); }
-    } else {
-      console.warn('signIn falhou:', e);
-      alert('Erro ao entrar: ' + (e.message || e.code));
-    }
-  }
-}
+// (login com Google mora no portão #authGate — doGoogle; o modal de conta não loga ninguém)
 
 // Debounced push: agrupa mudanças rápidas em um só write
 function triggerSync() {
@@ -4296,23 +4231,18 @@ function updateSyncUI() {
   updateAccountChip();
   const trigger = $('#syncBtn');
   const status = $('#syncStatus');
-  const disc = $('#syncDisconnected');
   const conn = $('#syncConnected');
-  const codeDisplay = $('#syncCodeDisplay');
   const userInfo = $('#userInfo');
-  const manualCodeInfo = $('#manualCodeInfo');
 
   if (!window.API_BASE) {
     if (trigger) { trigger.textContent = 'Indisponível'; trigger.classList.remove('connected'); }
     if (status) status.innerHTML = '<div style="color:var(--warn)">API_BASE não configurada. Edite no index.html.</div>';
-    if (disc) disc.style.display = 'none';
     if (conn) conn.style.display = 'none';
     return;
   }
   if (!window._fb) {
     if (trigger) { trigger.textContent = 'Carregando...'; trigger.classList.remove('connected'); }
     if (status) status.innerHTML = '<div style="color:var(--warn)">Firebase Auth carregando...</div>';
-    if (disc) disc.style.display = 'none';
     if (conn) conn.style.display = 'none';
     return;
   }
@@ -4322,40 +4252,37 @@ function updateSyncUI() {
       const last = lastSyncedAt ? `Última sync: ${lastSyncedAt.toLocaleTimeString('pt-BR')}` : 'Conectado';
       status.innerHTML = `<div style="color:var(--success)">${last}</div>`;
     }
-    if (disc) disc.style.display = 'none';
     if (conn) conn.style.display = 'block';
-
-    if (currentUser && userInfo) {
-      const name = currentUser.displayName || 'Usuário';
-      const email = currentUser.email || '';
-      const photo = currentUser.photoURL;
-      const initial = (name[0] || email[0] || '?').toUpperCase();
-      const avatar = photo
-        ? `<img src="${photo}" class="user-avatar" alt="" referrerpolicy="no-referrer">`
-        : `<div class="user-avatar">${initial}</div>`;
-      userInfo.innerHTML = `
-        ${avatar}
-        <div class="user-details">
-          <div class="user-name">${escapeHtml(name)}</div>
-          <div class="user-email">${escapeHtml(email)}</div>
-          <div class="user-badge">● Conectado com Google</div>
-        </div>`;
-      userInfo.style.display = 'flex';
-      if (manualCodeInfo) manualCodeInfo.style.display = 'none';
-    } else if (userInfo) {
-      userInfo.style.display = 'none';
-      if (manualCodeInfo) manualCodeInfo.style.display = 'block';
-      if (codeDisplay) codeDisplay.textContent = syncCode;
+    if (userInfo) {
+      if (currentUser) {
+        const name = currentUser.displayName || 'Usuário';
+        const email = currentUser.email || '';
+        const photo = currentUser.photoURL;
+        const initial = (name[0] || email[0] || '?').toUpperCase();
+        const avatar = photo
+          ? `<img src="${photo}" class="user-avatar" alt="" referrerpolicy="no-referrer">`
+          : `<div class="user-avatar">${initial}</div>`;
+        const isGoogle = (currentUser.providerData || []).some(p => p && p.providerId === 'google.com');
+        userInfo.innerHTML = `
+          ${avatar}
+          <div class="user-details">
+            <div class="user-name">${escapeHtml(name)}</div>
+            <div class="user-email">${escapeHtml(email)}</div>
+            <div class="user-badge">● ${isGoogle ? 'Conectado com Google' : 'Conectado por e-mail'}</div>
+          </div>`;
+        userInfo.style.display = 'flex';
+      } else {
+        // Conexão legada por código manual (sem login) — sem UI própria; o sync segue funcionando
+        userInfo.style.display = 'none';
+      }
     }
   } else {
-    if (trigger) { trigger.textContent = 'Configurar'; trigger.classList.remove('connected'); }
+    if (trigger) { trigger.textContent = 'Conta'; trigger.classList.remove('connected'); }
     if (status) status.innerHTML = '<div style="color:var(--text-subtle)">Não conectado</div>';
-    if (disc) disc.style.display = 'block';
     if (conn) conn.style.display = 'none';
   }
 }
 
-$('#googleSignInBtn').addEventListener('click', signInWithGoogle);
 $('#syncBtn').addEventListener('click', () => {
   $('#syncModal').classList.add('active');
   updateSyncUI();
@@ -4368,33 +4295,16 @@ $('#syncModalClose').addEventListener('click', () => $('#syncModal').classList.r
 $('#syncModal').addEventListener('click', (e) => {
   if (e.target.id === 'syncModal') $('#syncModal').classList.remove('active');
 });
-$('#generateCodeBtn').addEventListener('click', () => connectSync(generateSyncCode()));
-$('#connectCodeBtn').addEventListener('click', async () => {
-  const code = $('#syncCodeInput').value.trim();
-  if (!code) return;
-  await connectSync(code);
-  $('#syncCodeInput').value = '';
-});
-$('#syncCodeInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); $('#connectCodeBtn').click(); }
-});
-$('#copyCodeBtn').addEventListener('click', async () => {
-  try {
-    await navigator.clipboard.writeText(syncCode);
-    const btn = $('#copyCodeBtn');
-    const orig = btn.textContent;
-    btn.textContent = '✓ Copiado!';
-    setTimeout(() => { btn.textContent = orig; }, 1500);
-  } catch {}
-});
-$('#syncNowBtn').addEventListener('click', async () => {
-  await pullFromCloud();
-  await pushToCloud();
-});
-$('#disconnectBtn').addEventListener('click', () => {
-  if (confirm('Desconectar o sync? Os dados locais ficam, mas não vão mais sincronizar.')) {
-    disconnectSync();
+$('#disconnectBtn').addEventListener('click', async () => {
+  if (!confirm('Sair da conta? O app volta pra tela de login; seus dados continuam salvos na nuvem e neste aparelho.')) return;
+  $('#syncModal').classList.remove('active');
+  // Flush do push pendente ANTES do signOut (mesmo padrão do pagehide) — senão a última edição fica só neste aparelho
+  if (syncDebounceTimer) {
+    clearTimeout(syncDebounceTimer);
+    syncDebounceTimer = null;
+    try { await pushToCloud(); } catch {}
   }
+  disconnectSync();
 });
 
 // Adiciona markLocalUpdate + triggerSync nas funções de save existentes
@@ -4748,7 +4658,7 @@ async function checkWhoopStatus() {
   const discBtn = $('#whoopDisconnectBtn');
   if (!uid) {
     statusEl.textContent = 'Login necessário';
-    infoEl.textContent = 'Entre com Google na aba Timer (Sincronização) antes de conectar o Whoop.';
+    infoEl.textContent = 'Faça login antes de conectar o Whoop.';
     connectBtn.style.display = 'none';
     syncBtn.style.display = 'none';
     discBtn.style.display = 'none';
@@ -6294,6 +6204,7 @@ const H2_SECTIONS = [
   { id: 'scorecard', n: '04', label: 'Scorecard mensal' },
   { id: 'calendario', n: '05', label: 'Calendário & cadência' },
   { id: 'regulatorio', n: '06', label: 'Calendário regulatório' },
+  { id: 'plano', n: '07', label: 'Plano semanal' },
 ];
 const H2_EARNINGS = [
   { per: 'Earnings 2T26', tri: '2º tri de 2026', what: 'Bloco pesado: 21 names reportam. Update ágil de modelos (Tier 1 em ≤48h), guidance vs. consenso. NÃO iniciar relatórios de iniciação aqui.', ini: '29/jul/2026', fim: '14/ago/2026' },
@@ -6328,6 +6239,42 @@ const H2_MACRO = [
   { tema: 'Sabesp × Equatorial', leitura: 'EQTL3 é acionista de referência da SBSP3', impl: 'Tratar como par cruzado (não isolado): alocação de capex e sinergias mudam o xadrez do setor.' },
 ];
 const H2_MONTHS = ['Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+// Plano de execução semana a semana — H2/2026 (do PDF Plano_Semanal_2H26). s/e = janela ISO p/ destacar a semana corrente.
+const H2_WEEKPLAN = [
+  { n: 1,  d: '30/jun–04/jul', s: '2026-06-30', e: '2026-07-04', t: 'Empresa nova', w: 'Fechar o calendário completo de releases do 2T26 (todas as datas por name). Abrir o histórico e a estrutura do modelo da Empresa Nova #1 (P&L + fluxo + valuation do zero). Sexta: revisão semanal (20 min).' },
+  { n: 2,  d: '06–10/jul',     s: '2026-07-06', e: '2026-07-10', t: 'Empresa nova', w: 'SEG 06/07: enviar o update de sentimento (leitura de posicionamento/convicção do book). Empresa Nova #1: preencher o P&L histórico e as premissas operacionais; montar o esqueleto do fluxo de caixa. Começar a redação da tese/nota de iniciação em paralelo.' },
+  { n: 3,  d: '14–18/jul',     s: '2026-07-14', e: '2026-07-18', t: 'Empresa nova', w: 'Empresa Nova #1: fechar valuation (DCF + múltiplos), definir preço-alvo e recomendação; rascunho completo da nota. ATÉ SEX 17/07: concluir e submeter a AUTOAVALIAÇÃO (deixar pronta até quinta 16/07 para revisar sem correria).' },
+  { n: 4,  d: '21–25/jul',     s: '2026-07-21', e: '2026-07-25', t: 'Empresa nova', w: 'Empresa Nova #1: revisar, checar números e ENTREGAR a nota de iniciação (1 de ≥3). Buffer 26–28/jul se estourar. SEX 24/07: concluir a AVALIAÇÃO DOS PARES (reservar ~1h antes do prazo). Preparar templates de earnings preview (delta vs. consenso) para o 2T26.' },
+  { n: 5,  d: '28/jul–01/ago', s: '2026-07-28', e: '2026-08-01', t: 'Balanços',     w: 'INÍCIO BALANÇOS 2T26. Primeiros releases (29–30/jul): preview publicado ANTES de cada um. Update do modelo em ≤48h (Core) / ≤5 dias úteis (demais Tier 1).' },
+  { n: 6,  d: '04–08/ago',     s: '2026-08-04', e: '2026-08-08', t: 'Balanços',     w: "PICO DE BALANÇOS. Vários names reportam por dia — atualização ágil dos modelos, guidance vs. consenso Bloomberg, marcar 'x' em cada modelo concluído. Não iniciar nada novo esta semana." },
+  { n: 7,  d: '11–15/ago',     s: '2026-08-11', e: '2026-08-15', t: 'Balanços',     w: 'Fim do pico do 2T26: últimos releases e updates. Fechar 100% dos Tier 1 com o último tri incorporado (KR1.1). Guardar previsto vs. reportado para o cálculo do MAPE.' },
+  { n: 8,  d: '18–22/ago',     s: '2026-08-18', e: '2026-08-22', t: 'Análise',      w: 'Pós-earnings: calcular o MAPE do EBITDA 2T26 dos 10 Tier 1 (meta ≤8%; reportar mediana, p75 e erro por subsetor). Documentar onde errei e por quê.' },
+  { n: 9,  d: '25–29/ago',     s: '2026-08-25', e: '2026-08-29', t: 'Análise',      w: 'Reprecificar bull/bear de cada Tier 1 pós-resultado. Avançar a assimetria (O3): preço de long E de short. Revisão mensal de agosto + kill/pause/continue.' },
+  { n: 10, d: '01–05/set',     s: '2026-09-01', e: '2026-09-05', t: 'Empresa nova', w: 'Empresa Nova #2: abrir o modelo do zero (histórico + estrutura). Janela boa porque está fora de balanços.' },
+  { n: 11, d: '08–12/set',     s: '2026-09-08', e: '2026-09-12', t: 'Empresa nova', w: 'Empresa Nova #2: P&L histórico, premissas e esqueleto do fluxo. Continuar fechando a assimetria dos Tier 1 (O3).' },
+  { n: 12, d: '15–19/set',     s: '2026-09-15', e: '2026-09-19', t: 'Análise',      w: 'Assimetria O3: cravar preço de long E short para 100% dos 10 Tier 1 (um name só conta com os dois preços). Empresa Nova #2 segue em paralelo.' },
+  { n: 13, d: '22–26/set',     s: '2026-09-22', e: '2026-09-26', t: 'Deep work',    w: 'O6 — referência própria de preço de LP de energia: consolidar leilões, PLD, curva forward e CME; ligar às geradoras. Iniciar O7 (valor por R$1 de capex na RAB).' },
+  { n: 14, d: '29/set–03/out', s: '2026-09-29', e: '2026-10-03', t: 'Cadência',     w: 'RESET TRIMESTRAL (meio dia): pontuar cada KR 0,0–1,0, retrospectiva do ciclo e reescrever OKRs. Revalidar o plano com o PM.' },
+  { n: 15, d: '06–10/out',     s: '2026-10-06', e: '2026-10-10', t: 'Deep work',    w: 'Finalizar O6 (curva de preço de LP com premissas explícitas) e conectar aos modelos das geradoras. Empresa Nova #2: fechar valuation e preço-alvo.' },
+  { n: 16, d: '13–17/out',     s: '2026-10-13', e: '2026-10-17', t: 'Empresa nova', w: 'Finalizar O7 (valor por R$1 de capex na RAB) e ligar aos modelos de T&D. Empresa Nova #2: redigir e ENTREGAR a nota de iniciação (2 de ≥3).' },
+  { n: 17, d: '20–24/out',     s: '2026-10-20', e: '2026-10-24', t: 'Deep work',    w: 'Fechar o calendário de releases do 3T26 e preparar os templates de preview. Última semana calma antes da temporada.' },
+  { n: 18, d: '27–31/out',     s: '2026-10-27', e: '2026-10-31', t: 'Balanços',     w: 'INÍCIO BALANÇOS 3T26 (janela ~fim out–meados nov). Preview antes de cada release; update em ≤48h (Core). Revisão mensal de outubro.' },
+  { n: 19, d: '03–07/nov',     s: '2026-11-03', e: '2026-11-07', t: 'Balanços',     w: 'PICO DE BALANÇOS 3T26. Atualização ágil dos modelos; guidance vs. consenso; reprecificar a assimetria pós-release. Não iniciar nada novo.' },
+  { n: 20, d: '10–14/nov',     s: '2026-11-10', e: '2026-11-14', t: 'Balanços',     w: 'Fim do pico do 3T26: últimos updates, 100% dos Tier 1 com o tri incorporado. Empresa Nova #3: abrir o modelo do zero.' },
+  { n: 21, d: '17–21/nov',     s: '2026-11-17', e: '2026-11-21', t: 'Empresa nova', w: 'Empresa Nova #3: P&L histórico, premissas, fluxo e valuation. Recalcular o MAPE do EBITDA do 3T26.' },
+  { n: 22, d: '24–28/nov',     s: '2026-11-24', e: '2026-11-28', t: 'Empresa nova', w: 'Empresa Nova #3: ENTREGAR a nota de iniciação (3 de ≥3 — fecha KR2.1). Levar ≥1 dos nomes novos como tese acionável ao PM (KR2.2). Revisão mensal de novembro.' },
+  { n: 23, d: '01–05/dez',     s: '2026-12-01', e: '2026-12-05', t: 'Deep work',    w: 'Incorporar os leilões de nov/dez às curvas de preço; revisar premissas de valuation ancorando em O6 (preço de LP) e O7 (capex na RAB).' },
+  { n: 24, d: '08–12/dez',     s: '2026-12-08', e: '2026-12-12', t: 'Análise',      w: 'Conferência final: 100% dos Tier 1 com assimetria (long+short) e último tri incorporado; 100% das empresas novas entregues. Limpar pendências dos modelos.' },
+  { n: 25, d: '15–19/dez',     s: '2026-12-15', e: '2026-12-19', t: 'Cadência',     w: 'Retrospectiva do H2/2026: o que mudou estruturalmente, que capacidades construí, erros documentados. Montar o handoff para o H1/2027.' },
+  { n: 26, d: '22–31/dez',     s: '2026-12-22', e: '2026-12-31', t: 'Cadência',     w: 'RESET SEMESTRAL: pontuar os KRs finais, fechar post-mortems e reescrever os OKRs do H1/2027. Encerrar o semestre.' },
+];
+function h2PlanTok(t) {
+  return t === 'Empresa nova' ? H2_TOK.green
+    : t === 'Balanços' ? H2_TOK.red
+    : t === 'Análise' ? H2_TOK.blue
+    : t === 'Deep work' ? H2_TOK.purple
+    : H2_TOK.gray; // Cadência
+}
 // OKRs H2/2026 — atualizados pelo Gabriel (planilha plano_atual, jul/26)
 const H2_OBJ_DEFS = {
   "O1": "Modelos Tier 1 sempre atualizados e os números na ponta da língua (a base que sustenta o alpha)",
@@ -6440,6 +6387,7 @@ function renderH2Section() {
   else if (h2Active === 'scorecard') { c.innerHTML = h2SecScorecard(D); bindH2Scorecard(c); }
   else if (h2Active === 'calendario') c.innerHTML = h2SecCalendario();
   else if (h2Active === 'regulatorio') { c.innerHTML = h2SecRegulatorio(); bindH2Reg(c); }
+  else if (h2Active === 'plano') { c.innerHTML = h2SecPlano(D); bindH2Plano(c); }
   else {
     const lbl = (H2_SECTIONS.find(s => s.id === h2Active) || {}).label || '';
     c.innerHTML = `<div class="h2-sec"><div class="h2-soon">A seção <b>${escapeHtml(lbl)}</b> ainda não foi construída.</div></div>`;
@@ -6493,6 +6441,161 @@ function h2SecRegulatorio() {
     <div class="h2-eyebrow" style="margin:24px 0 0">Temas macro</div>
     ${macro}
   </div>`;
+}
+
+// -- Seção 07 · Plano semanal --
+// Tudo editável: texto/datas salvam no store como override (wkw_N / wkd_N); o tipo cicla no clique (wkt_N).
+// Os valores do PDF ficam como seed em H2_WEEKPLAN.
+const H2_PLAN_TYPES = ['Empresa nova', 'Balanços', 'Análise', 'Deep work', 'Cadência'];
+// Itens recorrentes do plano (criados no app; vivem no store e sincronizam)
+function h2WkItemsArr(D) { return Array.isArray(D.h2WkItems) ? D.h2WkItems : []; }
+// 1ª semana de cada mês do semestre = primeira semana cujo início cai naquele mês (jul–dez)
+function h2WkFirstWeeks() {
+  const seen = new Set(), out = new Set();
+  H2_WEEKPLAN.forEach(x => { const m = +x.s.slice(5, 7); if (m >= 7 && !seen.has(m)) { seen.add(m); out.add(x.n); } });
+  return out;
+}
+function h2ItemAppliesTo(it, n, firsts) {
+  if (it.rec === 'all') return true;
+  if (it.rec === 'one') return parseInt(String(it.wk || '').trim(), 10) === Number(n); // numérico: "07" casa com 7
+  return firsts.has(n); // 'first'
+}
+function h2SecPlano(D) {
+  const today = dateKey(new Date());
+  const done = H2_WEEKPLAN.filter(x => D['wk_' + x.n]).length;
+  const total = H2_WEEKPLAN.length;
+  const items = h2WkItemsArr(D);
+  const firsts = h2WkFirstWeeks();
+  const rows = H2_WEEKPLAN.map(x => {
+    const w = D['wkw_' + x.n] != null ? D['wkw_' + x.n] : x.w;
+    const d = D['wkd_' + x.n] != null ? D['wkd_' + x.n] : x.d;
+    const t = D['wkt_' + x.n] || x.t;
+    const tok = h2PlanTok(t);
+    const isNow = today >= x.s && today <= x.e;
+    const isDone = !!D['wk_' + x.n];
+    const rowStyle = (isNow ? 'box-shadow:inset 3px 0 0 var(--accent);background:oklch(0.83 0.045 78 / 0.06);' : '')
+      + (isDone ? 'opacity:0.55;' : '');
+    // Renderiza TODOS os itens em TODAS as linhas (oculto onde não se aplica): permite atualizar
+    // texto/visibilidade in place enquanto o usuário digita, sem re-render que rouba foco/clique
+    const itemsHtml = items.map(it => {
+      const k = 'wkit_' + it.id + '_' + x.n;
+      const show = (it.text || '').trim() && h2ItemAppliesTo(it, x.n, firsts);
+      return `<label data-h2itemrow="${it.id}" data-h2itemwk="${x.n}" style="display:${show ? 'flex' : 'none'};gap:7px;align-items:flex-start;margin-top:6px;font-size:12px;cursor:pointer;color:var(--text-muted)"><input type="checkbox" class="h2-check" style="width:15px;height:15px;flex-shrink:0;margin-top:1px" data-h2check="${k}"${D[k] ? ' checked' : ''}><span${D[k] ? ' style="text-decoration:line-through;color:var(--text-subtle)"' : ''}>${escapeHtml(it.text)}</span></label>`;
+    }).join('');
+    return `<tr data-h2wk="${x.n}" style="${rowStyle}">
+      <td class="mono" style="text-align:center;color:var(--text);font-weight:600">${x.n}</td>
+      <td style="white-space:nowrap"><input class="h2-ta" data-h2key="wkd_${x.n}" value="${escapeHtml(d)}" style="min-height:0;padding:7px 9px;width:112px;font:600 11.5px var(--h2-mono)">${isNow ? '<div style="margin-top:5px"><span class="h2-badge" style="' + h2Badge(H2_TOK.purple) + '">agora</span></div>' : ''}</td>
+      <td style="min-width:280px"><textarea class="h2-ta" data-h2key="wkw_${x.n}" style="font-size:12.5px;min-height:76px">
+${escapeHtml(w)}</textarea>${itemsHtml}</td>
+      <td style="white-space:nowrap"><button data-h2wkt="${x.n}" title="Clique para trocar o tipo" style="${h2Badge(tok)};cursor:pointer;font-family:inherit">${escapeHtml(t)}</button></td>
+      <td style="text-align:center"><input type="checkbox" class="h2-check" data-h2check="wk_${x.n}"${isDone ? ' checked' : ''}></td>
+    </tr>`;
+  }).join('');
+  const itemRows = items.map(it => `
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+      <input class="h2-ta" data-h2itext="${it.id}" value="${escapeHtml(it.text || '')}" placeholder="ex.: enviar update de sentimento" style="min-height:0;padding:8px 10px;flex:1;font-size:12.5px">
+      <select class="h2-sel" data-h2irec="${it.id}" style="width:auto;padding:8px 6px;background:var(--card-elev);color:var(--text);border:1px solid var(--border-strong)">
+        <option value="first"${it.rec === 'first' ? ' selected' : ''}>1ª semana do mês</option>
+        <option value="all"${it.rec === 'all' ? ' selected' : ''}>Toda semana</option>
+        <option value="one"${it.rec === 'one' ? ' selected' : ''}>Semana única</option>
+      </select>
+      ${it.rec === 'one' ? `<input class="h2-ta" data-h2iwk="${it.id}" value="${escapeHtml(it.wk || '')}" inputmode="numeric" placeholder="nº" style="min-height:0;padding:8px 4px;width:44px;text-align:center;font:600 12px var(--h2-mono)">` : ''}
+      <button data-h2idel="${it.id}" title="Excluir item" style="border:none;background:none;color:var(--text-subtle);font-size:17px;cursor:pointer;padding:2px 6px;line-height:1">×</button>
+    </div>`).join('');
+  const itemsCard = `<div class="h2-card" style="margin-top:14px">
+    <div class="h2-card-h">Itens recorrentes</div>
+    <div class="h2-note">Entram como checklist nas semanas em que se aplicam — ex.: update de sentimento na 1ª semana de cada mês.</div>
+    ${itemRows}
+    <button type="button" class="h2-add-btn" id="h2WkAddItem" style="margin-top:10px">+ Adicionar item</button>
+  </div>`;
+  return `<div class="h2-sec">
+    <div class="h2-eyebrow">07 · execução semana a semana</div>
+    <h1 class="h2-h1">Plano semanal — H2 / 2026</h1>
+    <p class="h2-lead">Uma linha por semana. As janelas de balanço (2T26 e 3T26) são capacidade comprometida — nas outras semanas você constrói as ≥3 empresas novas e roda O3/O6/O7. Regra do 1,5×: multiplique toda estimativa por 1,5 antes de comprometer prazo. As 3 empresas novas: Nova #1 entrega em jul; Nova #2 e #3 no bloco de nov, pós-3T26.</p>
+    ${itemsCard}
+    <div class="h2-ticker" id="h2PlanProgress" style="margin:14px 0 4px">${done} de ${total} semanas concluídas</div>
+    <div class="h2-table-wrap"><table class="h2-table"><thead><tr>
+      <th style="text-align:center">Sem.</th><th>Datas</th><th>O que fazer nesta semana</th><th>Tipo</th><th style="text-align:center">Feito</th>
+    </tr></thead><tbody>${rows}</tbody></table></div>
+  </div>`;
+}
+function bindH2Plano(c) {
+  c.querySelectorAll('[data-h2check]').forEach(el => el.addEventListener('change', () => {
+    const D = loadH2(); D[el.dataset.h2check] = el.checked; saveH2(D);
+    if (/^wk_\d+$/.test(el.dataset.h2check)) {
+      // Feito da semana: esmaece a linha e atualiza o contador
+      const tr = el.closest('tr');
+      if (tr) tr.style.opacity = el.checked ? '0.55' : '';
+      const done = H2_WEEKPLAN.filter(x => loadH2()['wk_' + x.n]).length;
+      const prog = $('#h2PlanProgress'); if (prog) prog.textContent = `${done} de ${H2_WEEKPLAN.length} semanas concluídas`;
+    } else {
+      // Item recorrente: risca só o texto dele
+      const span = el.nextElementSibling;
+      if (span) { span.style.textDecoration = el.checked ? 'line-through' : ''; span.style.color = el.checked ? 'var(--text-subtle)' : ''; }
+    }
+  }));
+  // Texto e datas: mesmo padrão data-h2key das outras seções (salva a cada tecla, sincroniza)
+  c.querySelectorAll('[data-h2key]').forEach(el => el.addEventListener('input', () => {
+    const D = loadH2(); D[el.dataset.h2key] = el.value; saveH2(D);
+  }));
+  // Tipo: clique cicla Empresa nova → Balanços → Análise → Deep work → Cadência
+  c.querySelectorAll('[data-h2wkt]').forEach(el => el.addEventListener('click', () => {
+    const n = el.dataset.h2wkt;
+    const D = loadH2();
+    const seed = (H2_WEEKPLAN.find(x => String(x.n) === n) || {}).t;
+    const cur = D['wkt_' + n] || seed;
+    const next = H2_PLAN_TYPES[(H2_PLAN_TYPES.indexOf(cur) + 1) % H2_PLAN_TYPES.length];
+    D['wkt_' + n] = next; saveH2(D);
+    const tok = h2PlanTok(next);
+    el.style.cssText = h2Badge(tok) + ';cursor:pointer;font-family:inherit';
+    el.textContent = next;
+  }));
+  // Adicionar item recorrente
+  const add = c.querySelector('#h2WkAddItem');
+  if (add) add.addEventListener('click', () => {
+    const D = loadH2();
+    const items = h2WkItemsArr(D);
+    const id = 'i' + (items.reduce((m, it) => Math.max(m, parseInt(String(it.id).slice(1)) || 0), 0) + 1);
+    D.h2WkItems = items.concat([{ id, text: '', rec: 'first' }]);
+    saveH2(D); renderH2Section();
+    const inp = $('#h2Content [data-h2itext="' + id + '"]');
+    if (inp) { inp.scrollIntoView({ block: 'center' }); inp.focus(); }
+  });
+  // Atualização in place das linhas das semanas (re-render síncrono no blur destruía o alvo
+  // do clique seguinte — × precisava de 2 cliques — e derrubava a navegação por Tab)
+  const refreshItemRows = (it) => {
+    const firsts = h2WkFirstWeeks();
+    c.querySelectorAll('[data-h2itemrow="' + it.id + '"]').forEach(lb => {
+      const n = +lb.dataset.h2itemwk;
+      lb.style.display = ((it.text || '').trim() && h2ItemAppliesTo(it, n, firsts)) ? 'flex' : 'none';
+      const sp = lb.querySelector('span'); if (sp) sp.textContent = it.text;
+    });
+  };
+  // Texto do item: salva a cada tecla e replica nas semanas na hora
+  c.querySelectorAll('[data-h2itext]').forEach(el => el.addEventListener('input', () => {
+    const D = loadH2(); const it = h2WkItemsArr(D).find(i => i.id === el.dataset.h2itext);
+    if (it) { it.text = el.value; saveH2(D); refreshItemRows(it); }
+  }));
+  // Recorrência do item
+  c.querySelectorAll('[data-h2irec]').forEach(el => el.addEventListener('change', () => {
+    const D = loadH2(); const it = h2WkItemsArr(D).find(i => i.id === el.dataset.h2irec);
+    if (it) { it.rec = el.value; if (it.rec !== 'one') delete it.wk; saveH2(D); renderH2Section(); }
+  }));
+  // Nº da semana (recorrência "semana única") — idem, in place
+  c.querySelectorAll('[data-h2iwk]').forEach(el => el.addEventListener('input', () => {
+    const D = loadH2(); const it = h2WkItemsArr(D).find(i => i.id === el.dataset.h2iwk);
+    if (it) { it.wk = el.value.trim(); saveH2(D); refreshItemRows(it); }
+  }));
+  // Excluir item (limpa também os checks dele nas semanas)
+  c.querySelectorAll('[data-h2idel]').forEach(el => el.addEventListener('click', () => {
+    const id = el.dataset.h2idel;
+    const D = loadH2();
+    const it = h2WkItemsArr(D).find(i => i.id === id);
+    if (it && (it.text || '').trim() && !confirm('Excluir o item "' + it.text + '"?')) return;
+    D.h2WkItems = h2WkItemsArr(D).filter(i => i.id !== id);
+    Object.keys(D).forEach(k => { if (k.startsWith('wkit_' + id + '_')) delete D[k]; });
+    saveH2(D); renderH2Section();
+  }));
 }
 
 // -- Seção 01 · OKRs --

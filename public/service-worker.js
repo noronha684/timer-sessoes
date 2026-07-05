@@ -1,4 +1,4 @@
-const CACHE_NAME = 'timer-sessoes-v105';
+const CACHE_NAME = 'timer-sessoes-v106';
 const ASSETS = [
   './',
   './index.html',
@@ -32,10 +32,32 @@ self.addEventListener('activate', (event) => {
 
 // Stale-while-revalidate: serve do cache na hora (rápido) e atualiza em background.
 // A versão nova aparece na próxima abertura — sem espera de rede no carregamento.
+const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
+
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
-  // Só intervém em requisições do próprio app (mesma origem). API externa (Worker/Firebase) passa direto.
   const url = new URL(event.request.url);
+
+  // Fontes do Google (CSS + woff2): cache-first — o app abre com as fontes do tema mesmo
+  // offline/rede ruim, e o CSS de fontes sai do caminho crítico do cold start.
+  if (FONT_HOSTS.includes(url.hostname)) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        const net = fetch(event.request).then((response) => {
+          // respostas de fonte podem ser opacas (type 'opaque'); cacheamos mesmo assim
+          if (response && (response.ok || response.type === 'opaque')) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        }).catch(() => cached);
+        return cached || net;
+      })
+    );
+    return;
+  }
+
+  // Demais requisições cross-origin (Worker/Firebase): passa direto.
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(

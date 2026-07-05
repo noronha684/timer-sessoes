@@ -3282,6 +3282,7 @@ function loadCategories() {
 }
 function saveCategories(cats) {
   localStorage.setItem('timerCategories', JSON.stringify(cats));
+  // categorias sincronizam por união (não versionadas) — sem stampBlob
 }
 function loadSelectedCategory() {
   const stored = localStorage.getItem('timerSelectedCategory');
@@ -3407,6 +3408,14 @@ catList.addEventListener('click', (e) => {
     const cat = delBtn.dataset.del;
     const cats = loadCategories().filter(c => c !== cat);
     saveCategories(cats);
+    // Limpa horas planejadas E meta da categoria excluída (senão o card "Hoje" segue somando
+    // uma meta que a grade nem mostra, e a 1ª tecla na grade apagaria isso em silêncio).
+    try {
+      const wp = loadWeekPlan();
+      if (wp && Object.prototype.hasOwnProperty.call(wp, cat)) { delete wp[cat]; saveWeekPlan(wp); }
+      const g = loadGoals();
+      if (g && Object.prototype.hasOwnProperty.call(g, cat)) { delete g[cat]; saveGoals(g); }
+    } catch {}
     if (expandedCat === cat) expandedCat = null;
     if (state.category === cat) {
       state.category = cats[0];
@@ -3594,9 +3603,12 @@ function saveSegments(s) {
   if (typeof triggerSync === 'function') triggerSync();
 }
 function openSegment() { currentSegStart = Date.now(); }
-function closeSegment() {
+function closeSegment(endOverride) {
   if (!currentSegStart) return;
-  const start = currentSegStart, end = Date.now();
+  const start = currentSegStart;
+  // endOverride: quando a sessão completa com o app dormindo, o fim real ficou no passado —
+  // usa ele (nunca no futuro) em vez de "agora", pra não pintar sono como foco na timeline.
+  const end = endOverride != null ? Math.min(endOverride, Date.now()) : Date.now();
   currentSegStart = null;
   if (end - start < 1000) return;
   const segs = loadSegments();
@@ -3692,8 +3704,12 @@ function finishSession(completed, opts = {}) {
   if (!state.paused && state.running) {
     elapsedMs += Date.now() - state.startedAt;
   }
-  // Fecha o segmento de foco aberto (se rodando e não pausado)
-  if (state.running && !state.paused) closeSegment();
+  // Fecha o segmento de foco aberto. Se COMPLETOU, o fim real = quando o tempo acabaria
+  // (startedAt + tempo restante deste trecho), não "agora" — evita segmento inflado (#18).
+  if (state.running && !state.paused) {
+    const segEnd = completed ? (state.startedAt + (state.durationMs - state.totalElapsedMs)) : null;
+    closeSegment(segEnd);
+  }
   if (completed) elapsedMs = state.durationMs;
   clearInterval(state.intervalId);
   state.running = false;
@@ -3726,6 +3742,8 @@ function triggerAlert() {
     const completedMins = Math.round(state.durationMs / 60000);
     const now = new Date();
     const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    // Restaura o título: fireAlarm troca pra "Alarme" no overlay compartilhado e nunca desfazia.
+    const at = document.querySelector('.alert-title'); if (at) at.textContent = 'Sessão concluída';
     $('#alertCategory').textContent = state.category;
     $('#alertDuration').textContent = completedMins >= 60
       ? `${Math.floor(completedMins / 60)}h${(completedMins % 60).toString().padStart(2, '0')}`
@@ -3828,7 +3846,7 @@ function renderToday() {
     breakdown.innerHTML = '<div class="today-empty">Nenhuma sessão hoje ainda.</div>';
   } else {
     breakdown.innerHTML = entries.map(([cat, ms]) =>
-      `<div class="today-cat"><span class="today-cat-name">${cat}</span>${formatDuration(ms)}</div>`
+      `<div class="today-cat"><span class="today-cat-name">${escapeHtml(cat)}</span>${formatDuration(ms)}</div>`
     ).join('');
   }
 
@@ -4084,8 +4102,50 @@ function markLocalUpdate() {
   localStorage.setItem('timerLocalUpdatedAt', String(localUpdatedAt));
 }
 
+// ===== Blobs versionados (last-writer-wins por carimbo LÓGICO / Lamport) =====
+// Cada blob "deletável" (tasks/events/weekPlan/goals/alarms/h2Plan/target) tem um carimbo
+// de última edição. No pull, só aplica o do servidor se o carimbo for MAIOR — assim exclusão
+// propaga (quem editou por último ganha o blob) e o pull nunca atropela edição local mais nova.
+// O carimbo é um relógio de Lamport (não wall-clock puro): stampBlob sempre gera um valor
+// ESTRITAMENTE maior que tudo que este device já viu (local + servidor), então uma edição
+// sempre propaga mesmo com relógios dessincronizados entre aparelhos (bug clássico de LWW).
+let blobStamps = (() => { try { return JSON.parse(localStorage.getItem('timerStamps') || '{}') || {}; } catch { return {}; } })();
+let stampClock = parseInt(localStorage.getItem('timerStampClock') || '0') || 0;
+function bumpClock(v) { v = Number(v) || 0; if (v > stampClock) { stampClock = v; try { localStorage.setItem('timerStampClock', String(v)); } catch {} } }
+// hasData: só semeia carimbo real pra blob COM conteúdo (evita "quem migra por último ganha"
+// e "aparelho novo não puxa": vazio recebe 0 → servidor ganha; com dado → autoritativo).
+function blobHasData(name) {
+  try {
+    if (name === 'tasks') return loadTasks().length > 0;
+    if (name === 'events') return Object.keys(loadEvents()).length > 0;
+    if (name === 'weekPlan') return Object.keys(loadWeekPlan()).length > 0;
+    if (name === 'goals') return Object.keys(loadGoals()).length > 0;
+    if (name === 'alarms') return loadAlarms().length > 0;
+    if (name === 'h2Plan') return Object.keys(loadH2()).length > 0;
+    if (name === 'target') return !!loadTarget();
+  } catch {}
+  return false;
+}
+if (!localStorage.getItem('timerStamps')) {
+  const seed = Date.now();
+  ['tasks', 'events', 'weekPlan', 'goals', 'alarms', 'h2Plan', 'target'].forEach(n => { blobStamps[n] = blobHasData(n) ? seed : 0; });
+  bumpClock(seed);
+  try { localStorage.setItem('timerStamps', JSON.stringify(blobStamps)); } catch {}
+}
+function stampBlob(name) {
+  const next = Math.max(stampClock + 1, Date.now()); // sempre > tudo já visto
+  bumpClock(next);
+  blobStamps[name] = next;
+  try { localStorage.setItem('timerStamps', JSON.stringify(blobStamps)); } catch {}
+}
+// carimbo do servidor já aplicado (pro ?since= do pull incremental)
+let lastServerStamp = parseInt(localStorage.getItem('timerServerStamp') || '0') || 0;
+function setServerStamp(v) {
+  if (typeof v === 'number' && v > 0) { lastServerStamp = v; try { localStorage.setItem('timerServerStamp', String(v)); } catch {} }
+}
+
 function recomputeSyncCode() {
-  syncCode = currentUser ? currentUser.uid : manualSyncCode;
+  syncCode = currentUser ? currentUser.uid : ''; // só sincroniza logado (API exige Bearer)
 }
 recomputeSyncCode();
 
@@ -4101,50 +4161,89 @@ function buildSyncPayload() {
   };
 }
 
+let _lastIdToken = null; // último token válido, pro flush síncrono (keepalive) no pagehide
 // Cabeçalhos autenticados: anexa o ID token do Firebase (Bearer) pra API verificar quem é
 async function authHeaders(base, forceRefresh) {
   const h = Object.assign({}, base || {});
   try {
     const u = window._fb && window._fb.auth && window._fb.auth.currentUser;
-    if (u) h['Authorization'] = 'Bearer ' + (await u.getIdToken(!!forceRefresh));
+    if (u) { const tok = await u.getIdToken(!!forceRefresh); _lastIdToken = tok; h['Authorization'] = 'Bearer ' + tok; }
   } catch (e) { console.warn('getIdToken:', e); }
   return h;
+}
+
+let lastPushedSessionAt = parseInt(localStorage.getItem('timerLastPushedSessionAt') || '0') || 0;
+
+// Só as sessões novas desde o último push bem-sucedido (INSERT OR IGNORE dedupa no servidor).
+// Antes reenviava o histórico INTEIRO a cada tecla → milhares de statements D1 no-op.
+function sessionsDelta() {
+  const all = loadSessions(), out = {};
+  for (const date in all) {
+    const list = (all[date] || []).filter(s => Number(s.at) > lastPushedSessionAt);
+    if (list.length) out[date] = list;
+  }
+  return out;
+}
+function maxSessionAt() {
+  const all = loadSessions(); let m = lastPushedSessionAt;
+  for (const date in all) for (const s of (all[date] || [])) m = Math.max(m, Number(s.at) || 0);
+  return m;
+}
+
+function buildPushPayload() {
+  return {
+    uid: syncCode,
+    sessions: sessionsDelta(),
+    categories: loadCategories(),
+    settings: {
+      _stamps: blobStamps, // carimbos por blob (versionamento last-writer-wins)
+      selectedCategory: loadSelectedCategory(),
+      selectedSubcategory: loadSelectedSubcategory(),
+      subcategories: loadSubcats(),
+      keepScreenOn: keepScreenOn,
+      sleep: loadSleep(),
+      alarms: loadAlarms(),
+      segments: loadSegments(),
+      goals: loadGoals(),
+      weekPlan: loadWeekPlan(),
+      tasks: loadTasks(),
+      h2Plan: loadH2(),
+      events: loadEvents(),
+      target: loadTarget(),
+      activeTimer: state.running ? {
+        paused: state.paused,
+        startedAt: state.startedAt,
+        totalElapsedMs: state.totalElapsedMs,
+        durationMs: state.durationMs,
+        category: state.category,
+        subcategory: state.subcategory,
+        device: DEVICE_ID,
+        updatedAt: Date.now(),
+      } : null,
+    },
+  };
+}
+
+// Flush síncrono no fechamento (pagehide/hidden): fetch keepalive com o token em cache,
+// SEM await (o browser não garante continuações de promise no unload). Fire-and-forget:
+// não avança lastPushedSessionAt (o dedupe do servidor cobre um reenvio no próximo push).
+function beaconPush() {
+  if (!window.API_BASE || !syncCode || !_lastIdToken) return false;
+  try {
+    fetch(`${window.API_BASE}/api/sync`, {
+      method: 'POST', keepalive: true,
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _lastIdToken },
+      body: JSON.stringify(buildPushPayload()),
+    }).catch(() => {});
+    return true;
+  } catch { return false; }
 }
 
 async function pushToCloud() {
   if (!window.API_BASE || !syncCode || isApplyingRemote) return;
   try {
-    const payload = {
-      uid: syncCode,
-      sessions: loadSessions(),
-      categories: loadCategories(),
-      settings: {
-        selectedCategory: loadSelectedCategory(),
-        selectedSubcategory: loadSelectedSubcategory(),
-        subcategories: loadSubcats(),
-        keepScreenOn: keepScreenOn,
-        sleep: loadSleep(),
-        alarms: loadAlarms(),
-        segments: loadSegments(),
-        goals: loadGoals(),
-        weekPlan: loadWeekPlan(),
-        tasks: loadTasks(),
-        h2Plan: loadH2(),
-        events: loadEvents(),
-        target: loadTarget(),
-        activeTimer: state.running ? {
-          paused: state.paused,
-          startedAt: state.startedAt,
-          totalElapsedMs: state.totalElapsedMs,
-          durationMs: state.durationMs,
-          category: state.category,
-          subcategory: state.subcategory,
-          device: DEVICE_ID,
-          updatedAt: Date.now(),
-        } : null,
-      },
-    };
-    const bodyStr = JSON.stringify(payload);
+    const beforeMax = maxSessionAt();
+    const bodyStr = JSON.stringify(buildPushPayload());
     let res = await fetch(`${window.API_BASE}/api/sync`, {
       method: 'POST', headers: await authHeaders({ 'Content-Type': 'application/json' }), body: bodyStr,
     });
@@ -4154,6 +4253,9 @@ async function pushToCloud() {
       });
     }
     if (!res.ok) throw new Error('sync failed ' + res.status);
+    // Push bem-sucedido: tudo até beforeMax está no servidor → não reenvia mais
+    lastPushedSessionAt = beforeMax;
+    try { localStorage.setItem('timerLastPushedSessionAt', String(beforeMax)); } catch {}
     const merged = await res.json();
     // O servidor já mesclou — aplica de volta como remoto (mas sem device check pois é nossa resposta)
     applyServerSnapshot(merged);
@@ -4165,7 +4267,8 @@ async function pushToCloud() {
 async function pullFromCloud() {
   if (!window.API_BASE || !syncCode) return;
   try {
-    const surl = `${window.API_BASE}/api/snapshot?uid=${encodeURIComponent(syncCode)}`;
+    // ?since=<carimbo>: o servidor responde {unchanged:true} (~50 bytes) quando nada mudou
+    const surl = `${window.API_BASE}/api/snapshot?uid=${encodeURIComponent(syncCode)}&since=${lastServerStamp}`;
     let res = await fetch(surl, { headers: await authHeaders() });
     if (res.status === 401) res = await fetch(surl, { headers: await authHeaders(null, true) });
     if (!res.ok) throw new Error('snapshot failed ' + res.status);
@@ -4187,137 +4290,125 @@ function isEditingField() {
 }
 
 function applyServerSnapshot(snap) {
-  if (!snap) return;
+  if (!snap || snap.unchanged) { if (snap && snap.serverStamp) setServerStamp(snap.serverStamp); return; } // #8: nada mudou
+  setServerStamp(snap.serverStamp);
   isApplyingRemote = true;
   try {
-    const localSessions = loadSessions();
-    const serverSessions = snap.sessions || {};
-    // Mescla local com servidor (servidor já dedup mas pode haver writes locais não enviados ainda)
-    const mergedSessions = mergeSessions(localSessions, serverSessions);
+    // Sessões: merge aditivo (append-only) — inalterado
+    const mergedSessions = mergeSessions(loadSessions(), snap.sessions || {});
     localStorage.setItem('timerSessions', JSON.stringify(mergedSessions));
-    // History é recomputado a partir das sessões mescladas
-    const history = historyFromSessions(mergedSessions);
-    localStorage.setItem('timerHistory', JSON.stringify(history));
-    // Categorias: união
+    // History: recomputa das sessões, MAS preserva dias legacy que só existem no history
+    // (dados de versão antiga, sem registro de sessão) — antes eram apagados no 1º pull.
+    const mergedHistory = Object.assign({}, loadHistory(), historyFromSessions(mergedSessions));
+    localStorage.setItem('timerHistory', JSON.stringify(mergedHistory));
+
+    // Carimbos do servidor: se presentes, usamos versionamento (last-writer-wins por blob).
+    // Ausentes = conta ainda não migrada → cai no comportamento legado (união/servidor-ganha)
+    // até o primeiro push desta versão, que grava os carimbos.
+    const srvStamps = snap.settings && snap.settings._stamps;
+    const versioned = srvStamps && typeof srvStamps === 'object';
+    // avança o relógio lógico com TUDO que o servidor mostrou → próxima edição local supera
+    if (versioned) for (const k in srvStamps) bumpClock(srvStamps[k]);
+    const takeServer = (name) => versioned ? ((srvStamps[name] || 0) > (blobStamps[name] || 0)) : true;
+    const adopt = (name) => { if (versioned && srvStamps[name]) { blobStamps[name] = srvStamps[name]; try { localStorage.setItem('timerStamps', JSON.stringify(blobStamps)); } catch {} } };
+
+    // Categorias: SEMPRE união (têm defaults universais — versionar dava conflito na migração;
+    // exclusão de categoria não propaga entre devices, limitação aceita por ser rara e de baixo dano).
     if (Array.isArray(snap.categories) && snap.categories.length > 0) {
-      const localCats = loadCategories();
-      const seen = new Set(localCats.map(c => c.toLowerCase()));
-      const merged = [...localCats];
-      for (const c of snap.categories) {
-        if (!seen.has(c.toLowerCase())) merged.push(c);
-      }
+      const localCats = loadCategories(); const seen = new Set(localCats.map(c => c.toLowerCase())); const merged = [...localCats];
+      for (const c of snap.categories) if (!seen.has(c.toLowerCase())) merged.push(c);
       localStorage.setItem('timerCategories', JSON.stringify(merged));
     }
+
     if (snap.settings) {
-      if (snap.settings.selectedCategory) {
-        localStorage.setItem('timerSelectedCategory', snap.settings.selectedCategory);
-      }
-      // Subcategorias (mescla por categoria, união)
-      if (snap.settings.subcategories && typeof snap.settings.subcategories === 'object') {
-        const local = loadSubcats();
-        const merged = { ...local };
-        for (const cat in snap.settings.subcategories) {
-          const set = new Set([...(merged[cat] || []), ...snap.settings.subcategories[cat]]);
-          merged[cat] = [...set];
-        }
-        localStorage.setItem('timerSubcategories', JSON.stringify(merged));
-      }
-      if (snap.settings.selectedSubcategory !== undefined) {
-        if (snap.settings.selectedSubcategory) localStorage.setItem('timerSelectedSubcategory', snap.settings.selectedSubcategory);
-      }
-      if (typeof snap.settings.keepScreenOn === 'boolean') {
-        keepScreenOn = snap.settings.keepScreenOn;
+      const S = snap.settings;
+      if (S.selectedCategory) localStorage.setItem('timerSelectedCategory', S.selectedCategory);
+      if (S.selectedSubcategory !== undefined && S.selectedSubcategory) localStorage.setItem('timerSelectedSubcategory', S.selectedSubcategory);
+      if (typeof S.keepScreenOn === 'boolean') {
+        keepScreenOn = S.keepScreenOn;
         localStorage.setItem('timerKeepScreenOn', keepScreenOn ? '1' : '0');
-        const t = $('#keepScreenOn');
-        if (t) t.checked = keepScreenOn;
+        const t = $('#keepScreenOn'); if (t) t.checked = keepScreenOn;
         syncWakeLock();
       }
-      // Sono: mescla (Whoop/manual do servidor + local)
-      if (snap.settings.sleep && typeof snap.settings.sleep === 'object') {
-        const localSleep = loadSleep();
-        const merged = { ...localSleep, ...snap.settings.sleep };
-        localStorage.setItem('timerSleep', JSON.stringify(merged));
+      // Subcategorias e sono: sempre união/merge (não são deletáveis; append-only)
+      if (S.subcategories && typeof S.subcategories === 'object') {
+        const merged = { ...loadSubcats() };
+        for (const cat in S.subcategories) merged[cat] = [...new Set([...(merged[cat] || []), ...S.subcategories[cat]])];
+        localStorage.setItem('timerSubcategories', JSON.stringify(merged));
       }
-      // Alarmes: usa do servidor se existir
-      if (Array.isArray(snap.settings.alarms)) {
-        localStorage.setItem('timerAlarms', JSON.stringify(snap.settings.alarms));
+      if (S.sleep && typeof S.sleep === 'object') {
+        // Sono: preserva SÓ as entradas manuais locais + aplica o sono do servidor (Whoop é
+        // autoritativo). Dropar as entradas whoop locais evita chave-fantasma quando a data
+        // do Whoop muda (senão o merge aditivo manteria a noite duplicada em dois dias).
+        const local = loadSleep(), manualOnly = {};
+        for (const k in local) if (!(local[k] && local[k].source === 'whoop')) manualOnly[k] = local[k];
+        localStorage.setItem('timerSleep', JSON.stringify({ ...manualOnly, ...S.sleep }));
       }
-      // Segmentos de foco: mescla por dia (dedupe por start)
-      if (snap.settings.segments && typeof snap.settings.segments === 'object') {
-        const local = loadSegments();
-        const merged = { ...local };
-        for (const date in snap.settings.segments) {
+      // Segmentos: merge aditivo por dia (dedupe por start)
+      if (S.segments && typeof S.segments === 'object') {
+        const merged = { ...loadSegments() };
+        for (const date in S.segments) {
           const seen = new Set((merged[date] || []).map(s => s.start));
           merged[date] = [...(merged[date] || [])];
-          for (const seg of snap.settings.segments[date]) {
-            if (!seen.has(seg.start)) merged[date].push(seg);
-          }
+          for (const seg of S.segments[date]) if (!seen.has(seg.start)) merged[date].push(seg);
           merged[date].sort((a, b) => a.start - b.start);
         }
         localStorage.setItem('timerSegments', JSON.stringify(merged));
       }
-      // Metas: usa do servidor se existir
-      if (snap.settings.goals && typeof snap.settings.goals === 'object') {
-        localStorage.setItem('timerGoals', JSON.stringify(snap.settings.goals));
-      }
-      // Plano semanal: usa do servidor se existir
-      if (snap.settings.weekPlan && typeof snap.settings.weekPlan === 'object') {
-        localStorage.setItem('timerWeekPlan', JSON.stringify(snap.settings.weekPlan));
-      }
-      // Plano H2 (dashboard semestral): doc único, servidor sobrescreve
-      if (snap.settings.h2Plan && typeof snap.settings.h2Plan === 'object') {
-        localStorage.setItem('timerH2Plan', JSON.stringify(snap.settings.h2Plan));
+      // Blobs versionados (deletáveis): aplica o do servidor só se o carimbo for mais novo
+      if (Array.isArray(S.alarms) && takeServer('alarms')) { localStorage.setItem('timerAlarms', JSON.stringify(S.alarms)); adopt('alarms'); }
+      if (S.goals && typeof S.goals === 'object' && takeServer('goals')) { localStorage.setItem('timerGoals', JSON.stringify(S.goals)); adopt('goals'); }
+      if (S.weekPlan && typeof S.weekPlan === 'object' && takeServer('weekPlan')) { localStorage.setItem('timerWeekPlan', JSON.stringify(S.weekPlan)); adopt('weekPlan'); }
+      if (S.h2Plan && typeof S.h2Plan === 'object' && takeServer('h2Plan')) {
+        localStorage.setItem('timerH2Plan', JSON.stringify(S.h2Plan)); adopt('h2Plan');
         if (typeof renderH2 === 'function' && $('#semestre-panel') && $('#semestre-panel').classList.contains('active') && !isEditingField()) renderH2();
       }
-      // Tarefas (lista unificada): mescla por id; absorve o legado só na transição
-      if (Array.isArray(snap.settings.tasks)) {
-        localStorage.setItem('timerTasks', JSON.stringify(mergeTasksById(loadTasks(), snap.settings.tasks)));
-      } else if (snap.settings.dayPlan || snap.settings.todos) {
+      if (S.target !== undefined && takeServer('target')) {
+        if (S.target) localStorage.setItem('timerTarget', JSON.stringify(S.target)); else localStorage.removeItem('timerTarget');
+        adopt('target');
+      }
+      // Tarefas: versionado substitui; legado mescla por id (+ absorve dayPlan/todos antigos)
+      if (Array.isArray(S.tasks)) {
+        if (versioned) { if (takeServer('tasks')) { localStorage.setItem('timerTasks', JSON.stringify(S.tasks)); adopt('tasks'); } }
+        else localStorage.setItem('timerTasks', JSON.stringify(mergeTasksById(loadTasks(), S.tasks)));
+      } else if (!versioned && (S.dayPlan || S.todos)) {
         const incoming = [];
-        if (snap.settings.dayPlan && typeof snap.settings.dayPlan === 'object') {
-          for (const dk in snap.settings.dayPlan) {
-            const list = snap.settings.dayPlan[dk];
-            if (Array.isArray(list)) for (const t of list) if (t && t.id) incoming.push({ id: t.id, text: t.text, done: !!t.done, focusDate: dk, doneAt: t.done ? dk : undefined });
-          }
-        }
-        if (snap.settings.todos && typeof snap.settings.todos === 'object') {
-          for (const mk in snap.settings.todos) {
-            const list = snap.settings.todos[mk];
-            if (Array.isArray(list)) for (const t of list) if (t && t.id) incoming.push({ id: t.id, text: t.text, done: !!t.done });
-          }
-        }
+        if (S.dayPlan && typeof S.dayPlan === 'object') for (const dk in S.dayPlan) { const list = S.dayPlan[dk]; if (Array.isArray(list)) for (const t of list) if (t && t.id) incoming.push({ id: t.id, text: t.text, done: !!t.done, focusDate: dk, doneAt: t.done ? dk : undefined }); }
+        if (S.todos && typeof S.todos === 'object') for (const mk in S.todos) { const list = S.todos[mk]; if (Array.isArray(list)) for (const t of list) if (t && t.id) incoming.push({ id: t.id, text: t.text, done: !!t.done }); }
         if (incoming.length) localStorage.setItem('timerTasks', JSON.stringify(mergeTasksById(loadTasks(), incoming)));
       }
-      // Alvo da prova (burn-down)
-      if (snap.settings.target !== undefined) {
-        if (snap.settings.target) localStorage.setItem('timerTarget', JSON.stringify(snap.settings.target));
-      }
-      // Eventos do calendário: mescla por dia (dedupe por id)
-      if (snap.settings.events && typeof snap.settings.events === 'object') {
-        const local = loadEvents();
-        const merged = { ...local };
-        for (const dk in snap.settings.events) {
-          const byId = new Map((merged[dk] || []).map(e => [e.id, e]));
-          for (const e of snap.settings.events[dk]) byId.set(e.id, e);
-          merged[dk] = [...byId.values()];
+      // Eventos: versionado substitui; legado faz união por id (dedupe)
+      if (S.events && typeof S.events === 'object') {
+        if (versioned) { if (takeServer('events')) { localStorage.setItem('timerEvents', JSON.stringify(S.events)); adopt('events'); } }
+        else {
+          const merged = { ...loadEvents() };
+          for (const dk in S.events) { const byId = new Map((merged[dk] || []).map(e => [e.id, e])); for (const e of S.events[dk]) byId.set(e.id, e); merged[dk] = [...byId.values()]; }
+          localStorage.setItem('timerEvents', JSON.stringify(merged));
         }
-        localStorage.setItem('timerEvents', JSON.stringify(merged));
       }
       // Timer ativo em outro dispositivo (espelho informativo)
-      if (snap.settings.activeTimer !== undefined) {
-        const rt = snap.settings.activeTimer;
+      if (S.activeTimer !== undefined) {
+        const rt = S.activeTimer;
         remoteActiveTimer = (rt && rt.device !== DEVICE_ID) ? rt : null;
         if (typeof startRemoteBanner === 'function') startRemoteBanner();
       }
     }
-    state.category = loadSelectedCategory();
-    state.subcategory = loadSelectedSubcategory();
-    updateCategoryLabel();
+    // #19: NÃO troca a categoria da sessão em andamento (senão grava no lugar errado)
+    if (!state.running) {
+      state.category = loadSelectedCategory();
+      state.subcategory = loadSelectedSubcategory();
+      updateCategoryLabel();
+    }
     renderToday();
     if (typeof renderGoals === 'function') renderGoals();
     if (typeof renderBurndown === 'function') renderBurndown();
-    if ($('#history-panel').classList.contains('active') && !isEditingField()) renderHistory();
-    if (typeof renderPlano === 'function' && $('#plano-panel').classList.contains('active') && !isEditingField()) renderPlano();
+    const active = (id) => { const p = $(id); return p && p.classList.contains('active'); };
+    if (active('#history-panel') && !isEditingField()) renderHistory();
+    if (typeof renderPlano === 'function' && active('#plano-panel') && !isEditingField()) renderPlano();
+    // #12: painéis de calendário/agenda/sono também refletem o pull quando abertos
+    if (typeof renderCalendar === 'function' && active('#cal-panel') && !isEditingField()) renderCalendar();
+    if (typeof renderAgenda === 'function' && active('#agenda-panel') && !isEditingField()) renderAgenda();
+    if (typeof renderSono === 'function' && active('#sono-panel') && !isEditingField()) renderSono();
   } finally {
     isApplyingRemote = false;
   }
@@ -4458,14 +4549,17 @@ function disconnectSync() {
 // (login com Google mora no portão #authGate — doGoogle; o modal de conta não loga ninguém)
 
 // Debounced push: agrupa mudanças rápidas em um só write
-function triggerSync() {
+function triggerSync(delay) {
   if (!syncCode || !window.API_BASE || isApplyingRemote) return;
   if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
   syncDebounceTimer = setTimeout(() => {
     pushToCloud();
     syncDebounceTimer = null;
-  }, 300);
+  }, delay || 300);
 }
+// Debounce longo pra edições de texto rápidas (plano H2): dezenas de teclas viravam
+// dezenas de pushes full-snapshot; agora colapsam num só (flush em pagehide/visibility cobre o fechamento).
+function triggerSyncSlow() { triggerSync(1500); }
 
 function updateAccountChip() {
   const chip = $('#accountChip');
@@ -4599,11 +4693,8 @@ function initSync() {
     }
     updateSyncUI();
   });
-  // Conexão manual existente (sem login)
-  if (manualSyncCode && !currentUser) {
-    pullFromCloud();
-    startSyncListener();
-  }
+  // (removido: o caminho de "código manual" sem login — a API exige Bearer do Firebase,
+  //  então ele só gerava 401 em loop e um "Conectado" falso. Sync agora é só via login.)
   updateSyncUI();
 }
 if (window._fb) initSync();
@@ -4615,22 +4706,14 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
     pullFromCloud();
   } else {
-    // Saindo → se tem push debounced pendente, flush agora
-    if (syncDebounceTimer) {
-      clearTimeout(syncDebounceTimer);
-      syncDebounceTimer = null;
-      pushToCloud();
-    }
+    // Saindo (ainda vivo) → só flusha se há mudança pendente; keepalive confiável
+    if (syncDebounceTimer) { clearTimeout(syncDebounceTimer); syncDebounceTimer = null; beaconPush(); }
   }
 });
-// Flush antes de descarregar a página (refresh, fechar tab, navegação)
+// Flush antes de descarregar (refresh, fechar tab, swipe-away no PWA): keepalive síncrono,
+// pois pushToCloud (await getIdToken + fetch sem keepalive) não sai de forma confiável no unload.
 window.addEventListener('pagehide', () => {
-  if (!window.API_BASE || !syncCode) return;
-  if (syncDebounceTimer) {
-    clearTimeout(syncDebounceTimer);
-    syncDebounceTimer = null;
-    pushToCloud();
-  }
+  if (syncDebounceTimer) { clearTimeout(syncDebounceTimer); syncDebounceTimer = null; beaconPush(); }
 });
 
 function restoreTimerState() {
@@ -4638,9 +4721,11 @@ function restoreTimerState() {
   try { saved = JSON.parse(localStorage.getItem('timerActiveState') || 'null'); } catch { return; }
   if (!saved || !saved.running) return;
 
-  // Sessões "fantasmas" (muito antigas): descarta. Ex: timer iniciado e PC fechou por horas.
-  const wouldEndAt = saved.startedAt + saved.totalElapsedMs + saved.durationMs;
-  if (Date.now() > wouldEndAt + 60 * 60 * 1000) { // > 1h depois do fim previsto
+  // Descarta só estados ABANDONADOS há muito tempo (>7 dias). Antes o corte de 1h após o
+  // "fim previsto" também matava sessões PAUSADAS (pausar é interromper por tempo indefinido)
+  // e jogava fora o foco já acumulado. Agora: pausada sobrevive; expirada-enquanto-fora é
+  // gravada pelo ramo de remainingMs<=0 abaixo (com o segmento no fim real, ver closeSegment).
+  if (Date.now() - saved.startedAt > 7 * 24 * 60 * 60 * 1000) {
     localStorage.removeItem('timerActiveState');
     return;
   }
@@ -4697,6 +4782,7 @@ function loadAlarms() {
 }
 function saveAlarms(alarms) {
   localStorage.setItem('timerAlarms', JSON.stringify(alarms));
+  stampBlob('alarms');
   if (typeof triggerSync === 'function') triggerSync();
 }
 
@@ -4742,15 +4828,19 @@ $('#saveAlarmBtn').addEventListener('click', () => {
   const label = $('#alarmLabelInput').value.trim();
   const days = [...$('#alarmDays').querySelectorAll('.day-btn.active')].map(b => parseInt(b.dataset.day));
   const alarms = loadAlarms();
+  // Se o horário já passou hoje, marca lastFired=hoje pra o catch-up (tolerância de 30 min)
+  // não disparar o alarme na hora em que ele foi criado/editado pra um horário passado.
+  const nd = new Date();
+  const passedToday = (parseInt(time.slice(0, 2), 10) * 60 + parseInt(time.slice(3, 5), 10)) <= (nd.getHours() * 60 + nd.getMinutes());
   if (editingAlarmId) {
     const idx = alarms.findIndex(a => a.id === editingAlarmId);
     if (idx >= 0) {
-      alarms[idx] = { ...alarms[idx], time, label, days };
+      alarms[idx] = { ...alarms[idx], time, label, days, lastFired: passedToday ? dateKey(nd) : (alarms[idx].lastFired || null) };
     }
   } else {
     alarms.push({
       id: (crypto.randomUUID ? crypto.randomUUID() : 'a-' + Date.now()),
-      time, label, days, enabled: true, lastFired: null,
+      time, label, days, enabled: true, lastFired: passedToday ? dateKey(nd) : null,
     });
   }
   saveAlarms(alarms);
@@ -4818,22 +4908,34 @@ $('#alarmsList').addEventListener('click', (e) => {
 
 function checkAlarms() {
   const now = new Date();
-  const time = now.toTimeString().slice(0, 5);
   const day = now.getDay();
   const today = dateKey(now);
+  const nowMin = now.getHours() * 60 + now.getMinutes();
   const alarms = loadAlarms();
   let changed = false;
   for (const a of alarms) {
     if (!a.enabled) continue;
     if (a.lastFired === today) continue;
-    if (a.days && a.days.length > 0 && !a.days.includes(day)) continue;
-    if (a.time === time) {
+    const isOnce = !(a.days && a.days.length > 0);
+    if (!isOnce && !a.days.includes(day)) continue;
+    const parts = String(a.time || '').split(':');
+    const hh = parseInt(parts[0], 10), mm = parseInt(parts[1], 10);
+    if (!Number.isFinite(hh) || !Number.isFinite(mm)) continue;
+    const alarmMin = hh * 60 + mm;
+    // Dispara quando JÁ passou do horário de hoje, com tolerância de 30 min pra recuperar
+    // atrasos (dispositivo dormindo / throttling) — antes exigia o minuto exato e perdia o alarme.
+    if (nowMin >= alarmMin && nowMin - alarmMin <= 30) {
       fireAlarm(a);
       a.lastFired = today;
+      if (isOnce) a.enabled = false; // "Uma vez": não repete nos dias seguintes
       changed = true;
     }
   }
-  if (changed) saveAlarms(alarms);
+  if (changed) {
+    saveAlarms(alarms);
+    // "Uma vez" desabilitado precisa refletir na lista (senão o toggle segue ligado visualmente)
+    if (typeof renderAlarms === 'function' && $('#sono-panel') && $('#sono-panel').classList.contains('active')) renderAlarms();
+  }
 }
 
 function fireAlarm(alarm) {
@@ -4854,8 +4956,12 @@ function fireAlarm(alarm) {
   }
 }
 
-// Checa todos os 20s — pega o minuto exato com folga
+// Checa a cada 20s + na hora que a aba volta a ficar visível (recupera alarme do período dormindo).
+// O check da carga é ADIADO 4s pra dar tempo do primeiro pull trazer o lastFired de outro
+// aparelho (senão o catch-up de 30 min re-dispararia um alarme já tocado no outro device).
 setInterval(checkAlarms, 20000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkAlarms(); });
+setTimeout(checkAlarms, 4000);
 
 // ====== Sono ======
 function loadSleep() {
@@ -5228,6 +5334,7 @@ function loadGoals() {
 }
 function saveGoals(g) {
   localStorage.setItem('timerGoals', JSON.stringify(g));
+  stampBlob('goals');
   if (typeof triggerSync === 'function') triggerSync();
 }
 function loadTodos() {
@@ -5423,6 +5530,7 @@ function loadTarget() {
 function saveTarget(t) {
   if (t) localStorage.setItem('timerTarget', JSON.stringify(t));
   else localStorage.removeItem('timerTarget');
+  stampBlob('target');
   if (typeof triggerSync === 'function') triggerSync();
 }
 
@@ -5584,6 +5692,7 @@ function loadEvents() {
 }
 function saveEvents(ev) {
   localStorage.setItem('timerEvents', JSON.stringify(ev));
+  stampBlob('events');
   if (typeof triggerSync === 'function') triggerSync();
 }
 
@@ -5619,7 +5728,12 @@ function eventsForDay(key, events) {
       let match = false;
       if (rec === 'daily') match = true;
       else if (rec === 'weekly') match = start.getDay() === target.getDay();
-      else if (rec === 'monthly') match = start.getDate() === target.getDate();
+      else if (rec === 'monthly') {
+        // Clamp ao último dia do mês: evento do dia 31 (ou 29/30) aparece no fim dos meses
+        // mais curtos, em vez de sumir. lastDay = dia 0 do mês seguinte.
+        const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+        match = target.getDate() === Math.min(start.getDate(), lastDay);
+      }
       if (match) out.push(e);
     }
   }
@@ -5993,6 +6107,7 @@ function loadWeekPlan() {
 }
 function saveWeekPlan(p) {
   localStorage.setItem('timerWeekPlan', JSON.stringify(p));
+  stampBlob('weekPlan');
   if (typeof triggerSync === 'function') triggerSync();
 }
 function parsePlanVal(s) {
@@ -6035,13 +6150,23 @@ function h2CurrentWeek() {
       || H2_WEEKPLAN.find(x => x.s > today)
       || null;
 }
-// Adiciona uma tarefa como item "semana única" do plano (entrada única do card Tarefas)
+// Normaliza um nº de semana pro range do plano (1..N). Devolve null se inválido.
+function h2ClampWeek(wk) {
+  const n = parseInt(String(wk == null ? '' : wk).trim(), 10);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(Math.max(n, 1), H2_WEEKPLAN.length);
+}
+// Adiciona uma tarefa como item "semana única" do plano (entrada única do card Tarefas).
+// Devolve a semana efetivamente usada (clampada) ou null se o nº era inválido.
 function h2AddWeekItem(text, wk) {
+  const n = h2ClampWeek(wk);
+  if (n == null) return null; // nº inválido: não grava item invisível (fora de 1..N)
   const D = loadH2();
   const items = h2WkItemsArr(D);
   const id = 'i' + (items.reduce((m, it) => Math.max(m, parseInt(String(it.id).slice(1)) || 0), 0) + 1);
-  D.h2WkItems = items.concat([{ id, text, rec: 'one', wk: String(wk) }]);
+  D.h2WkItems = items.concat([{ id, text, rec: 'one', wk: String(n) }]);
   saveH2(D);
+  return n;
 }
 // Plano das 26 semanas (com overrides) no formato que o /api/suggest-week espera
 function h2WeeksPayload() {
@@ -6239,6 +6364,7 @@ function loadTasks() {
 }
 function saveTasks(arr) {
   localStorage.setItem('timerTasks', JSON.stringify(arr));
+  stampBlob('tasks');
   if (typeof triggerSync === 'function') triggerSync();
 }
 function mergeTasksById(local, incoming) {
@@ -6370,6 +6496,7 @@ function renderTasks() {
   const input = card.querySelector('#taskInput');
   const setMsg = (t) => { const m = $('#tasksCard #taskAddMsg'); if (m) { m.style.display = t ? 'block' : 'none'; m.textContent = t || ''; } };
   const add = async () => {
+    const today = dateKey(new Date()); // recomputa (handler pode rodar dias após o render — vira o dia)
     const text = input.value.trim();
     if (!text) return;
     if (taskAddDest === 'hoje') {
@@ -6392,11 +6519,12 @@ function renderTasks() {
       const nEl = card.querySelector('#taskWkN');
       const nRaw = (nEl && nEl.value || '').trim();
       if (nRaw) {
-        h2AddWeekItem(text, nRaw);
+        const wk = h2AddWeekItem(text, nRaw);
+        if (wk == null) { setMsg('Nº de semana inválido — use 1 a ' + H2_WEEKPLAN.length + '.'); return; }
         taskAddWkN = '';
         renderTasks();
         refreshWeekPlanSafe();
-        setMsg('Adicionada à semana ' + nRaw + '.');
+        setMsg('Adicionada à semana ' + wk + '.');
         const i = $('#tasksCard #taskInput'); if (i) i.focus();
         return;
       }
@@ -6453,6 +6581,7 @@ function renderTasks() {
   const bulkBtn = card.querySelector('#bkBulkWeek');
   if (bulkBtn) bulkBtn.addEventListener('click', async () => {
     if (taskAddBusy) return;
+    const today = dateKey(new Date()); // recomputa (vira o dia entre render e clique)
     const pend = loadTasks().filter(t => !t.done && t.focusDate !== today);
     if (!pend.length) return;
     taskAddBusy = true;
@@ -6515,6 +6644,7 @@ function renderTasks() {
     const id = row.dataset.id;
     row.querySelectorAll('[data-act]').forEach(btn => {
       btn.addEventListener('click', async () => {
+        const today = dateKey(new Date()); // recomputa (vira o dia entre render e clique)
         const list = loadTasks();
         const t = list.find(x => x.id === id);
         if (!t) return;
@@ -6838,7 +6968,7 @@ function loadH2() {
   localStorage.setItem('timerH2Plan', JSON.stringify(mig));
   return mig;
 }
-function saveH2(o) { localStorage.setItem('timerH2Plan', JSON.stringify(o)); if (typeof triggerSync === 'function') triggerSync(); }
+function saveH2(o) { localStorage.setItem('timerH2Plan', JSON.stringify(o)); stampBlob('h2Plan'); if (typeof triggerSyncSlow === 'function') triggerSyncSlow(); }
 
 let h2Active = localStorage.getItem('timerH2Tab') || 'okrs';
 
@@ -7552,21 +7682,34 @@ function bindH2Scorecard(c) {
 
 // -- Integração: Regulatório → eventos do Calendário/Agenda --
 const H2_MONTH_NUM = { jan: '01', fev: '02', mar: '03', abr: '04', mai: '05', jun: '06', jul: '07', ago: '08', set: '09', out: '10', nov: '11', dez: '12' };
-function h2RegDateKey(txt) {
-  const m = String(txt).toLowerCase().match(/(\d{1,2})\s*\/?\s*(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)/);
-  if (!m) return null;
-  return '2026-' + H2_MONTH_NUM[m[2]] + '-' + m[1].padStart(2, '0');
+// Todas as datas do texto; usamos a PRIMEIRA (início da janela). Antes o regex pegava só
+// um match e, em "11–21/ago" (o '–' quebra o dia solto), caía no 21 (fim da janela).
+function h2RegDateKeys(txt) {
+  const out = [];
+  const s = String(txt).toLowerCase();
+  // dia(s) seguido de mês: captura "11", "02 e 04", ou o dia colado no mês
+  const re = /(\d{1,2})(?:\s*(?:e|,|–|-|a|até)\s*(\d{1,2}))?\s*\/?\s*(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)/g;
+  let m;
+  while ((m = re.exec(s))) {
+    const mo = H2_MONTH_NUM[m[3]];
+    out.push('2026-' + mo + '-' + m[1].padStart(2, '0'));
+    if (m[2]) out.push('2026-' + mo + '-' + m[2].padStart(2, '0')); // 2º dia de "02 e 04/dez"
+  }
+  return out;
 }
+function h2RegDateKey(txt) { const k = h2RegDateKeys(txt); return k.length ? k[0] : null; }
 function h2AddRegToCalendar() {
   if (typeof loadEvents !== 'function') return 0;
   const ev = loadEvents();
   let added = 0;
   H2_REG_EVENTS.forEach((r, i) => {
-    const dk = h2RegDateKey(r.data);
-    if (!dk) return;
-    const id = 'h2reg-' + i;
-    if (!ev[dk]) ev[dk] = [];
-    if (!ev[dk].some(e => e.id === id)) { ev[dk].push({ id, text: '' + r.ev, done: false }); added++; }
+    // Um evento por data do texto (ex.: "02 e 04/dez" gera dois) — antes só o último match virava evento
+    const dks = [...new Set(h2RegDateKeys(r.data))];
+    dks.forEach((dk, j) => {
+      const id = 'h2reg-' + i + (j > 0 ? '-' + j : '');
+      if (!ev[dk]) ev[dk] = [];
+      if (!ev[dk].some(e => e.id === id)) { ev[dk].push({ id, text: '' + r.ev, done: false }); added++; }
+    });
   });
   saveEvents(ev);
   return added;

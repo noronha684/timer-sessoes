@@ -155,7 +155,14 @@ export default {
       try { uid = await requireUid(request); }
       catch (e) { return json({ error: 'unauthorized', detail: e.message }, 401); }
 
-      if (path === '/api/snapshot' && request.method === 'GET') return apiSnapshot(env, uid);
+      // Diz quem é você (pra descobrir o uid e setar OWNER_UID). Aberto a qualquer logado.
+      if (path === '/api/whoami' && request.method === 'GET') return json({ uid });
+
+      // Allowlist: app pessoal (1 dono). Setar o secret OWNER_UID trava tudo ao seu uid.
+      // Sem o secret, deixa passar (não quebra) — mas /api/suggest-week (custo) fica limitado.
+      if (env.OWNER_UID && uid !== env.OWNER_UID) return json({ error: 'forbidden' }, 403);
+
+      if (path === '/api/snapshot' && request.method === 'GET') return apiSnapshot(request, env, uid);
       if (path === '/api/session' && request.method === 'POST') return apiAddSession(request, env, uid);
       if (path === '/api/categories' && request.method === 'PUT') return apiPutCategories(request, env, uid);
       if (path === '/api/settings' && request.method === 'PUT') return apiPutSetting(request, env, uid);
@@ -168,7 +175,8 @@ export default {
 
       return json({ error: 'not found', path }, 404);
     } catch (e) {
-      return json({ error: e.message, stack: e.stack }, 500);
+      console.error('worker error:', e && e.stack || e); // stack só no log, nunca no corpo
+      return json({ error: 'internal' }, 500);
     }
   },
 };
@@ -176,10 +184,23 @@ export default {
 // ====== IA: sugere em qual semana do plano H2 encaixar uma tarefa ======
 // Chama a Messages API da Anthropic direto por fetch (Worker não usa SDK).
 // Secret (uma vez): wrangler secret put ANTHROPIC_API_KEY -c wrangler.api.jsonc
+// Rate limit simples por uid, em memória do isolate (reseta no cold start; defesa barata
+// contra loop — combinado com OWNER_UID cobre o abuso descrito na auditoria).
+const _sugHits = new Map();
+function suggestRateOk(uid) {
+  const now = Date.now(), win = 10 * 60 * 1000, max = 25;
+  const arr = (_sugHits.get(uid) || []).filter(t => now - t < win);
+  if (arr.length >= max) { _sugHits.set(uid, arr); return false; }
+  arr.push(now); _sugHits.set(uid, arr);
+  if (_sugHits.size > 500) _sugHits.clear(); // não vazar memória se muitos uids
+  return true;
+}
+
 async function apiSuggestWeek(request, env, uid) {
   if (!env.ANTHROPIC_API_KEY) {
     return json({ error: 'ia_nao_configurada', detail: 'Defina o secret ANTHROPIC_API_KEY no Worker da API.' }, 501);
   }
+  if (!suggestRateOk(uid)) return json({ error: 'rate_limited', detail: 'Muitas sugestões seguidas. Espere alguns minutos.' }, 429);
   const body = await request.json().catch(() => null);
   const task = body && typeof body.task === 'string' ? body.task.trim().slice(0, 300) : '';
   // Modo lote: tasks = [{id, text}] → responde {assignments: [{id, week, reason}]}
@@ -192,8 +213,10 @@ async function apiSuggestWeek(request, env, uid) {
   const today = body && typeof body.today === 'string' ? body.today.slice(0, 10) : '';
   if ((!task && !(tasksArr && tasksArr.length)) || !weeks.length) return json({ error: 'task (ou tasks) e weeks são obrigatórios' }, 400);
 
+  // Caps em TODOS os campos (não só w.w) — evita inflar o prompt e a conta da API.
+  const cap = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').slice(0, n);
   const plano = weeks.map(w =>
-    `Semana ${w.n} (${w.d})${w.done ? ' [JÁ CONCLUÍDA]' : ''} — tipo: ${w.t}. ${String(w.w || '').replace(/\s+/g, ' ').slice(0, 400)}`
+    `Semana ${cap(w.n, 6)} (${cap(w.d, 40)})${w.done ? ' [JÁ CONCLUÍDA]' : ''} — tipo: ${cap(w.t, 30)}. ${cap(w.w, 400)}`
   ).join('\n');
 
   const system = 'Você aloca tarefas no plano semanal do semestre de um analista de equities (setor elétrico/saneamento, Brasil). Regras: semanas de tipo Balanços são capacidade comprometida — só recebem tarefas urgentes ligadas a resultados; nunca sugira semana já concluída ou anterior a hoje; case o tema da tarefa com o foco da semana (empresa nova, análise, deep work, cadência); prazos explícitos na tarefa têm prioridade; na dúvida entre duas semanas, escolha a menos carregada.'
@@ -260,16 +283,17 @@ async function apiSuggestWeek(request, env, uid) {
   const text = (data.content || []).find(b => b.type === 'text');
   let out = null;
   try { out = JSON.parse(text.text); } catch { /* cai no erro abaixo */ }
+  const clampWeek = (w) => Math.min(Math.max(Math.round(w), 1), weeks.length); // range válido do plano
   if (tasksArr) {
     if (!out || !Array.isArray(out.assignments)) return json({ error: 'claude_parse' }, 502);
     const valid = new Set(tasksArr.map(t => t.id));
     const assignments = out.assignments
       .filter(a => a && valid.has(String(a.id)) && typeof a.week === 'number')
-      .map(a => ({ id: String(a.id), week: a.week, reason: String(a.reason || '') }));
+      .map(a => ({ id: String(a.id), week: clampWeek(a.week), reason: String(a.reason || '') }));
     return json({ assignments });
   }
   if (!out || typeof out.week !== 'number') return json({ error: 'claude_parse' }, 502);
-  return json({ week: out.week, reason: String(out.reason || '') });
+  return json({ week: clampWeek(out.week), reason: String(out.reason || '') });
 }
 
 // ====== Whoop OAuth ======
@@ -288,7 +312,9 @@ function randomState() {
 // o ID token do Firebase NÃO trafega na URL (evita vazamento por Referer/logs/histórico).
 async function apiWhoopConnect(request, env, uid) {
   if (!env.WHOOP_CLIENT_ID) return json({ error: 'WHOOP_CLIENT_ID not configured' }, 500);
-  const state = randomState();
+  // state carimbado com o timestamp de emissão (sufixo .<ms>) — validade checada no callback,
+  // sem precisar de coluna created_at nova. Evita state utilizável pra sempre.
+  const state = randomState() + '.' + Date.now();
   await env.DB.prepare('INSERT OR REPLACE INTO oauth_states (state, uid) VALUES (?, ?)').bind(state, uid).run();
   const redirectUri = `${new URL(request.url).origin}/oauth/whoop/callback`;
   const authUrl = new URL(WHOOP_AUTH_URL);
@@ -307,10 +333,18 @@ async function whoopCallback(request, env) {
   const state = url.searchParams.get('state');
   if (!code || !state) return htmlResult('Erro', 'Faltou code ou state na resposta do Whoop.');
 
-  const stateRow = await env.DB.prepare('SELECT uid FROM oauth_states WHERE state = ?').bind(state).first();
-  if (!stateRow) return htmlResult('Erro', 'State inválido ou expirado. Tente conectar novamente.');
+  // Consumo atômico (DELETE ... RETURNING): dois callbacks concorrentes com o mesmo state
+  // não passam os dois. Só um recebe a linha.
+  const stateRow = await env.DB.prepare('DELETE FROM oauth_states WHERE state = ? RETURNING uid').bind(state).first();
+  if (!stateRow) return htmlResult('Erro', 'State inválido ou já usado. Tente conectar novamente.');
+  // TTL de 10 min via sufixo ".<ms>". States legados (sem sufixo numérico) não têm carimbo
+  // → pulam o TTL (são single-use e raros, só na janela do deploy) em vez de falhar sempre.
+  const suffix = String(state).split('.')[1];
+  const issuedAt = suffix && /^\d{10,}$/.test(suffix) ? parseInt(suffix, 10) : 0;
+  if (issuedAt && Date.now() - issuedAt > 10 * 60 * 1000) {
+    return htmlResult('Erro', 'O link de conexão expirou. Tente conectar novamente.');
+  }
   const uid = stateRow.uid;
-  await env.DB.prepare('DELETE FROM oauth_states WHERE state = ?').bind(state).run();
 
   const redirectUri = `${url.origin}/oauth/whoop/callback`;
   const tokenRes = await fetch(WHOOP_TOKEN_URL, {
@@ -388,7 +422,12 @@ async function whoopDisconnect(env, uid) {
 // Busca sleep records do Whoop e grava como settings/sleep no D1
 async function whoopSync(env, uid) {
   const token = await getValidWhoopToken(env, uid);
-  if (!token) return json({ error: 'not_connected' }, 401);
+  if (!token) {
+    // Refresh morto (token revogado): apaga a linha pra status virar not-connected
+    // e o front oferecer "Conectar" de novo — senão fica preso em "Conectado" que nunca sincroniza.
+    await env.DB.prepare('DELETE FROM whoop_tokens WHERE uid = ?').bind(uid).run();
+    return json({ error: 'not_connected' }, 401);
+  }
 
   // Tenta v2 (atual); se falhar, cai pra v1 (legado)
   let res = await fetch(`${WHOOP_API}/v2/activity/sleep?limit=25`, {
@@ -413,8 +452,10 @@ async function whoopSync(env, uid) {
     const start = r.start ? new Date(r.start) : null;
     const end = r.end ? new Date(r.end) : null;
     if (!start || !end) continue;
-    // Atribui ao dia do despertar (end), em data local-ish (usa a data do end UTC)
-    const dateKey = end.toISOString().slice(0, 10);
+    // Chaveia pela data LOCAL (BRT, UTC-3 sem DST) do INÍCIO do sono = "a noite de X".
+    // Bate com o registro manual, que assume a noite = dia anterior ao acordar (openSleepModal).
+    // Antes usava end.toISOString (UTC do despertar) → divergia do manual e contava a noite 2x.
+    const dateKey = new Date(start.getTime() - 3 * 3600 * 1000).toISOString().slice(0, 10);
     // Duração de sono = total in bed - awake time (se disponível)
     let durationMin = Math.round((end - start) / 60000);
     const stage = r.score && r.score.stage_summary;
@@ -436,7 +477,10 @@ async function whoopSync(env, uid) {
   if (existingRow && existingRow.value) {
     try { sleep = JSON.parse(existingRow.value); } catch {}
   }
-  // Whoop sobrescreve manual (mais confiável)
+  // Remove as entradas Whoop antigas antes de regravar: como a CHAVE de data mudou
+  // (despertar→início do sono), reescrever sem limpar duplicaria a mesma noite em dois dias.
+  // Entradas manuais (source != 'whoop') são preservadas.
+  for (const k in sleep) { if (sleep[k] && sleep[k].source === 'whoop') delete sleep[k]; }
   Object.assign(sleep, sleepByDate);
   await env.DB.prepare(
     "INSERT INTO settings (uid, key, value, updated_at) VALUES (?, 'sleep', ?, ?) ON CONFLICT(uid, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at"
@@ -458,11 +502,21 @@ function buildSnapshot(rows) {
   return { sessions, history };
 }
 
+// Carimbo do estado do servidor: maior updated_at dos settings (relógio do SERVIDOR, seguro).
+// NÃO usa started_at das sessões (vem do relógio do cliente e pode estar no futuro, o que
+// travaria o ?since=). Todo push grava settings (_stamps etc.) com updated_at=now, então
+// adições de sessão também bumpam este carimbo — nada de mudança fica invisível.
+async function serverStamp(env, uid) {
+  const s = await env.DB.prepare('SELECT MAX(updated_at) AS m FROM settings WHERE uid = ?').bind(uid).first();
+  return Number((s && s.m) || 0);
+}
+
 async function loadFullSnapshot(env, uid) {
-  const [sessions, categories, settings] = await Promise.all([
+  const [sessions, categories, settings, stamp] = await Promise.all([
     env.DB.prepare('SELECT date, category, duration_ms, started_at FROM sessions WHERE uid = ? ORDER BY started_at ASC').bind(uid).all(),
     env.DB.prepare('SELECT name FROM categories WHERE uid = ? ORDER BY position ASC, name ASC').bind(uid).all(),
     env.DB.prepare('SELECT key, value FROM settings WHERE uid = ?').bind(uid).all(),
+    serverStamp(env, uid),
   ]);
   const { sessions: sessionsObj, history } = buildSnapshot(sessions.results || []);
   const settingsObj = {};
@@ -474,25 +528,43 @@ async function loadFullSnapshot(env, uid) {
     history,
     categories: (categories.results || []).map(c => c.name),
     settings: settingsObj,
+    serverStamp: stamp,
     serverTime: Date.now(),
   };
 }
 
 // ====== Endpoints (uid vem sempre do token verificado) ======
-async function apiSnapshot(env, uid) {
+async function apiSnapshot(request, env, uid) {
+  // ?since=<ms>: se nada mudou desde então, responde ~50 bytes em vez do snapshot inteiro
+  const since = Number(new URL(request.url).searchParams.get('since') || 0);
+  if (since > 0) {
+    const stamp = await serverStamp(env, uid);
+    if (stamp <= since) return json({ unchanged: true, serverStamp: stamp });
+  }
   const snap = await loadFullSnapshot(env, uid);
   return json(snap);
+}
+
+// Sessão válida? date=YYYY-MM-DD, durationMs finito e >0, category string curta.
+// Devolve {date, category, durationMs} saneados ou null.
+function validSession(date, category, durationMs) {
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const d = Number(durationMs);
+  if (!Number.isFinite(d) || d <= 0 || d > 24 * 3600 * 1000) return null;
+  const cat = String(category == null ? '' : category).trim().slice(0, 80);
+  if (!cat) return null;
+  return { date, category: cat, durationMs: Math.round(d) };
 }
 
 async function apiAddSession(request, env, uid) {
   const body = await request.json();
   const { date, category, durationMs, startedAt } = body || {};
-  if (!date || !category || !durationMs) {
-    return json({ error: 'missing fields', need: ['date', 'category', 'durationMs'] }, 400);
-  }
+  const v = validSession(date, category, durationMs);
+  if (!v) return json({ error: 'invalid session' }, 400);
+  const at = Number.isFinite(Number(startedAt)) ? Number(startedAt) : Date.now();
   await env.DB.prepare(
     'INSERT OR IGNORE INTO sessions (uid, date, category, duration_ms, started_at) VALUES (?, ?, ?, ?, ?)'
-  ).bind(uid, date, category, durationMs, startedAt || Date.now()).run();
+  ).bind(uid, v.date, v.category, v.durationMs, at).run();
   return json({ ok: true });
 }
 
@@ -532,10 +604,12 @@ async function apiBulkSync(request, env, uid) {
       const list = sessions[date];
       if (!Array.isArray(list)) continue;
       for (const s of list) {
-        if (s && s.at && s.category && s.durationMs) {
+        const v = s && validSession(date, s.category, s.durationMs);
+        const at = s && Number.isFinite(Number(s.at)) ? Number(s.at) : null;
+        if (v && at) {
           stmts.push(env.DB.prepare(
             'INSERT OR IGNORE INTO sessions (uid, date, category, duration_ms, started_at) VALUES (?, ?, ?, ?, ?)'
-          ).bind(uid, date, s.category, s.durationMs, s.at));
+          ).bind(uid, v.date, v.category, v.durationMs, at));
         }
       }
     }

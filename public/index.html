@@ -2388,6 +2388,13 @@ window.firebaseConfig = {
   .task-dest-pill:hover { color: var(--text); border-color: rgba(255,255,255,0.35); }
   .task-dest-pill.on { background: var(--accent); border-color: var(--accent); color: #0d0d0e; font-weight: 600; }
   .task-dest-hint { font-size: 11px; color: var(--text-subtle); margin-left: 2px; }
+  .dp-toweek {
+    border: 1px solid rgba(255,255,255,0.18); background: transparent; color: var(--text-subtle);
+    border-radius: 999px; font-size: 10.5px; padding: 3px 8px; cursor: pointer;
+    flex-shrink: 0; font-family: inherit;
+  }
+  .dp-toweek:hover { color: var(--text); border-color: rgba(255,255,255,0.35); }
+  .dp-toweek:disabled { opacity: 0.4; cursor: default; }
 
   /* Tópicos da semana (clique abre o editor) */
   .wk-topics { cursor: text; display: flex; flex-direction: column; gap: 5px; padding: 3px 4px 3px 0; border-radius: 8px; }
@@ -6252,6 +6259,7 @@ function renderTasks() {
     <div class="dp-task${t.done ? ' done' : ''}" data-id="${t.id}">
       <button class="dp-check" data-act="toggle" aria-label="Concluir">${t.done ? '✓' : ''}</button>
       <span class="dp-text">${escapeHtml(t.text)}</span>
+      ${sec === 'backlog' ? `<button class="dp-toweek" data-act="toweek" title="Mandar pro plano semanal (o Claude sugere a semana)">sem.</button>` : ''}
       ${sec === 'done' ? '' : `<button class="dp-star${t.focusDate === today ? ' on' : ''}" data-act="star" aria-label="Focar hoje" title="${t.focusDate === today ? 'Tirar do foco de hoje' : 'Focar hoje'}">${t.focusDate === today ? '★' : '☆'}</button>`}
       <button class="dp-del" data-act="del" aria-label="Excluir">×</button>
     </div>`;
@@ -6331,7 +6339,7 @@ function renderTasks() {
     }).join('');
     html += `
       <div class="tasks-sec tasks-sec-gap">
-        <div class="tasks-sec-title">A fazer <span class="tasks-count">${backlog.length}</span><span class="bk-hint">demandas — ★ puxa pro Hoje</span></div>
+        <div class="tasks-sec-title">A fazer <span class="tasks-count">${backlog.length}</span><span class="bk-hint">★ puxa pro Hoje · sem. agenda no plano</span></div>
         ${backlog.length ? groupsHtml : '<div class="dp-empty">Sem demandas no backlog. Despeje tudo aqui.</div>'}
       </div>`;
   }
@@ -6456,11 +6464,38 @@ function renderTasks() {
   card.querySelectorAll('.dp-task').forEach(row => {
     const id = row.dataset.id;
     row.querySelectorAll('[data-act]').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const list = loadTasks();
         const t = list.find(x => x.id === id);
         if (!t) return;
         const act = btn.dataset.act;
+        if (act === 'toweek') {
+          // Backlog → plano semanal: o Claude sugere a semana; a demanda SAI do backlog
+          if (taskAddBusy) return; // sugestão em voo (compartilha a guarda da entrada única)
+          taskAddBusy = true;
+          btn.disabled = true;
+          setMsg('Perguntando ao Claude em qual semana encaixar "' + t.text.slice(0, 40) + (t.text.length > 40 ? '…' : '') + '"…');
+          try {
+            const out = await suggestWeekForTask(t.text);
+            h2AddWeekItem(t.text, out.week);
+            const fresh = loadTasks(); // relê: a lista pode ter mudado durante a espera
+            const idx = fresh.findIndex(x => x.id === id);
+            if (idx >= 0) { fresh.splice(idx, 1); saveTasks(fresh); }
+            // reset incondicional do card (nosso), preservando texto digitado na entrada
+            const iOld = $('#tasksCard #taskInput');
+            const residue = iOld ? iOld.value : '';
+            renderTasks();
+            const i2 = $('#tasksCard #taskInput'); if (i2 && residue) i2.value = residue;
+            refreshWeekPlanSafe(); // guardado: protege editor de tópicos aberto no plano
+            setMsg('Movida pra semana ' + out.week + ': ' + out.reason + ' — ajuste o nº do item no plano se discordar.');
+          } catch (e) {
+            setMsg('Não deu pra agendar (' + e.message + '). Tenta de novo, ou use a entrada com destino Semana e nº.');
+            const b2 = row.querySelector('[data-act="toweek"]'); if (b2) b2.disabled = false;
+          } finally {
+            taskAddBusy = false;
+          }
+          return;
+        }
         if (act === 'toggle') {
           t.done = !t.done;
           if (t.done) t.doneAt = today; else delete t.doneAt;

@@ -27,7 +27,7 @@ wrangler deploy -c wrangler.api.jsonc  # API  (só quando mexer no worker.js)
 ```
 - O GitHub **não deploya** nada (o Workers Builds foi desconectado). GitHub = backup do código.
 - **Ao mudar o app, SEMPRE bumpar `CACHE_NAME`** em `public/service-worker.js` (é stale-while-revalidate + auto-reload). Versão atual: **v98**.
-- Segredo da API: `wrangler secret put WHOOP_CLIENT_SECRET -c wrangler.api.jsonc` (já setado; `wrangler deploy` preserva secrets).
+- Segredos da API: `wrangler secret put WHOOP_CLIENT_SECRET -c wrangler.api.jsonc` (já setado) e `wrangler secret put ANTHROPIC_API_KEY -c wrangler.api.jsonc` (usado pelo `/api/suggest-week` — IA que sugere semana do plano; sem ele o endpoint responde 501). `wrangler deploy` preserva secrets.
 - Rollback rápido da API: `wrangler rollback -c wrangler.api.jsonc`.
 
 ## Autenticação / segurança (feito em jul/2026)

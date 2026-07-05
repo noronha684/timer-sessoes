@@ -160,6 +160,7 @@ export default {
       if (path === '/api/categories' && request.method === 'PUT') return apiPutCategories(request, env, uid);
       if (path === '/api/settings' && request.method === 'PUT') return apiPutSetting(request, env, uid);
       if (path === '/api/sync' && request.method === 'POST') return apiBulkSync(request, env, uid);
+      if (path === '/api/suggest-week' && request.method === 'POST') return apiSuggestWeek(request, env, uid);
       if (path === '/api/whoop/connect' && request.method === 'POST') return apiWhoopConnect(request, env, uid);
       if (path === '/api/whoop/status' && request.method === 'GET') return whoopStatus(env, uid);
       if (path === '/api/whoop/sync' && request.method === 'POST') return whoopSync(env, uid);
@@ -171,6 +172,70 @@ export default {
     }
   },
 };
+
+// ====== IA: sugere em qual semana do plano H2 encaixar uma tarefa ======
+// Chama a Messages API da Anthropic direto por fetch (Worker não usa SDK).
+// Secret (uma vez): wrangler secret put ANTHROPIC_API_KEY -c wrangler.api.jsonc
+async function apiSuggestWeek(request, env, uid) {
+  if (!env.ANTHROPIC_API_KEY) {
+    return json({ error: 'ia_nao_configurada', detail: 'Defina o secret ANTHROPIC_API_KEY no Worker da API.' }, 501);
+  }
+  const body = await request.json().catch(() => null);
+  const task = body && typeof body.task === 'string' ? body.task.trim().slice(0, 300) : '';
+  const weeks = body && Array.isArray(body.weeks) ? body.weeks.slice(0, 30) : [];
+  const today = body && typeof body.today === 'string' ? body.today.slice(0, 10) : '';
+  if (!task || !weeks.length) return json({ error: 'task e weeks são obrigatórios' }, 400);
+
+  const plano = weeks.map(w =>
+    `Semana ${w.n} (${w.d})${w.done ? ' [JÁ CONCLUÍDA]' : ''} — tipo: ${w.t}. ${String(w.w || '').replace(/\s+/g, ' ').slice(0, 400)}`
+  ).join('\n');
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': env.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'claude-opus-4-8',
+      max_tokens: 1024,
+      // structured output: garante que o 1º bloco de texto é JSON válido no schema
+      output_config: {
+        effort: 'low',
+        format: {
+          type: 'json_schema',
+          schema: {
+            type: 'object',
+            properties: {
+              week: { type: 'integer', description: 'nº da semana sugerida' },
+              reason: { type: 'string', description: 'justificativa em 1 frase curta, em português' },
+            },
+            required: ['week', 'reason'],
+            additionalProperties: false,
+          },
+        },
+      },
+      system: 'Você aloca tarefas no plano semanal do semestre de um analista de equities (setor elétrico/saneamento, Brasil). Regras: semanas de tipo Balanços são capacidade comprometida — só recebem tarefas urgentes ligadas a resultados; nunca sugira semana já concluída ou anterior a hoje; case o tema da tarefa com o foco da semana (empresa nova, análise, deep work, cadência); prazos explícitos na tarefa têm prioridade; na dúvida entre duas semanas, escolha a menos carregada.',
+      messages: [{
+        role: 'user',
+        content: `Hoje é ${today}.\n\nPLANO DO SEMESTRE:\n${plano}\n\nTAREFA A ALOCAR: "${task}"\n\nEm qual semana essa tarefa deve ser feita?`,
+      }],
+    }),
+  });
+
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '');
+    return json({ error: 'claude_error', status: resp.status, detail: detail.slice(0, 400) }, 502);
+  }
+  const data = await resp.json();
+  if (data.stop_reason === 'refusal') return json({ error: 'claude_refusal' }, 502);
+  const text = (data.content || []).find(b => b.type === 'text');
+  let out = null;
+  try { out = JSON.parse(text.text); } catch { /* cai no erro abaixo */ }
+  if (!out || typeof out.week !== 'number') return json({ error: 'claude_parse' }, 502);
+  return json({ week: out.week, reason: String(out.reason || '') });
+}
 
 // ====== Whoop OAuth ======
 const WHOOP_AUTH_URL = 'https://api.prod.whoop.com/oauth/oauth2/auth';

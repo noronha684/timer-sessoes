@@ -6744,10 +6744,16 @@ ${escapeHtml(w)}</textarea>${itemsHtml}</td>
       <button data-h2idel="${it.id}" title="Excluir item" style="border:none;background:none;color:var(--text-subtle);font-size:17px;cursor:pointer;padding:2px 6px;line-height:1">×</button>
     </div>`).join('');
   const itemsCard = `<div class="h2-card" style="margin-top:14px">
-    <div class="h2-card-h">Itens recorrentes</div>
-    <div class="h2-note">Entram como checklist nas semanas em que se aplicam — ex.: update de sentimento na 1ª semana de cada mês.</div>
+    <div class="h2-card-h">Itens do plano</div>
+    <div class="h2-note">Entram como checklist nas semanas em que se aplicam. Nova tarefa sem nº de semana: o Claude olha o plano e sugere onde encaixar.</div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px">
+      <input class="h2-ta" id="wkQuickTask" placeholder="Nova tarefa… (deixe o nº vazio pra IA sugerir a semana)" style="min-height:0;padding:8px 10px;flex:1;font-size:12.5px">
+      <input class="h2-ta" id="wkQuickN" inputmode="numeric" placeholder="nº" title="Semana (opcional)" style="min-height:0;padding:8px 4px;width:44px;text-align:center;font:600 12px var(--h2-mono)">
+      <button type="button" id="wkQuickAdd" style="${h2Badge(H2_TOK.purple)};cursor:pointer;font-family:inherit">Adicionar</button>
+    </div>
+    <div class="h2-note" id="wkQuickMsg" style="margin-top:6px;display:none"></div>
     ${itemRows}
-    <button type="button" class="h2-add-btn" id="h2WkAddItem" style="margin-top:10px">+ Adicionar item</button>
+    <button type="button" class="h2-add-btn" id="h2WkAddItem" style="margin-top:10px">+ Adicionar item recorrente</button>
   </div>`;
   return `<div class="h2-sec">
     <div class="h2-eyebrow">execução semana a semana · H2/2026</div>
@@ -6793,6 +6799,55 @@ function bindH2Plano(c) {
   }));
   // Re-render local: o bloco vive na aba Plano (#weekPlanBlock); re-renderiza só o container
   const rerender = () => { c.innerHTML = h2SecPlano(loadH2()); bindH2Plano(c); };
+  // Adição rápida de tarefa: com nº → entra direto naquela semana; sem nº → o Claude sugere
+  // (POST /api/suggest-week no Worker da API, que chama a Messages API da Anthropic)
+  const qAdd = c.querySelector('#wkQuickAdd');
+  if (qAdd) qAdd.addEventListener('click', async () => {
+    const tEl = c.querySelector('#wkQuickTask'), nEl = c.querySelector('#wkQuickN'), msg = c.querySelector('#wkQuickMsg');
+    const text = (tEl && tEl.value || '').trim();
+    if (!text) { if (tEl) tEl.focus(); return; }
+    const addItem = (wk) => {
+      const D = loadH2();
+      const items = h2WkItemsArr(D);
+      const id = 'i' + (items.reduce((m, it) => Math.max(m, parseInt(String(it.id).slice(1)) || 0), 0) + 1);
+      D.h2WkItems = items.concat([{ id, text, rec: 'one', wk: String(wk) }]);
+      saveH2(D);
+    };
+    const nRaw = (nEl && nEl.value || '').trim();
+    if (nRaw) { addItem(nRaw); rerender(); return; }
+    if (msg) { msg.style.display = 'block'; msg.textContent = 'Perguntando ao Claude em qual semana encaixar…'; }
+    qAdd.disabled = true;
+    try {
+      const D0 = loadH2();
+      const weeks = H2_WEEKPLAN.map(x => ({
+        n: x.n,
+        d: D0['wkd_' + x.n] != null ? D0['wkd_' + x.n] : x.d,
+        w: D0['wkw_' + x.n] != null ? D0['wkw_' + x.n] : x.w,
+        t: D0['wkt_' + x.n] || x.t,
+        done: !!D0['wk_' + x.n],
+      }));
+      const resp = await fetch(window.API_BASE + '/api/suggest-week', {
+        method: 'POST',
+        headers: await authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ task: text, weeks, today: dateKey(new Date()) }),
+      });
+      const out = await resp.json().catch(() => null);
+      if (!resp.ok || !out || typeof out.week !== 'number') {
+        throw new Error((out && (out.detail || out.error)) || ('HTTP ' + resp.status));
+      }
+      addItem(out.week);
+      rerender();
+      // o rerender troca o DOM — re-busca o nó da mensagem pra mostrar a justificativa
+      const m2 = c.querySelector('#wkQuickMsg');
+      if (m2) {
+        m2.style.display = 'block';
+        m2.textContent = 'Claude sugeriu a semana ' + out.week + ': ' + out.reason + ' — ajuste o nº do item se discordar.';
+      }
+    } catch (e) {
+      if (msg) { msg.style.display = 'block'; msg.textContent = 'Não deu pra sugerir (' + e.message + '). Preencha o nº da semana e adicione de novo.'; }
+      qAdd.disabled = false;
+    }
+  });
   // Adicionar item recorrente
   const add = c.querySelector('#h2WkAddItem');
   if (add) add.addEventListener('click', () => {

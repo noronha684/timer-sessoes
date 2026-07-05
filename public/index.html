@@ -2378,6 +2378,17 @@ window.firebaseConfig = {
   /* Plano semana-a-semana dentro da aba Plano */
   .weekplan-block { border-top: 1px solid var(--hairline); margin-top: 22px; padding-top: 6px; }
   .weekplan-block:empty { display: none; }
+  /* Entrada única de tarefas: pills de destino (Hoje / A fazer / Semana) */
+  .task-dest { display: flex; gap: 6px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+  .task-dest-lbl { font-size: 11px; color: var(--text-subtle); }
+  .task-dest-pill {
+    padding: 4px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.2);
+    background: transparent; color: var(--text-muted); font-size: 12px; cursor: pointer; font-family: inherit;
+  }
+  .task-dest-pill:hover { color: var(--text); border-color: rgba(255,255,255,0.35); }
+  .task-dest-pill.on { background: var(--accent); border-color: var(--accent); color: #0d0d0e; font-weight: 600; }
+  .task-dest-hint { font-size: 11px; color: var(--text-subtle); margin-left: 2px; }
+
   /* Tópicos da semana (clique abre o editor) */
   .wk-topics { cursor: text; display: flex; flex-direction: column; gap: 5px; padding: 3px 4px 3px 0; border-radius: 8px; }
   .wk-topics:hover { background: rgba(255,255,255,0.03); }
@@ -6004,6 +6015,47 @@ function renderWeekPlan() {
   c.innerHTML = h2SecPlano(loadH2());
   bindH2Plano(c);
 }
+// Re-render do bloco do plano sem atropelar quem está digitando nele
+function refreshWeekPlanSafe() {
+  if (typeof isEditingField === 'function' && isEditingField()) return;
+  renderWeekPlan();
+}
+// Semana "corrente" do plano: a que contém hoje; num vão (fim de semana), a próxima
+function h2CurrentWeek() {
+  const today = dateKey(new Date());
+  return H2_WEEKPLAN.find(x => today >= x.s && today <= x.e)
+      || H2_WEEKPLAN.find(x => x.s > today)
+      || null;
+}
+// Adiciona uma tarefa como item "semana única" do plano (entrada única do card Tarefas)
+function h2AddWeekItem(text, wk) {
+  const D = loadH2();
+  const items = h2WkItemsArr(D);
+  const id = 'i' + (items.reduce((m, it) => Math.max(m, parseInt(String(it.id).slice(1)) || 0), 0) + 1);
+  D.h2WkItems = items.concat([{ id, text, rec: 'one', wk: String(wk) }]);
+  saveH2(D);
+}
+// Pede ao Claude (via Worker da API) a semana ideal pra tarefa; devolve {week, reason}
+async function suggestWeekForTask(text) {
+  const D0 = loadH2();
+  const weeks = H2_WEEKPLAN.map(x => ({
+    n: x.n,
+    d: D0['wkd_' + x.n] != null ? D0['wkd_' + x.n] : x.d,
+    w: D0['wkw_' + x.n] != null ? D0['wkw_' + x.n] : x.w,
+    t: D0['wkt_' + x.n] || x.t,
+    done: !!D0['wk_' + x.n],
+  }));
+  const resp = await fetch(window.API_BASE + '/api/suggest-week', {
+    method: 'POST',
+    headers: await authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ task: text, weeks, today: dateKey(new Date()) }),
+  });
+  const out = await resp.json().catch(() => null);
+  if (!resp.ok || !out || typeof out.week !== 'number') {
+    throw new Error((out && (out.detail || out.error)) || ('HTTP ' + resp.status));
+  }
+  return out;
+}
 
 // Monta a grade editável (só ao abrir a aba, p/ não perder o foco ao digitar)
 function renderPlanGrid() {
@@ -6180,6 +6232,9 @@ const H2_BK_NOCAT = 'Sem categoria';
 function loadBacklogCollapsed() { try { return new Set(JSON.parse(localStorage.getItem('timerBacklogCollapsed') || '[]')); } catch { return new Set(); } }
 let backlogCollapsed = loadBacklogCollapsed();
 let backlogAddCat = ''; // mantém a categoria digitada entre adições
+let taskAddDest = localStorage.getItem('timerTaskAddDest') || 'hoje'; // destino da entrada única: hoje | afazer | semana
+let taskAddWkN = '';      // nº da semana digitado (sobrevive à troca de pill, como backlogAddCat)
+let taskAddBusy = false;  // guarda de reentrada: Enter durante o await da sugestão não re-dispara
 
 function renderTasks() {
   const card = $('#tasksCard');
@@ -6205,19 +6260,60 @@ function renderTasks() {
     ? hoje.map(t => rowHtml(t, 'hoje')).join('')
     : `<div class="dp-empty">Nada em foco hoje. Adicione abaixo, ou estrele ★ uma tarefa de "A fazer".</div>`;
 
+  // Ponte com o plano semanal: itens da semana corrente entram como checklist aqui
+  // (mesmo store do plano — wkit_<id>_<n> — marcado aqui reflete lá e vice-versa)
+  const Dw = loadH2();
+  const curWk = h2CurrentWeek();
+  let weekSecHtml = '';
+  if (curWk) {
+    const firstsW = h2WkFirstWeeks();
+    const wkItems = h2WkItemsArr(Dw).filter(it => (it.text || '').trim() && h2ItemAppliesTo(it, curWk.n, firstsW));
+    if (wkItems.length) {
+      const isCurrent = today >= curWk.s && today <= curWk.e;
+      const doneWk = wkItems.filter(it => Dw['wkit_' + it.id + '_' + curWk.n]).length;
+      const wkRows = wkItems.map(it => {
+        const k = 'wkit_' + it.id + '_' + curWk.n;
+        const done = !!Dw[k];
+        return `<div class="dp-task${done ? ' done' : ''}" data-wkit="${k}">
+          <button class="dp-check" data-act="wkittoggle" aria-label="Concluir">${done ? '✓' : ''}</button>
+          <span class="dp-text">${escapeHtml(it.text)}</span>
+        </div>`;
+      }).join('');
+      const dLabel = Dw['wkd_' + curWk.n] != null ? Dw['wkd_' + curWk.n] : curWk.d; // respeita datas editadas no plano
+      weekSecHtml = `
+        <div class="tasks-sec tasks-sec-gap">
+          <div class="tasks-sec-title">${isCurrent ? 'Desta semana' : 'Próxima semana'} <span class="tasks-count">${doneWk}/${wkItems.length}</span><span class="bk-hint">plano · sem. ${curWk.n} (${escapeHtml(dLabel)})</span></div>
+          <div class="dp-list">${wkRows}</div>
+        </div>`;
+    }
+  }
+
+  const allCats = [...new Set(tasks.map(t => (t.cat || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt'));
   let html = `
     <div class="dp-head">
       <div class="dp-title">Tarefas</div>
       ${hoje.length ? `<div class="dp-progress${doneHoje === hoje.length ? ' all' : ''}">${doneHoje}/${hoje.length} ✓</div>` : ''}
     </div>
-    <div class="tasks-sec">
+    <div class="dp-add task-add-uni">
+      <input class="dp-input" id="taskInput" placeholder="Nova tarefa…" maxlength="140">
+      ${taskAddDest === 'afazer' ? `<input class="dp-input bk-cat-in" id="bkCat" placeholder="categoria" maxlength="40" list="bkCats" value="${escapeHtml(backlogAddCat)}">` : ''}
+      ${taskAddDest === 'semana' ? `<input class="dp-input" id="taskWkN" inputmode="numeric" placeholder="nº" title="Semana (vazio = o Claude sugere)" style="flex:0 0 46px;text-align:center" value="${escapeHtml(taskAddWkN)}">` : ''}
+      <button class="dp-add-btn" id="taskAddBtn" aria-label="Adicionar">+</button>
+    </div>
+    <div class="task-dest">
+      <span class="task-dest-lbl">para</span>
+      <button class="task-dest-pill${taskAddDest === 'hoje' ? ' on' : ''}" data-dest="hoje">Hoje</button>
+      <button class="task-dest-pill${taskAddDest === 'afazer' ? ' on' : ''}" data-dest="afazer">A fazer</button>
+      <button class="task-dest-pill${taskAddDest === 'semana' ? ' on' : ''}" data-dest="semana">Semana</button>
+      <span class="task-dest-hint">${taskAddDest === 'semana' ? 'sem nº, o Claude sugere' : taskAddDest === 'afazer' ? 'backlog com categoria' : 'foco de hoje'}</span>
+    </div>
+    <div class="h2-note" id="taskAddMsg" style="display:none;margin-top:6px"></div>
+    <datalist id="bkCats">${allCats.map(x => `<option value="${escapeHtml(x)}"></option>`).join('')}</datalist>
+    <div class="tasks-sec tasks-sec-gap">
       <div class="tasks-sec-title">Hoje</div>
       <div class="dp-list">${hojeRows}</div>
     </div>
-    <div class="dp-add">
-      <input class="dp-input" id="taskInput" placeholder="Adicionar tarefa de hoje..." maxlength="120">
-      <button class="dp-add-btn" id="taskAddBtn" aria-label="Adicionar">+</button>
-    </div>`;
+    ${weekSecHtml}`;
 
   {
     // Backlog central agrupado por categoria (hub de demandas)
@@ -6225,7 +6321,6 @@ function renderTasks() {
     backlog.forEach(t => { const k = (t.cat && t.cat.trim()) || H2_BK_NOCAT; (groups[k] = groups[k] || []).push(t); });
     const groupNames = Object.keys(groups).sort((a, b) =>
       a === H2_BK_NOCAT ? 1 : b === H2_BK_NOCAT ? -1 : a.localeCompare(b, 'pt'));
-    const allCats = [...new Set(tasks.map(t => (t.cat || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt'));
     const groupsHtml = groupNames.map(cn => {
       const list = groups[cn];
       const collapsed = backlogCollapsed.has(cn);
@@ -6237,12 +6332,6 @@ function renderTasks() {
     html += `
       <div class="tasks-sec tasks-sec-gap">
         <div class="tasks-sec-title">A fazer <span class="tasks-count">${backlog.length}</span><span class="bk-hint">demandas — ★ puxa pro Hoje</span></div>
-        <div class="dp-add bk-add">
-          <input class="dp-input" id="bkInput" placeholder="Nova demanda…" maxlength="140">
-          <input class="dp-input bk-cat-in" id="bkCat" placeholder="categoria" maxlength="40" list="bkCats" value="${escapeHtml(backlogAddCat)}">
-          <button class="dp-add-btn" id="bkAddBtn" aria-label="Adicionar demanda">+</button>
-        </div>
-        <datalist id="bkCats">${allCats.map(x => `<option value="${escapeHtml(x)}"></option>`).join('')}</datalist>
         ${backlog.length ? groupsHtml : '<div class="dp-empty">Sem demandas no backlog. Despeje tudo aqui.</div>'}
       </div>`;
   }
@@ -6256,39 +6345,99 @@ function renderTasks() {
 
   card.innerHTML = html;
 
+  // Entrada única: o destino (Hoje / A fazer / Semana) decide onde a tarefa entra
   const input = card.querySelector('#taskInput');
-  const add = () => {
+  const setMsg = (t) => { const m = $('#tasksCard #taskAddMsg'); if (m) { m.style.display = t ? 'block' : 'none'; m.textContent = t || ''; } };
+  const add = async () => {
     const text = input.value.trim();
     if (!text) return;
-    const list = loadTasks();
-    list.push({ id: genId(), text, done: false, focusDate: today });
-    saveTasks(list);
-    renderTasks();
-    const i = $('#tasksCard #taskInput'); if (i) i.focus();
+    if (taskAddDest === 'hoje') {
+      const list = loadTasks();
+      list.push({ id: genId(), text, done: false, focusDate: today });
+      saveTasks(list);
+      renderTasks();
+      const i = $('#tasksCard #taskInput'); if (i) i.focus();
+    } else if (taskAddDest === 'afazer') {
+      const catEl = card.querySelector('#bkCat');
+      const cat = (catEl && catEl.value || '').trim();
+      backlogAddCat = cat; // mantém a categoria pras próximas demandas
+      const list = loadTasks();
+      list.push({ id: genId(), text, done: false, ...(cat ? { cat } : {}) }); // sem focusDate → backlog
+      saveTasks(list);
+      renderTasks();
+      const i = $('#tasksCard #taskInput'); if (i) i.focus();
+    } else {
+      // Semana: com nº entra direto; sem nº o Claude sugere (POST /api/suggest-week)
+      const nEl = card.querySelector('#taskWkN');
+      const nRaw = (nEl && nEl.value || '').trim();
+      if (nRaw) {
+        h2AddWeekItem(text, nRaw);
+        taskAddWkN = '';
+        renderTasks();
+        refreshWeekPlanSafe();
+        setMsg('Adicionada à semana ' + nRaw + '.');
+        const i = $('#tasksCard #taskInput'); if (i) i.focus();
+        return;
+      }
+      if (taskAddBusy) return; // já tem sugestão em voo (Enter repetido não duplica)
+      taskAddBusy = true;
+      const btn = card.querySelector('#taskAddBtn');
+      setMsg('Perguntando ao Claude em qual semana encaixar…');
+      if (btn) btn.disabled = true;
+      try {
+        const out = await suggestWeekForTask(text);
+        h2AddWeekItem(text, out.week);
+        // renderTasks SEMPRE (o card é nosso — foco no #taskInput não impede); antes,
+        // preserva texto novo que o usuário tenha começado a digitar durante a espera
+        const iOld = $('#tasksCard #taskInput');
+        const residue = (iOld && iOld.value !== text) ? iOld.value : '';
+        renderTasks();
+        refreshWeekPlanSafe(); // este sim guardado: protege editor de tópicos aberto no plano
+        setMsg('Claude sugeriu a semana ' + out.week + ': ' + out.reason + ' — ajuste o nº do item no plano se discordar.');
+        const i2 = $('#tasksCard #taskInput');
+        if (i2) {
+          i2.value = residue;
+          // só rouba o foco se ninguém estiver digitando em outro campo (ex.: tópicos)
+          if (!(typeof isEditingField === 'function' && isEditingField())) i2.focus();
+        }
+      } catch (e) {
+        setMsg('Não deu pra sugerir (' + e.message + '). Escolha o nº da semana e adicione de novo.');
+        const b2 = $('#tasksCard #taskAddBtn'); if (b2) b2.disabled = false;
+      } finally {
+        taskAddBusy = false;
+      }
+    }
   };
   card.querySelector('#taskAddBtn').addEventListener('click', add);
   input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
-
-  // Adicionar demanda ao backlog (com categoria)
-  const bkInput = card.querySelector('#bkInput');
   const bkCat = card.querySelector('#bkCat');
-  const addBk = () => {
-    const text = bkInput.value.trim();
-    if (!text) return;
-    const cat = bkCat.value.trim();
-    backlogAddCat = cat; // mantém a categoria pras próximas demandas
-    const list = loadTasks();
-    list.push({ id: genId(), text, done: false, ...(cat ? { cat } : {}) }); // sem focusDate → vai pro backlog
-    saveTasks(list);
-    renderTasks();
-    const i = $('#tasksCard #bkInput'); if (i) i.focus();
-  };
-  if (bkInput) {
-    card.querySelector('#bkAddBtn').addEventListener('click', addBk);
-    bkInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addBk(); } });
-    bkCat.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addBk(); } });
+  if (bkCat) {
+    bkCat.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
     bkCat.addEventListener('input', () => { backlogAddCat = bkCat.value; });
   }
+  const wkNIn = card.querySelector('#taskWkN');
+  if (wkNIn) {
+    wkNIn.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+    wkNIn.addEventListener('input', () => { taskAddWkN = wkNIn.value; }); // sobrevive à troca de pill
+  }
+  // Pills de destino (persistem a escolha; preservam o texto já digitado)
+  card.querySelectorAll('.task-dest-pill').forEach(b => b.addEventListener('click', () => {
+    taskAddDest = b.dataset.dest;
+    try { localStorage.setItem('timerTaskAddDest', taskAddDest); } catch {}
+    const keep = input.value;
+    renderTasks();
+    const i = $('#tasksCard #taskInput'); if (i) { i.value = keep; i.focus(); }
+  }));
+  // Checklist da semana corrente (ponte com o plano — mesmo store)
+  card.querySelectorAll('[data-wkit]').forEach(row => {
+    const btn = row.querySelector('[data-act="wkittoggle"]');
+    if (btn) btn.addEventListener('click', () => {
+      const k = row.dataset.wkit;
+      const Dx = loadH2(); Dx[k] = !Dx[k]; saveH2(Dx);
+      renderTasks();
+      refreshWeekPlanSafe();
+    });
+  });
   // Recolher / expandir grupos de categoria do backlog
   card.querySelectorAll('[data-bkgroup]').forEach(b => b.addEventListener('click', () => {
     const cn = b.dataset.bkgroup;
@@ -6770,13 +6919,7 @@ function h2SecPlano(D) {
     </div>`).join('');
   const itemsCard = `<div class="h2-card" style="margin-top:14px">
     <div class="h2-card-h">Itens do plano</div>
-    <div class="h2-note">Entram como checklist nas semanas em que se aplicam. Nova tarefa sem nº de semana: o Claude olha o plano e sugere onde encaixar.</div>
-    <div style="display:flex;gap:8px;align-items:center;margin-top:10px">
-      <input class="h2-ta" id="wkQuickTask" placeholder="Nova tarefa… (deixe o nº vazio pra IA sugerir a semana)" style="min-height:0;padding:8px 10px;flex:1;font-size:12.5px">
-      <input class="h2-ta" id="wkQuickN" inputmode="numeric" placeholder="nº" title="Semana (opcional)" style="min-height:0;padding:8px 4px;width:44px;text-align:center;font:600 12px var(--h2-mono)">
-      <button type="button" id="wkQuickAdd" style="${h2Badge(H2_TOK.purple)};cursor:pointer;font-family:inherit">Adicionar</button>
-    </div>
-    <div class="h2-note" id="wkQuickMsg" style="margin-top:6px;display:none"></div>
+    <div class="h2-note">Entram como checklist nas semanas em que se aplicam; os da semana corrente aparecem também no card Tarefas. Tarefa nova entra pelo card Tarefas (destino "Semana" — sem nº, o Claude sugere).</div>
     ${itemRows}
     <button type="button" class="h2-add-btn" id="h2WkAddItem" style="margin-top:10px">+ Adicionar item recorrente</button>
   </div>`;
@@ -6801,9 +6944,10 @@ function bindH2Plano(c) {
       const done = H2_WEEKPLAN.filter(x => loadH2()['wk_' + x.n]).length;
       const prog = $('#h2PlanProgress'); if (prog) prog.textContent = `${done} de ${H2_WEEKPLAN.length} semanas concluídas`;
     } else {
-      // Item recorrente: risca só o texto dele
+      // Item recorrente: risca só o texto dele; reflete no card Tarefas (ponte da semana corrente)
       const span = el.nextElementSibling;
       if (span) { span.style.textDecoration = el.checked ? 'line-through' : ''; span.style.color = el.checked ? 'var(--text-subtle)' : ''; }
+      if (typeof renderTasks === 'function' && !(typeof isEditingField === 'function' && isEditingField())) renderTasks();
     }
   }));
   // Datas: mesmo padrão data-h2key das outras seções (salva a cada tecla, sincroniza)
@@ -6860,64 +7004,16 @@ function bindH2Plano(c) {
     el.style.cssText = h2Badge(tok) + ';cursor:pointer;font-family:inherit';
     el.textContent = next;
   }));
-  // Re-render local: o bloco vive na aba Plano (#weekPlanBlock); re-renderiza só o container
-  const rerender = () => { c.innerHTML = h2SecPlano(loadH2()); bindH2Plano(c); };
-  // Adição rápida de tarefa: com nº → entra direto naquela semana; sem nº → o Claude sugere
-  // (POST /api/suggest-week no Worker da API, que chama a Messages API da Anthropic)
-  const qAdd = c.querySelector('#wkQuickAdd');
-  if (qAdd) qAdd.addEventListener('click', async () => {
-    const tEl = c.querySelector('#wkQuickTask'), nEl = c.querySelector('#wkQuickN'), msg = c.querySelector('#wkQuickMsg');
-    const text = (tEl && tEl.value || '').trim();
-    if (!text) { if (tEl) tEl.focus(); return; }
-    const addItem = (wk) => {
-      const D = loadH2();
-      const items = h2WkItemsArr(D);
-      const id = 'i' + (items.reduce((m, it) => Math.max(m, parseInt(String(it.id).slice(1)) || 0), 0) + 1);
-      D.h2WkItems = items.concat([{ id, text, rec: 'one', wk: String(wk) }]);
-      saveH2(D);
-    };
-    const nRaw = (nEl && nEl.value || '').trim();
-    if (nRaw) { addItem(nRaw); rerender(); return; }
-    if (msg) { msg.style.display = 'block'; msg.textContent = 'Perguntando ao Claude em qual semana encaixar…'; }
-    qAdd.disabled = true;
-    try {
-      const D0 = loadH2();
-      const weeks = H2_WEEKPLAN.map(x => ({
-        n: x.n,
-        d: D0['wkd_' + x.n] != null ? D0['wkd_' + x.n] : x.d,
-        w: D0['wkw_' + x.n] != null ? D0['wkw_' + x.n] : x.w,
-        t: D0['wkt_' + x.n] || x.t,
-        done: !!D0['wk_' + x.n],
-      }));
-      const resp = await fetch(window.API_BASE + '/api/suggest-week', {
-        method: 'POST',
-        headers: await authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ task: text, weeks, today: dateKey(new Date()) }),
-      });
-      const out = await resp.json().catch(() => null);
-      if (!resp.ok || !out || typeof out.week !== 'number') {
-        throw new Error((out && (out.detail || out.error)) || ('HTTP ' + resp.status));
-      }
-      addItem(out.week);
-      // limpa os campos e destrava o botão mesmo sem rerender (nós antigos podem sobreviver)
-      if (tEl) tEl.value = '';
-      if (nEl) nEl.value = '';
-      qAdd.disabled = false;
-      // a resposta chega segundos depois — se o usuário abriu um editor nesse meio
-      // tempo, NÃO re-renderiza (destruiria o textarea focado); o item já está salvo
-      // no store e aparece no próximo render natural
-      if (!(typeof isEditingField === 'function' && isEditingField())) rerender();
-      // o rerender troca o DOM — re-busca o nó da mensagem pra mostrar a justificativa
-      const m2 = c.querySelector('#wkQuickMsg');
-      if (m2) {
-        m2.style.display = 'block';
-        m2.textContent = 'Claude sugeriu a semana ' + out.week + ': ' + out.reason + ' — ajuste o nº do item se discordar.';
-      }
-    } catch (e) {
-      if (msg) { msg.style.display = 'block'; msg.textContent = 'Não deu pra sugerir (' + e.message + '). Preencha o nº da semana e adicione de novo.'; }
-      qAdd.disabled = false;
-    }
-  });
+  // Re-render local: o bloco vive na aba Plano (#weekPlanBlock); re-renderiza só o container.
+  // Também atualiza o card Tarefas (ponte da semana corrente) — excluir/mudar recorrência
+  // de um item precisa refletir lá, senão o checkbox stale re-grava chave wkit_ órfã.
+  const rerender = () => {
+    c.innerHTML = h2SecPlano(loadH2());
+    bindH2Plano(c);
+    if (typeof renderTasks === 'function' && !(typeof isEditingField === 'function' && isEditingField())) renderTasks();
+  };
+  // (a adição rápida de tarefa migrou pro card Tarefas — entrada única com destino
+  // Hoje / A fazer / Semana; ver renderTasks + h2AddWeekItem/suggestWeekForTask)
   // Adicionar item recorrente
   const add = c.querySelector('#h2WkAddItem');
   if (add) add.addEventListener('click', () => {

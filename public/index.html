@@ -10,10 +10,10 @@
 <!-- Fontes editoriais da aba Semestre (IBM Plex Serif nos títulos, Mono nos dados) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Serif:wght@600;700&family=Hanken+Grotesk:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Serif:wght@600;700&family=Hanken+Grotesk:wght@200;300;400;500;600&display=swap">
 <title>Timer de Sessões</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#131110">
+<meta name="theme-color" content="#0d0d0e">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Timer">
@@ -55,21 +55,21 @@ window.firebaseConfig = {
     --card-elev: #1d1d35;
     --border: rgba(255,255,255,0.06);
     --border-strong: rgba(255,255,255,0.1);
-    --accent: oklch(0.83 0.045 78);
-    --accent-2: oklch(0.78 0.05 74);
-    --accent-glow: oklch(0.83 0.045 78 /0.25);
+    --accent: #f2f2f0;
+    --accent-2: #d8d8d4;
+    --accent-glow: rgba(242,242,240,0.25);
     --text: #f0f0f5;
     --text-muted: #9ca3b8;
     --text-subtle: #6b7088;
-    --danger: #f87171;
-    --warn: #fbbf24;
-    --success: #34d399;
+    --danger: #e0a19b;
+    --warn: #d9c58a;
+    --success: #9ad0a5;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', Roboto, system-ui, sans-serif;
     background:
-      radial-gradient(ellipse at top, oklch(0.83 0.045 78 /0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at top, rgba(242,242,240,0.06) 0%, transparent 50%),
       radial-gradient(ellipse at bottom, rgba(167,139,250,0.04) 0%, transparent 50%),
       var(--bg);
     background-attachment: fixed;
@@ -144,8 +144,8 @@ window.firebaseConfig = {
 
   .remote-timer-banner {
     display: flex; align-items: center; gap: 10px;
-    background: linear-gradient(180deg, oklch(0.83 0.045 78 /0.12), oklch(0.83 0.045 78 /0.05));
-    border: 1px solid oklch(0.83 0.045 78 /0.25);
+    background: linear-gradient(180deg, rgba(242,242,240,0.12), rgba(242,242,240,0.05));
+    border: 1px solid rgba(242,242,240,0.25);
     border-radius: 14px;
     padding: 12px 16px; margin-bottom: 12px;
     font-size: 13px; color: var(--text);
@@ -243,9 +243,9 @@ window.firebaseConfig = {
     cursor: pointer;
     letter-spacing: 0.01em;
     transition: transform 0.1s ease, box-shadow 0.2s ease, filter 0.2s ease;
-    box-shadow: 0 4px 20px oklch(0.83 0.045 78 /0.2), inset 0 1px 0 rgba(255,255,255,0.2);
+    box-shadow: 0 4px 20px rgba(242,242,240,0.2), inset 0 1px 0 rgba(255,255,255,0.2);
   }
-  .btn-primary:hover { filter: brightness(1.05); box-shadow: 0 6px 28px oklch(0.83 0.045 78 /0.32), inset 0 1px 0 rgba(255,255,255,0.2); }
+  .btn-primary:hover { filter: brightness(1.05); box-shadow: 0 6px 28px rgba(242,242,240,0.32), inset 0 1px 0 rgba(255,255,255,0.2); }
   .btn-primary:active { transform: scale(0.98); }
 
   .running-cat {
@@ -280,9 +280,9 @@ window.firebaseConfig = {
     transition: stroke-dashoffset 0.35s linear;
     filter: drop-shadow(0 0 6px var(--accent-glow));
   }
-  .ring-progress.paused { stroke: var(--warn); filter: drop-shadow(0 0 4px rgba(251,191,36,0.3)); }
+  .ring-progress.paused { stroke: var(--warn); filter: drop-shadow(0 0 4px rgba(217,197,138,0.3)); }
   .ring-progress.urgent {
-    stroke: #f59e0b;
+    stroke: #c4a96a;
     filter: drop-shadow(0 0 6px rgba(245,158,11,0.35));
   }
   .timer-display {
@@ -309,9 +309,9 @@ window.firebaseConfig = {
   }
   .btn:hover { filter: brightness(1.08); }
   .btn:active { transform: scale(0.98); }
-  .btn-pause { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #1e1a12; }
-  .btn-resume { background: linear-gradient(135deg, #34d399, #10b981); color: #0a2818; }
-  .btn-stop { background: linear-gradient(135deg, #f87171, #ef4444); }
+  .btn-pause { background: linear-gradient(135deg, #d9c58a, #c4a96a); color: #1e1a12; }
+  .btn-resume { background: linear-gradient(135deg, #9ad0a5, #7fb98d); color: #0a2818; }
+  .btn-stop { background: linear-gradient(135deg, #e0a19b, #c98680); }
   .btn-pip {
     background: rgba(255,255,255,0.04);
     border: 1px solid var(--border);
@@ -338,8 +338,8 @@ window.firebaseConfig = {
   }
   .streak-badge {
     display: inline-flex; align-items: center; gap: 6px;
-    background: oklch(0.83 0.045 78 /0.1);
-    border: 1px solid oklch(0.83 0.045 78 /0.2);
+    background: rgba(242,242,240,0.1);
+    border: 1px solid rgba(242,242,240,0.2);
     padding: 4px 10px; border-radius: 6px;
     font-size: 11px; font-weight: 600; color: var(--accent);
     letter-spacing: 0.3px; text-transform: none;
@@ -567,8 +567,8 @@ window.firebaseConfig = {
     font-size: 13px; line-height: 1.5;
     border: 1px solid var(--border);
   }
-  .bd-projection.ahead { background: rgba(52,211,153,0.08); border-color: rgba(52,211,153,0.2); }
-  .bd-projection.behind { background: rgba(251,191,36,0.08); border-color: rgba(251,191,36,0.2); }
+  .bd-projection.ahead { background: rgba(154,208,165,0.08); border-color: rgba(154,208,165,0.2); }
+  .bd-projection.behind { background: rgba(217,197,138,0.08); border-color: rgba(217,197,138,0.2); }
   .bd-projection .accent { font-weight: 700; }
   .bd-edit-btn {
     width: 100%; margin-top: 12px; padding: 9px;
@@ -760,13 +760,13 @@ window.firebaseConfig = {
   }
   .cat-item:hover { background: rgba(255,255,255,0.08); }
   .cat-item.active {
-    background: oklch(0.83 0.045 78 /0.12);
-    border-color: oklch(0.83 0.045 78);
+    background: rgba(242,242,240,0.12);
+    border-color: #f2f2f0;
   }
   .cat-name { font-size: 15px; flex: 1; cursor: pointer; }
   .cat-subcount {
     font-size: 11px; color: var(--accent);
-    background: oklch(0.83 0.045 78 /0.15); border-radius: 999px;
+    background: rgba(242,242,240,0.15); border-radius: 999px;
     padding: 1px 7px; margin-left: 4px; vertical-align: middle;
   }
   .cat-actions { display: flex; align-items: center; gap: 2px; }
@@ -812,10 +812,10 @@ window.firebaseConfig = {
     color: #eee; font-size: 15px;
     -webkit-appearance: none; appearance: none;
   }
-  .new-cat-input:focus { outline: none; border-color: oklch(0.83 0.045 78); background: rgba(255,255,255,0.06); }
+  .new-cat-input:focus { outline: none; border-color: #f2f2f0; background: rgba(255,255,255,0.06); }
   .add-cat-btn {
     padding: 12px 18px;
-    background: oklch(0.83 0.045 78); color: #1e1a12;
+    background: #f2f2f0; color: #1e1a12;
     border: none; border-radius: 8px;
     font-size: 20px; font-weight: bold; cursor: pointer; line-height: 1;
   }
@@ -847,16 +847,16 @@ window.firebaseConfig = {
     font-weight: 600;
   }
   .sono-add-btn {
-    background: oklch(0.83 0.045 78 /0.12);
-    border: 1px solid oklch(0.83 0.045 78 /0.2);
+    background: rgba(242,242,240,0.12);
+    border: 1px solid rgba(242,242,240,0.2);
     border-radius: 999px;
     color: var(--accent); font-size: 12px; font-weight: 600;
     padding: 5px 12px; cursor: pointer;
     transition: all 0.2s ease;
   }
   .sono-add-btn:hover:not(:disabled) {
-    background: oklch(0.83 0.045 78 /0.2);
-    border-color: oklch(0.83 0.045 78 /0.35);
+    background: rgba(242,242,240,0.2);
+    border-color: rgba(242,242,240,0.35);
   }
   .sono-add-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -952,8 +952,8 @@ window.firebaseConfig = {
     transition: all 0.15s ease;
   }
   .day-btn.active {
-    background: oklch(0.83 0.045 78 /0.18);
-    border-color: oklch(0.83 0.045 78 /0.35);
+    background: rgba(242,242,240,0.18);
+    border-color: rgba(242,242,240,0.35);
     color: var(--accent);
   }
 
@@ -985,13 +985,13 @@ window.firebaseConfig = {
   }
   .sleep-bar {
     flex: 1; min-width: 0;
-    background: oklch(0.83 0.045 78 /0.18);
+    background: rgba(242,242,240,0.18);
     border-radius: 4px 4px 0 0;
     position: relative;
     transition: background 0.2s ease;
   }
   .sleep-bar.empty { background: rgba(255,255,255,0.04); }
-  .sleep-bar:hover { background: oklch(0.83 0.045 78 /0.32); }
+  .sleep-bar:hover { background: rgba(242,242,240,0.32); }
   .sleep-chart-labels {
     display: flex; gap: 4px;
     margin-top: 6px;
@@ -1077,7 +1077,7 @@ window.firebaseConfig = {
       rgba(255,255,255,0.05) calc(25% - 1px), rgba(255,255,255,0.05) 25%
     );
   }
-  .tl-day.today { background-color: oklch(0.83 0.045 78 /0.05); }
+  .tl-day.today { background-color: rgba(242,242,240,0.05); }
   .tl-block {
     position: absolute; left: 2px; right: 2px;
     border-radius: 3px;
@@ -1087,11 +1087,11 @@ window.firebaseConfig = {
   .tl-block.focus.approx {
     background: repeating-linear-gradient(
       45deg, var(--accent), var(--accent) 4px,
-      oklch(0.83 0.045 78 /0.45) 4px, oklch(0.83 0.045 78 /0.45) 8px
+      rgba(242,242,240,0.45) 4px, rgba(242,242,240,0.45) 8px
     );
     opacity: 0.75;
   }
-  .tl-block.sleep { background: oklch(0.70 0.06 250); opacity: 0.85; }
+  .tl-block.sleep { background: #7d8ea1; opacity: 0.85; }
   .agenda-legend {
     display: flex; gap: 18px; justify-content: center;
     margin-bottom: 14px;
@@ -1102,7 +1102,7 @@ window.firebaseConfig = {
     border-radius: 3px; margin-right: 5px; vertical-align: middle;
   }
   .agenda-dot.focus { background: var(--accent); }
-  .agenda-dot.sleep { background: oklch(0.70 0.06 250); }
+  .agenda-dot.sleep { background: #7d8ea1; }
 
   /* ====== Calendário (planner mensal) ====== */
   .cal-view-toggle {
@@ -1144,7 +1144,7 @@ window.firebaseConfig = {
     font-variant-numeric: tabular-nums; color: var(--text); border-radius: 12px;
   }
   /* Hoje: chip champagne preenchido */
-  .cal-week-day.today .cal-week-daynum { background: var(--accent); color: oklch(0.20 0.02 78); box-shadow: 0 4px 14px oklch(0.83 0.045 78 / 0.30); }
+  .cal-week-day.today .cal-week-daynum { background: var(--accent); color: #0d0d0e; box-shadow: 0 4px 14px rgba(242,242,240,0.30); }
   .cal-week-day.today .cal-week-weekday { color: var(--accent); }
   /* Corpo direito */
   .cal-week-body { min-width: 0; padding-top: 2px; }
@@ -1153,7 +1153,7 @@ window.firebaseConfig = {
   .cal-week-summary span { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
   .cal-week-summary i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
   .cal-week-summary i.focus { background: var(--accent); }
-  .cal-week-summary i.sleep { background: oklch(0.70 0.06 250); }
+  .cal-week-summary i.sleep { background: #7d8ea1; }
   .cal-week-events { display: flex; flex-direction: column; gap: 6px; }
   .cal-week-event {
     font-size: 13px; color: var(--text); line-height: 1.35;
@@ -1169,12 +1169,12 @@ window.firebaseConfig = {
   .cal-week-day.empty { padding-top: 9px; padding-bottom: 9px; }
   .cal-week-day.empty .cal-week-daynum { color: var(--text-subtle); font-weight: 600; }
   .cal-week-day.empty .cal-week-weekday { color: oklch(0.44 0.006 80); }
-  .cal-week-day.empty.today .cal-week-daynum { color: oklch(0.20 0.02 78); }
+  .cal-week-day.empty.today .cal-week-daynum { color: #0d0d0e; }
   /* Fins de semana recuam levemente (hoje vence) */
   .cal-week-day.weekend { background: oklch(0.145 0.004 70 / 0.4); }
   .cal-week-day.weekend .cal-week-daynum { color: var(--text-muted); }
   .cal-week-day.weekend:hover { background: var(--card-elev); }
-  .cal-week-day.today.weekend .cal-week-daynum { color: oklch(0.20 0.02 78); }
+  .cal-week-day.today.weekend .cal-week-daynum { color: #0d0d0e; }
 
   .cal-weekdays {
     display: grid; grid-template-columns: repeat(7, 1fr);
@@ -1210,7 +1210,7 @@ window.firebaseConfig = {
   .cal-events { display: flex; flex-direction: column; gap: 2px; overflow: hidden; flex: 1; }
   .cal-event {
     font-size: 9px; line-height: 1.25;
-    background: oklch(0.83 0.045 78 /0.16);
+    background: rgba(242,242,240,0.16);
     color: var(--text);
     border-radius: 3px; padding: 1px 4px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -1220,7 +1220,7 @@ window.firebaseConfig = {
   .cal-dots { display: flex; gap: 3px; margin-top: 2px; }
   .cal-dot { width: 5px; height: 5px; border-radius: 50%; }
   .cal-dot.focus { background: var(--accent); }
-  .cal-dot.sleep { background: oklch(0.70 0.06 250); }
+  .cal-dot.sleep { background: #7d8ea1; }
 
   /* Modal do dia */
   .day-summary {
@@ -1235,7 +1235,7 @@ window.firebaseConfig = {
   }
   .day-summary .chip i { width: 7px; height: 7px; border-radius: 50%; }
   .day-summary .chip i.focus { background: var(--accent); }
-  .day-summary .chip i.sleep { background: oklch(0.70 0.06 250); }
+  .day-summary .chip i.sleep { background: #7d8ea1; }
   .day-event-item {
     display: flex; align-items: center; gap: 10px;
     padding: 9px 0;
@@ -1282,18 +1282,18 @@ window.firebaseConfig = {
 
   /* Sync UI */
   .sync-trigger {
-    background: oklch(0.83 0.045 78 /0.12);
-    border: 1px solid oklch(0.83 0.045 78 /0.2);
+    background: rgba(242,242,240,0.12);
+    border: 1px solid rgba(242,242,240,0.2);
     border-radius: 999px;
     color: var(--accent); font-size: 12px; font-weight: 600;
     padding: 6px 14px; cursor: pointer;
     letter-spacing: 0.02em;
     transition: all 0.2s ease;
   }
-  .sync-trigger:hover { background: oklch(0.83 0.045 78 /0.2); border-color: oklch(0.83 0.045 78 /0.35); }
+  .sync-trigger:hover { background: rgba(242,242,240,0.2); border-color: rgba(242,242,240,0.35); }
   .sync-trigger.connected {
-    background: rgba(52,211,153,0.12);
-    border-color: rgba(52,211,153,0.25);
+    background: rgba(154,208,165,0.12);
+    border-color: rgba(154,208,165,0.25);
     color: var(--success);
   }
   .sync-trigger.connected::before { content: '● '; }
@@ -1319,7 +1319,7 @@ window.firebaseConfig = {
     border-radius: 8px;
     font-family: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
     font-size: 12px;
-    color: oklch(0.83 0.045 78);
+    color: #f2f2f0;
     word-break: break-all;
     text-align: center;
     margin-bottom: 12px;
@@ -1491,7 +1491,7 @@ window.firebaseConfig = {
     background: linear-gradient(90deg, var(--accent-2), var(--accent));
     transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
   }
-  .plan-bar-fill.done { background: linear-gradient(90deg, #34d399, #6ee7b7); }
+  .plan-bar-fill.done { background: linear-gradient(90deg, #9ad0a5, #b5dcc0); }
   .plan-today-cats { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
   .plan-cat-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; }
   .plan-cat-name { font-size: 12.5px; color: var(--text); font-weight: 500; }
@@ -1559,7 +1559,7 @@ window.firebaseConfig = {
   }
   .plan-h2-link {
     display: flex; align-items: center; gap: 13px;
-    background: linear-gradient(135deg, oklch(0.83 0.045 78 /0.10), rgba(167,139,250,0.05)), var(--card);
+    background: linear-gradient(135deg, rgba(242,242,240,0.10), rgba(255,255,255,0.03)), var(--card);
     border: 1px solid var(--border-strong); border-radius: 16px;
     padding: 15px 16px; margin-bottom: 14px; text-decoration: none;
     transition: border-color 0.15s ease, transform 0.1s ease;
@@ -1641,7 +1641,7 @@ window.firebaseConfig = {
     font: 400 13px/1.55 inherit; background: oklch(0.21 0.005 70); color: var(--text);
     outline: none; min-height: 44px; resize: vertical; font-family: inherit;
   }
-  .h2-ta:focus { border-color: oklch(0.83 0.045 78 / 0.5); }
+  .h2-ta:focus { border-color: rgba(242,242,240,0.5); }
   .h2-ta::placeholder { color: var(--text-subtle); }
   .h2-score {
     width: 58px; text-align: center; padding: 6px 4px; border-radius: 7px;
@@ -1663,7 +1663,7 @@ window.firebaseConfig = {
     overflow: hidden; margin-top: 14px; box-shadow: 0 16px 40px oklch(0 0 0 / 0.18);
   }
   .h2-obj-head { display: flex; align-items: center; gap: 10px; padding: 14px 14px 8px; }
-  .h2-obj-id { font: 600 10.5px var(--h2-mono); color: var(--accent); border: 1px solid oklch(0.83 0.045 78 / 0.4); background: transparent; padding: 3px 7px; border-radius: 6px; flex: none; }
+  .h2-obj-id { font: 600 10.5px var(--h2-mono); color: var(--accent); border: 1px solid rgba(242,242,240,0.4); background: transparent; padding: 3px 7px; border-radius: 6px; flex: none; }
   .h2-obj-title { flex: 1; min-width: 0; border: none; background: transparent; outline: none; color: var(--text); font-size: 15px; font-weight: 600; line-height: 1.35; font-family: var(--h2-serif); }
   .h2-obj-title::placeholder { color: var(--text-subtle); font-weight: 400; }
   .h2-kr {
@@ -1678,7 +1678,7 @@ window.firebaseConfig = {
   .h2-kr-meta { display: flex; gap: 16px; margin: 9px 0 4px; font: 500 12px var(--h2-mono); color: var(--text); flex-wrap: wrap; }
   .h2-kr-meta b { color: var(--text-subtle); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; font-size: 9.5px; margin-right: 5px; }
   .h2-atual { width: 100%; padding: 10px; border: 1px solid oklch(0.36 0.006 70 / 0.5); border-radius: 10px; font: 500 12.5px var(--h2-mono); background: oklch(0.21 0.005 70); color: var(--text); outline: none; text-align: center; }
-  .h2-atual:focus { border-color: oklch(0.83 0.045 78 / 0.5); }
+  .h2-atual:focus { border-color: rgba(242,242,240,0.5); }
   .h2-scoregrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
   @media (max-width: 480px) { .h2-scoregrid { grid-template-columns: 1fr; } }
   .h2-add-btn {
@@ -1715,7 +1715,7 @@ window.firebaseConfig = {
   .h2-cov-q .h2-check { display: none; }
   .h2-cov-q::before { content: '○ '; white-space: pre; }
   .h2-cov-q:has(.h2-check:checked) {
-    background: oklch(0.83 0.045 78 / 0.14); border-color: oklch(0.83 0.045 78 / 0.5); color: var(--accent);
+    background: rgba(242,242,240,0.14); border-color: rgba(242,242,240,0.5); color: var(--accent);
   }
   .h2-cov-q:has(.h2-check:checked)::before { content: '✓ '; }
   .h2-nota-in { text-align: left; font-size: 12px; font-family: inherit; }
@@ -1727,7 +1727,7 @@ window.firebaseConfig = {
   .h2-cov-tierh { display: flex; align-items: center; gap: 9px; margin: 18px 0 8px; }
   .h2-cov-tierh .h2-note { font-size: 11px; }
   .h2-cov-card { display: flex; align-items: flex-start; gap: 11px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 13px; margin-bottom: 8px; }
-  .h2-cov-card.star { border-color: rgba(251,191,36,0.35); }
+  .h2-cov-card.star { border-color: rgba(217,197,138,0.35); }
   .h2-cov-main { flex: 1; min-width: 0; }
   .h2-cov-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .h2-cov-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 5px; line-height: 1.45; }
@@ -1849,7 +1849,7 @@ window.firebaseConfig = {
     background: linear-gradient(180deg, var(--accent), var(--accent-2));
     border-radius: 0 0 5px 5px; transition: height 0.4s ease;
   }
-  .wr-day-fill.met { background: linear-gradient(180deg, #6ee7b7, #34d399); }
+  .wr-day-fill.met { background: linear-gradient(180deg, #b5dcc0, #9ad0a5); }
   .wr-day-target { position: absolute; left: -1px; right: -1px; height: 0; border-top: 2px dashed var(--text-subtle); z-index: 2; }
   .wr-day.today .wr-day-track { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-glow); }
   .wr-day.future { opacity: 0.4; }
@@ -1870,9 +1870,9 @@ window.firebaseConfig = {
     --card-elev: oklch(0.235 0.005 70);
     --border: oklch(0.34 0.006 70 / 0.35);
     --border-strong: oklch(0.40 0.006 70 / 0.55);
-    --accent: oklch(0.83 0.045 78);
-    --accent-2: oklch(0.78 0.05 74);
-    --accent-glow: oklch(0.83 0.045 78 / 0.25);
+    --accent: #f2f2f0;
+    --accent-2: #d8d8d4;
+    --accent-glow: rgba(242,242,240,0.25);
     --text: oklch(0.95 0.005 85);
     --text-muted: oklch(0.62 0.006 80);
     --text-subtle: oklch(0.54 0.006 80);
@@ -1901,7 +1901,7 @@ window.firebaseConfig = {
   .focus-card::before {
     content: ''; position: absolute; top: -30%; left: 50%; transform: translateX(-50%);
     width: 70%; height: 60%; border-radius: 50%;
-    background: radial-gradient(circle, oklch(0.83 0.045 78 / 0.12), transparent 70%);
+    background: radial-gradient(circle, rgba(242,242,240,0.12), transparent 70%);
     filter: blur(30px); pointer-events: none;
   }
   .focus-eyebrow {
@@ -1931,7 +1931,7 @@ window.firebaseConfig = {
     transition: all 0.15s ease;
   }
   .preset-pill:hover { color: var(--text-muted); border-color: var(--border-strong); }
-  .preset-pill.active { border-color: oklch(0.83 0.045 78 / 0.5); background: oklch(0.83 0.045 78 / 0.14); color: var(--accent); }
+  .preset-pill.active { border-color: rgba(242,242,240,0.5); background: rgba(242,242,240,0.14); color: var(--accent); }
   .cat-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; flex: none; }
   .category-chip::before { display: none; } /* dot antigo (substituído pelo .cat-dot) */
   .category-chip {
@@ -1945,8 +1945,8 @@ window.firebaseConfig = {
     width: 100%; margin-top: clamp(20px, 5vw, 30px); padding: 18px;
     border: none; border-radius: 18px;
     background: linear-gradient(180deg, oklch(0.92 0.035 82), oklch(0.85 0.045 76));
-    box-shadow: 0 10px 26px oklch(0.83 0.045 78 / 0.24), inset 0 1px 0 oklch(0.99 0.02 88 / 0.5);
-    color: oklch(0.18 0.01 80); font-size: 16px; font-weight: 600; letter-spacing: 0.01em;
+    box-shadow: 0 10px 26px rgba(242,242,240,0.24), inset 0 1px 0 oklch(0.99 0.02 88 / 0.5);
+    color: #131313; font-size: 16px; font-weight: 600; letter-spacing: 0.01em;
     transition: transform 0.15s ease, filter 0.2s ease;
   }
   #startBtn:hover { filter: brightness(1.05); }
@@ -1962,7 +1962,7 @@ window.firebaseConfig = {
   @keyframes tmr-breathe { 0%, 100% { opacity: 0.35; transform: translate(-50%, -50%) scale(0.92); } 50% { opacity: 0.7; transform: translate(-50%, -50%) scale(1.06); } }
   .ring-glow {
     position: absolute; top: 50%; left: 50%; width: 62%; height: 62%; border-radius: 50%;
-    background: radial-gradient(circle, oklch(0.83 0.045 78 / 0.3), transparent 70%);
+    background: radial-gradient(circle, rgba(242,242,240,0.3), transparent 70%);
     filter: blur(28px); animation: tmr-breathe 6s ease-in-out infinite; pointer-events: none;
   }
   .timer-ring { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -1971,7 +1971,7 @@ window.firebaseConfig = {
     fill: none; stroke: url(#ringGrad); stroke-width: 4; stroke-linecap: round;
     stroke-dasharray: 565.49; transform: rotate(-90deg); transform-origin: center;
     transition: stroke-dashoffset 0.95s linear;
-    filter: drop-shadow(0 0 6px oklch(0.83 0.045 78 / 0.5));
+    filter: drop-shadow(0 0 6px rgba(242,242,240,0.5));
   }
   .timer-center { display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 1; }
   .timer-display {
@@ -2018,7 +2018,7 @@ window.firebaseConfig = {
   }
   .plan-today-day { font-size: 16px; }
   .plan-today-day small { font-size: 16px; }
-  .plan-today-pct { font-size: 15px; color: oklch(0.86 0.04 80); }
+  .plan-today-pct { font-size: 15px; color: var(--text); }
   .plan-today-big { font-size: 40px; font-weight: 600; letter-spacing: -0.01em; }
   .plan-today-big .of { font-size: 20px; }
   .plan-today-label { font-size: 13px; margin-bottom: 16px; }
@@ -2060,9 +2060,9 @@ window.firebaseConfig = {
   }
   .dp-add-btn {
     width: 54px; height: 50px; border-radius: 14px;
-    background: oklch(0.88 0.03 80); color: oklch(0.18 0.01 80); font-size: 26px;
+    background: #f2f2f0; color: #131313; font-size: 26px;
   }
-  .dp-add-btn:hover { filter: none; background: oklch(0.92 0.03 80); }
+  .dp-add-btn:hover { filter: none; background: #dcdcd8; }
   /* Backlog central de demandas (agrupado por categoria) */
   .bk-hint { margin-left: auto; font-size: 10.5px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--text-subtle); }
   .bk-add { flex-wrap: wrap; }
@@ -2132,13 +2132,13 @@ window.firebaseConfig = {
     background: oklch(0.21 0.005 70); border: 1px solid oklch(0.36 0.006 70 / 0.55);
     color: var(--text); font: inherit; font-size: 15px; outline: none; transition: border-color 0.15s ease;
   }
-  .ag-input:focus { border-color: oklch(0.83 0.045 78 / 0.6); }
+  .ag-input:focus { border-color: rgba(242,242,240,0.6); }
   .ag-input::placeholder { color: var(--text-subtle); }
   .ag-primary {
     width: 100%; padding: 15px; border: none; border-radius: 14px; cursor: pointer;
     background: linear-gradient(180deg, oklch(0.92 0.035 82), oklch(0.85 0.045 76));
-    box-shadow: 0 10px 26px oklch(0.83 0.045 78 / 0.24), inset 0 1px 0 oklch(0.99 0.02 88 / 0.5);
-    color: oklch(0.18 0.01 80); font: inherit; font-size: 15.5px; font-weight: 600;
+    box-shadow: 0 10px 26px rgba(242,242,240,0.24), inset 0 1px 0 oklch(0.99 0.02 88 / 0.5);
+    color: #131313; font: inherit; font-size: 15.5px; font-weight: 600;
     transition: filter 0.15s ease, transform 0.1s ease;
   }
   .ag-primary:hover { filter: brightness(1.05); }
@@ -2176,11 +2176,236 @@ window.firebaseConfig = {
   .account-avatar {
     width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
     display: grid; place-items: center;
-    background: var(--accent); color: oklch(0.20 0.02 78); font-size: 13px; font-weight: 700;
+    background: var(--accent); color: #0d0d0e; font-size: 13px; font-weight: 700;
   }
   .account-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .account-name { font-size: 13px; font-weight: 500; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
   @media (max-width: 560px) { .account-name { display: none; } .account-chip { padding: 4px; } }
+
+  /* ============================================================
+     MONÓLITO (Claude Design, jul/2026): monocromático editorial.
+     Camada de override — vence o "modelinho" champagne acima.
+     Preto #0d0d0e, creme #f2f2f0, hairlines brancas translúcidas,
+     zero cor de accent; seções flat separadas por hairline em vez
+     de cards; pílulas outline; abas texto com sublinhado.
+     ============================================================ */
+  :root {
+    --bg: #0d0d0e;
+    --card: #101012;
+    --card-elev: #1a1a1d;
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.16);
+    --accent: #f2f2f0;
+    --accent-2: #d8d8d4;
+    --accent-glow: rgba(255,255,255,0.10);
+    --text: #f2f2f0;
+    --text-muted: #8a8a90;
+    --text-subtle: #5b5b62;
+    --danger: #ff8a80;
+    --warn: #d9c58a;
+    --success: #9ad0a5;
+    --hairline: rgba(255,255,255,0.08);
+  }
+  body {
+    background: var(--bg);
+    font-family: 'Hanken Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+    letter-spacing: 0;
+  }
+
+  /* Cabeçalho: título tracked centrado, chip discreto */
+  .app-header h1 {
+    font-size: 12px; font-weight: 500; letter-spacing: 0.35em; text-transform: uppercase;
+    color: var(--text-subtle); text-align: center; width: 100%;
+  }
+  .account-chip { background: transparent; border-color: var(--border); }
+  .account-chip:hover { background: var(--card-elev); }
+  .account-avatar { background: var(--accent); color: #0d0d0e; }
+
+  /* Abas: texto puro com sublinhado no ativo, hairline embaixo da barra */
+  .tabs {
+    background: transparent; border: none; border-radius: 0; padding: 0;
+    gap: 20px; box-shadow: none; backdrop-filter: none;
+    border-bottom: 1px solid var(--hairline); margin-bottom: 22px;
+  }
+  .tab {
+    flex: 0 0 auto; padding: 10px 1px 13px; border: none; border-radius: 0;
+    font-size: 14.5px; font-weight: 400; color: var(--text-subtle); position: relative;
+  }
+  .tab:hover { color: var(--text-muted); background: transparent; }
+  .tab.active {
+    color: var(--text); font-weight: 600;
+    background: transparent; border: none; box-shadow: none;
+  }
+  .tab.active::after {
+    /* bottom:0 (não -1px): o container tem overflow-x:auto e recortava metade do traço */
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0;
+    height: 2px; background: var(--text);
+  }
+
+  /* Seções flat: cards principais viram blocos sem moldura, separados por hairline */
+  .chart-card, .agenda-card, .plan-today-card, .plan-grid-card, .tasks-card,
+  .weekreview-card, .sono-section, .today-card, .cal-week-list {
+    background: transparent; border: none; border-radius: 0; box-shadow: none;
+    padding-left: 0; padding-right: 0;
+    border-top: 1px solid var(--hairline);
+  }
+  /* o primeiro bloco flat de cada painel não precisa de hairline por cima
+     (escopado às classes flat — genérico decapitava .h2-subnav e .remote-timer-banner) */
+  .panel > .chart-card:first-child, .panel > .agenda-card:first-child,
+  .panel > .plan-today-card:first-child, .panel > .tasks-card:first-child,
+  .panel > .weekreview-card:first-child, .panel > .sono-section:first-child,
+  .panel > .today-card:first-child, .panel > .goals-card:first-child { border-top: none; }
+
+  /* Hero do timer: flat, numeral gigante fino, sem glow */
+  .focus-card { background: transparent; border: none; box-shadow: none; border-radius: 0; }
+  .focus-card::before { display: none; }
+  #focusIdle .picker-value {
+    font-weight: 200; background: none; -webkit-background-clip: initial; background-clip: initial;
+    -webkit-text-fill-color: var(--text); color: var(--text);
+  }
+  .preset-pill { border-color: rgba(255,255,255,0.2); color: var(--text-muted); }
+  .preset-pill:hover { color: var(--text); border-color: rgba(255,255,255,0.35); }
+  .preset-pill.active { background: var(--accent); border-color: var(--accent); color: #0d0d0e; font-weight: 600; }
+  .category-chip { background: transparent; border: none; padding: 6px 8px; }
+  .cat-dot { background: var(--text); }
+  #startBtn {
+    background: var(--accent); box-shadow: none; border-radius: 26px; color: #131313;
+  }
+  #startBtn:hover { filter: brightness(0.97); }
+
+  /* Botões primários e de alerta: creme flat */
+  .btn-primary, .alert-confirm, .ag-primary {
+    background: var(--accent); color: #131313; box-shadow: none; border-radius: 12px;
+  }
+  .btn-primary:hover, .alert-confirm:hover { filter: brightness(0.97); box-shadow: none; }
+  .btn { box-shadow: none; }
+  .alert-check { background: var(--accent); color: #0d0d0e; box-shadow: none; }
+
+  /* Pílulas segmentadas (filtros de período, Mês/Semana do calendário) */
+  .range-tabs, .cal-view-toggle { background: transparent; border: none; padding: 0; gap: 8px; }
+  .range-tab, .cal-view-toggle button {
+    border: 1px solid rgba(255,255,255,0.2); border-radius: 999px; background: transparent;
+    color: var(--text-muted);
+  }
+  .range-tab.active, .cal-view-toggle button.active {
+    background: var(--accent); border-color: var(--accent); color: #0d0d0e;
+    font-weight: 600; box-shadow: none;
+  }
+
+  /* Células com moldura hairline (grid de stats, dias do calendário, grade do plano) */
+  .stat-box { background: transparent; border: 1px solid var(--hairline); border-radius: 12px; }
+  .cal-cell { background: transparent; border: 1px solid var(--hairline); }
+  .cal-cell.today { border-color: var(--text); box-shadow: none; }
+  .plan-grid-input { background: transparent; border-color: var(--hairline); }
+  .plan-grid-input.today { border-color: var(--text); box-shadow: none; }
+  .agenda-nav-btn { background: transparent; border: 1px solid var(--hairline); }
+
+  /* Barras/progresso: trilho translúcido fino, preenchimento creme */
+  .goal-bar { background: rgba(255,255,255,0.10); }
+  .goal-bar-fill { background: var(--accent); }
+  .goal-bar-fill.complete { background: var(--accent); }
+
+  /* Toggles: knob branco, trilho on translúcido forte */
+  .toggle-slider { background: rgba(255,255,255,0.14); }
+  .toggle input:checked + .toggle-slider { background: rgba(255,255,255,0.35); }
+
+  /* Modais e alertas continuam painéis elevados (precisam de contraste sobre o overlay) */
+  .modal-content, .alert-box {
+    background: #131315; border: 1px solid var(--border); box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+  }
+  .sync-danger-btn { color: var(--danger); border-color: #5c2b2e; background: rgba(42,18,21,0.5); }
+
+  /* Semestre: mantém o editorial serif/mono, mas com molduras hairline e sem champagne */
+  .h2-card, .h2-obj, .h2-table-wrap, .h2-cov-card {
+    background: transparent; border: 1px solid var(--hairline); box-shadow: none;
+  }
+  .h2-cov-q { background: transparent; border: 1px solid var(--hairline); }
+  .h2-kr .h2-ta, .h2-kr .h2-atual { background: rgba(255,255,255,0.03); }
+  .h2-ta { background: rgba(255,255,255,0.03); border-color: var(--hairline); }
+  .h2-ta:focus { border-color: rgba(255,255,255,0.35); }
+  .h2-subnav { box-shadow: none; }
+  .h2-chip.active { background: var(--accent); color: #0d0d0e; border-color: var(--accent); }
+
+  /* Timeline semanal do calendário */
+  .cal-week-day.today .cal-week-daynum { background: var(--accent); color: #0d0d0e; box-shadow: none; }
+  .cal-week-day.weekend { background: rgba(255,255,255,0.02); }
+  .wr-day.today .wr-day-track { box-shadow: none; }
+
+  /* Portão de login */
+  #authGate { background: var(--bg); }
+  #authGate .ag-card { background: #111113; border: 1px solid var(--border); box-shadow: none; }
+  .ag-primary { box-shadow: none; }
+  .ag-google { background: transparent; border: 1px solid var(--border-strong); }
+  .ag-input { background: rgba(255,255,255,0.03); border-color: var(--hairline); }
+
+  /* Sincronização/config */
+  .sync-trigger { background: transparent; border: 1px solid var(--border-strong); border-radius: 999px; }
+  .google-signin-btn { box-shadow: none; }
+
+  /* Metas do mês / Reta final / opções: seções flat como o resto */
+  .goals-card, .burndown-card, .options-card, .settings-card {
+    background: transparent; border: none; border-radius: 0; box-shadow: none;
+    padding-left: 0; padding-right: 0; border-top: 1px solid var(--hairline);
+  }
+  .goals-tasks-hint { background: transparent; border: none; padding-left: 0; }
+
+  /* Botões de adicionar: de caixa tracejada para link sublinhado (linguagem do design) */
+  .goals-add-btn, .manual-session-btn, .h2-add-btn {
+    background: transparent; border: none; border-radius: 0; width: auto; padding: 4px 0;
+    color: var(--text-muted); text-decoration: underline; text-underline-offset: 4px;
+    text-decoration-color: rgba(255,255,255,0.3); font-size: 13.5px; text-align: left;
+  }
+  .goals-add-btn:hover, .manual-session-btn:hover, .h2-add-btn:hover {
+    color: var(--text); border: none; background: transparent; text-decoration-color: var(--text);
+  }
+  .whoop-card { background: transparent; border: 1px solid var(--hairline); border-radius: 12px; }
+
+  /* Checkboxes das opções viram toggles pill (linguagem do design) */
+  .option input[type="checkbox"] {
+    appearance: none; -webkit-appearance: none;
+    width: 44px; height: 24px; border-radius: 999px;
+    background: rgba(255,255,255,0.14); position: relative;
+    transition: background 0.2s ease; outline: none; border: none;
+  }
+  .option input[type="checkbox"]::after {
+    content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%;
+    background: #f2f2f0; top: 3px; left: 3px; transition: transform 0.2s ease;
+  }
+  .option input[type="checkbox"]:checked { background: rgba(255,255,255,0.38); }
+  .option input[type="checkbox"]:checked::after { transform: translateX(20px); }
+  .option label { font-weight: 400; }
+
+  /* Bloco de opções do Timer: flat */
+  .options {
+    background: transparent; border: none; border-radius: 0;
+    padding-left: 0; padding-right: 0; border-top: 1px solid var(--hairline);
+  }
+  /* Timer rodando: sem glow nem gradiente dourado — anel branco fino, dígitos flat */
+  .ring-glow { display: none; }
+  .ring-progress { filter: none; }
+  .ring-progress.paused { filter: none; }
+  .ring-progress.urgent { stroke: var(--warn); filter: none; }
+  .ring-bg { stroke: rgba(255,255,255,0.10); }
+  .timer-display {
+    background: none; -webkit-background-clip: initial; background-clip: initial;
+    -webkit-text-fill-color: var(--text); color: var(--text); font-weight: 300;
+  }
+  /* text-fill-color vence color na pintura — sem isto a regra .paused ficava morta */
+  .timer-display.paused { -webkit-text-fill-color: var(--warn); color: var(--warn); }
+  /* Retomar (pausado): ação primária em creme flat, não o gradiente verde antigo */
+  .btn-resume {
+    background: var(--accent); color: #131313; border: none; border-radius: 16px;
+    font-weight: 600;
+  }
+  /* Hovers dos modais que sobraram com a paleta antiga (carmim vivo / lavanda) */
+  .cat-delete:hover { background: rgba(255,138,128,0.12); color: var(--danger); }
+  .subcat-del:hover { background: rgba(255,138,128,0.12); }
+  .sync-danger-btn:hover { background: rgba(255,138,128,0.12); }
+  .add-cat-btn:hover { background: #dcdcd8; }
+  /* Gráfico do histórico: colunas quase invisíveis, dado é que desenha a barra */
+  .bar-col { background: rgba(255,255,255,0.03); }
+  .bar-col:hover { background: rgba(255,255,255,0.06); }
+  .bar-col.selected { background: rgba(255,255,255,0.09); }
 </style>
 </head>
 <body>
@@ -2188,7 +2413,7 @@ window.firebaseConfig = {
   <div class="ag-card">
     <div class="ag-loading">Carregando…</div>
     <div class="ag-form">
-      <div class="ag-brand">⏱️ Timer de Sessões</div>
+      <div class="ag-brand">Timer de Sessões</div>
       <div class="ag-sub" id="agSub">Entre para acessar suas sessões, metas e sincronização.</div>
       <div class="ag-field">
         <label class="ag-label" for="agEmail">E-mail</label>
@@ -2217,7 +2442,7 @@ window.firebaseConfig = {
 </div>
 <div class="container">
   <div class="app-header">
-    <h1>⏱️ Timer de Sessões</h1>
+    <h1>Timer de Sessões</h1>
     <button class="account-chip" id="accountChip" title="Sua conta" style="display:none">
       <span class="account-avatar" id="accountAvatar"></span>
       <span class="account-name" id="accountName"></span>
@@ -2270,8 +2495,8 @@ window.firebaseConfig = {
         <svg class="timer-ring" viewBox="0 0 200 200">
           <defs>
             <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stop-color="oklch(0.93 0.05 84)"/>
-              <stop offset="100%" stop-color="oklch(0.78 0.05 72)"/>
+              <stop offset="0%" stop-color="#f2f2f0"/>
+              <stop offset="100%" stop-color="#c9c9c5"/>
             </linearGradient>
           </defs>
           <circle class="ring-bg" cx="100" cy="100" r="90"/>
@@ -2337,7 +2562,7 @@ window.firebaseConfig = {
         <div id="goalsList"></div>
         <button class="goals-add-btn" id="addGoalBtn">+ Meta de horas por categoria</button>
 
-        <div class="goals-tasks-hint">📋 Suas tarefas agora ficam na aba <b>Plano</b>.</div>
+        <div class="goals-tasks-hint">Suas tarefas agora ficam na aba <b>Plano</b>.</div>
       </div>
     </div>
 
@@ -2348,25 +2573,25 @@ window.firebaseConfig = {
       </div>
       <div class="goals-body" id="burndownBody">
         <div id="burndownContent"></div>
-        <button class="goals-add-btn" id="setTargetBtn">🎯 Definir prova / meta de horas</button>
+        <button class="goals-add-btn" id="setTargetBtn">Definir prova / meta de horas</button>
       </div>
     </div>
 
     <div class="options">
       <div class="option">
-        <label for="soundOn">🔊 Notificação sonora</label>
+        <label for="soundOn">Notificação sonora</label>
         <input type="checkbox" id="soundOn" checked>
       </div>
       <div class="option">
-        <label for="visualOn">💡 Notificação visual</label>
+        <label for="visualOn">Notificação visual</label>
         <input type="checkbox" id="visualOn" checked>
       </div>
       <div class="option">
-        <label for="keepScreenOn">🔆 Manter tela ligada</label>
+        <label for="keepScreenOn">Manter tela ligada</label>
         <input type="checkbox" id="keepScreenOn">
       </div>
       <div class="option">
-        <label>🔄 Sincronização</label>
+        <label>Sincronização</label>
         <button class="sync-trigger" id="syncBtn">Conta</button>
       </div>
     </div>
@@ -2455,7 +2680,7 @@ window.firebaseConfig = {
           Conecte sua conta Whoop pra importar o sono automaticamente.
         </p>
         <button class="sono-add-btn" id="whoopConnectBtn">Conectar Whoop</button>
-        <button class="sono-add-btn" id="whoopSyncBtn" style="display:none">🔄 Sincronizar agora</button>
+        <button class="sono-add-btn" id="whoopSyncBtn" style="display:none">Sincronizar agora</button>
         <button class="sync-danger-btn" id="whoopDisconnectBtn" style="display:none; margin-top: 8px;">Desconectar</button>
       </div>
     </div>
@@ -2514,7 +2739,7 @@ window.firebaseConfig = {
       <div class="plan-week-total" id="planWeekTotal"></div>
     </div>
 
-    <div class="plan-hint">💡 Defina quanto quer focar em cada dia. O card de cima mostra, todo dia, o planejado contra o que você já fez. Fim de semana pode ficar zerado.</div>
+    <div class="plan-hint">Defina quanto quer focar em cada dia. O card de cima mostra, todo dia, o planejado contra o que você já fez. Fim de semana pode ficar zerado.</div>
   </div>
 
   <div class="panel" id="semestre-panel">
@@ -2800,7 +3025,7 @@ function drawPipFrame() {
   const W = pipCanvas.width, H = pipCanvas.height;
   const cx = W / 2, cy = H / 2, r = 138;
   const lw = 22;
-  ctx.fillStyle = '#16130f';
+  ctx.fillStyle = '#0d0d0e';
   ctx.fillRect(0, 0, W, H);
 
   // Anel de fundo
@@ -2815,7 +3040,7 @@ function drawPipFrame() {
   if (ratio > 0) {
     ctx.beginPath();
     ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + ratio * Math.PI * 2);
-    ctx.strokeStyle = state.paused ? '#fbbf24' : '#e2cdaa';
+    ctx.strokeStyle = state.paused ? '#d9c58a' : '#f2f2f0';
     ctx.lineWidth = lw;
     ctx.lineCap = 'round';
     ctx.stroke();
@@ -2824,13 +3049,13 @@ function drawPipFrame() {
   // Tempo no centro
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = state.paused ? '#fbbf24' : '#fff';
+  ctx.fillStyle = state.paused ? '#d9c58a' : '#fff';
   ctx.font = '600 84px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
   ctx.fillText(display.textContent, cx, cy + 2);
 
   // Status pequeno embaixo do tempo
   if (state.paused) {
-    ctx.fillStyle = '#fbbf24';
+    ctx.fillStyle = '#d9c58a';
     ctx.font = '600 22px -apple-system, sans-serif';
     ctx.fillText('PAUSADO', cx, cy + 64);
   }
@@ -2880,7 +3105,7 @@ async function openDocPiP() {
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
         font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        background: #16130f; color: #f2ede4;
+        background: #0d0d0e; color: #f2ede4;
         height: 100vh; padding: 14px;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center; gap: 12px;
@@ -2889,26 +3114,26 @@ async function openDocPiP() {
       .pip-ring { width: 100%; height: 100%; transform: rotate(-90deg); }
       .pip-ring-bg { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 9; }
       .pip-ring-fill {
-        fill: none; stroke: oklch(0.83 0.045 78); stroke-width: 9; stroke-linecap: round;
+        fill: none; stroke: #f2f2f0; stroke-width: 9; stroke-linecap: round;
         stroke-dasharray: 408.4; stroke-dashoffset: 0;
         transition: stroke-dashoffset 0.5s linear, stroke 0.2s ease;
       }
-      .pip-ring-fill.paused { stroke: #fbbf24; }
+      .pip-ring-fill.paused { stroke: #d9c58a; }
       .pip-center {
         position: absolute; inset: 0;
         display: flex; align-items: center; justify-content: center;
       }
       .pip-time { font-size: 40px; font-weight: 600; color: #f2ede4; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
-      .pip-time.paused { color: #fbbf24; }
+      .pip-time.paused { color: #d9c58a; }
       .pip-controls { display: flex; gap: 10px; align-items: center; }
       .pip-btn {
         width: 46px; height: 46px; border: none; border-radius: 50%;
         cursor: pointer; font-size: 18px;
         display: flex; align-items: center; justify-content: center;
       }
-      .pip-pause { background: oklch(0.83 0.045 78); color: #1e1a12; }
-      .pip-stop { background: rgba(255,255,255,0.08); color: #f87171; }
-      .pip-start { background: #34d399; color: #0a2818; }
+      .pip-pause { background: #f2f2f0; color: #1e1a12; }
+      .pip-stop { background: rgba(255,255,255,0.08); color: #e0a19b; }
+      .pip-start { background: #9ad0a5; color: #0a2818; }
     </style>`;
   pipWindow.document.body.innerHTML = `
     <div class="pip-ring-wrap">
@@ -3626,7 +3851,8 @@ function renderToday() {
 
 // Cores estáveis por categoria (hash do nome → paleta)
 // Paleta quente, harmônica com o tema champagne (charcoal quente) — nada de lavanda/pastel frio
-const CATEGORY_COLORS = ['oklch(0.83 0.045 78)', 'oklch(0.88 0.045 92)', 'oklch(0.75 0.075 45)', 'oklch(0.79 0.055 145)', 'oklch(0.76 0.055 235)', 'oklch(0.76 0.07 340)', 'oklch(0.80 0.09 70)', 'oklch(0.72 0.06 20)'];
+// Monólito: categorias em escala de cinza (distinguíveis por luminosidade, sem cor)
+const CATEGORY_COLORS = ['#f2f2f0', '#b9b9bd', '#8a8a90', '#6e6e74', '#5b5b62', '#a4a4aa', '#7c7c82', '#cfcfd2'];
 function getCategoryColor(category) {
   let hash = 0;
   for (let i = 0; i < category.length; i++) hash = (hash * 31 + category.charCodeAt(i)) | 0;
@@ -3701,7 +3927,7 @@ function updateChartDetail() {
     }).join('');
   const sessCount = countSessionsForDate(selectedDate);
   const sessLine = sessCount > 0
-    ? `<div class="chart-detail-line" style="color:oklch(0.83 0.045 78); font-size:13px; margin-top:4px;"><span>${sessCount === 1 ? '1 sessão de foco' : sessCount + ' sessões de foco'}</span><span>✓</span></div>`
+    ? `<div class="chart-detail-line" style="color:#f2f2f0; font-size:13px; margin-top:4px;"><span>${sessCount === 1 ? '1 sessão de foco' : sessCount + ' sessões de foco'}</span><span>✓</span></div>`
     : '';
   detail.innerHTML = `
     <div class="chart-detail-date">${formatted}</div>
@@ -4588,10 +4814,10 @@ function fireAlarm(alarm) {
   $('#alertCategory').textContent = alarm.label || 'Alarme';
   $('#alertDuration').textContent = alarm.time;
   $('#alertTime').textContent = 'Toque pra silenciar';
-  $('.alert-title') && (document.querySelector('.alert-title').textContent = '⏰ Alarme');
+  $('.alert-title') && (document.querySelector('.alert-title').textContent = 'Alarme');
   overlay.classList.add('active');
   if ('Notification' in window && Notification.permission === 'granted') {
-    try { new Notification('⏰ ' + (alarm.label || 'Alarme'), { body: alarm.time, requireInteraction: true }); }
+    try { new Notification('' + (alarm.label || 'Alarme'), { body: alarm.time, requireInteraction: true }); }
     catch {}
   }
 }
@@ -5058,7 +5284,7 @@ function renderMonthGoal() {
   expEl.textContent = feitoHojeMs > 0 ? formatDuration(feitoHojeMs) : '0min';
   expEl.classList.toggle('ahead', feitoHojeMs >= metaDiariaMs);
   expEl.classList.remove('behind');
-  $('#mgTodaySub').textContent = isWeekend ? 'fim de semana 🌴' : `meta ${formatDuration(metaDiariaMs)}`;
+  $('#mgTodaySub').textContent = isWeekend ? 'fim de semana' : `meta ${formatDuration(metaDiariaMs)}`;
 
   // Direita: progresso no mês
   $('#mgRemaining').textContent = formatDuration(feitoMs);
@@ -5190,7 +5416,7 @@ function renderBurndown() {
   if (!target || !target.category || !target.examDate || !target.targetHours) {
     content.innerHTML = '';
     setBtn.style.display = 'block';
-    setBtn.textContent = '🎯 Definir prova / meta de horas';
+    setBtn.textContent = 'Definir prova / meta de horas';
     return;
   }
   setBtn.style.display = 'none';
@@ -5219,7 +5445,7 @@ function renderBurndown() {
   // Projeção: no ritmo atual, quando chega na meta
   let projHtml = '';
   if (restanteH <= 0) {
-    projHtml = `<div class="bd-projection ahead">🎯 <span class="accent">Meta batida!</span> Você já cumpriu ${formatDuration(feitoMs)} de ${targetH}h.</div>`;
+    projHtml = `<div class="bd-projection ahead"><span class="accent">Meta batida!</span> Você já cumpriu ${formatDuration(feitoMs)} de ${targetH}h.</div>`;
   } else if (diasRestantes < 0) {
     projHtml = `<div class="bd-projection behind">A data da prova já passou. Faltaram <span class="accent">${restanteH.toFixed(0)}h</span> pra meta.</div>`;
   } else if (ritmoAtualH <= 0.1) {
@@ -5231,7 +5457,7 @@ function renderBurndown() {
     const projFmt = dataProj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
     const diffDias = Math.round((exam - dataProj) / msPerDay);
     if (noCaminho) {
-      projHtml = `<div class="bd-projection ahead">No seu ritmo atual (<span class="accent">${ritmoAtualH.toFixed(1)}h/sem</span>), você chega na meta em <span class="accent">${projFmt}</span> — ${diffDias} dia(s) <span class="accent">antes</span> da prova. 👏</div>`;
+      projHtml = `<div class="bd-projection ahead">No seu ritmo atual (<span class="accent">${ritmoAtualH.toFixed(1)}h/sem</span>), você chega na meta em <span class="accent">${projFmt}</span> — ${diffDias} dia(s) <span class="accent">antes</span> da prova.</div>`;
     } else {
       projHtml = `<div class="bd-projection behind">No seu ritmo atual (<span class="accent">${ritmoAtualH.toFixed(1)}h/sem</span>), você só chega na meta em <span class="accent">${projFmt}</span> — ${Math.abs(diffDias)} dia(s) <span class="accent">depois</span> da prova. Precisa subir pra <span class="accent">${ritmoNecessarioH.toFixed(1)}h/sem</span>.</div>`;
     }
@@ -5331,11 +5557,11 @@ function saveEvents(ev) {
 
 // Categorias de evento (com cor) — usadas no Calendário
 const EV_CATS = [
-  { id: 'trabalho', label: 'Trabalho', color: '#93c5fd' },
-  { id: 'pessoal', label: 'Pessoal', color: '#6ee7b7' },
-  { id: 'saude', label: 'Saúde', color: '#f9a8d4' },
-  { id: 'estudo', label: 'Estudo', color: 'oklch(0.83 0.045 78)' },
-  { id: 'financeiro', label: 'Financeiro', color: '#fcd34d' },
+  { id: 'trabalho', label: 'Trabalho', color: '#a8b6c8' },
+  { id: 'pessoal', label: 'Pessoal', color: '#b5dcc0' },
+  { id: 'saude', label: 'Saúde', color: '#c4a9b8' },
+  { id: 'estudo', label: 'Estudo', color: '#f2f2f0' },
+  { id: 'financeiro', label: 'Financeiro', color: '#c8bd9d' },
   { id: 'outro', label: 'Outro', color: '#9ca3b8' },
 ];
 function evCat(id) { return EV_CATS.find(c => c.id === id) || null; }
@@ -5841,7 +6067,7 @@ function renderPlanToday() {
   if (cats.length === 0) {
     card.innerHTML = `
       <div class="plan-today-head"><div class="plan-today-day">Hoje <small>· ${dayName}</small></div></div>
-      <div class="plan-today-empty">Sem plano para hoje ainda. Defina suas horas-alvo na grade abaixo 👇</div>`;
+      <div class="plan-today-empty">Sem plano para hoje ainda. Defina suas horas-alvo na grade abaixo.</div>`;
     return;
   }
 
@@ -5876,7 +6102,7 @@ function renderPlanToday() {
       <div class="plan-today-pct">${Math.round(pct)}%</div>
     </div>
     <div class="plan-today-big">${formatDuration(doneMsTotal)}${hasPlan ? ` <span class="of">/ ${formatDuration(plannedMs)}</span>` : ''}</div>
-    <div class="plan-today-label">${hasPlan ? (complete ? 'meta do dia batida 🎉' : 'foco planejado para hoje') : 'feito hoje (sem meta definida)'}</div>
+    <div class="plan-today-label">${hasPlan ? (complete ? 'meta do dia batida' : 'foco planejado para hoje') : 'feito hoje (sem meta definida)'}</div>
     <div class="plan-bar"><div class="plan-bar-fill ${complete ? 'done' : ''}" style="width:${pct}%"></div></div>
     <div class="plan-today-cats">${rows}</div>`;
 }
@@ -5995,7 +6221,7 @@ function renderTasks() {
           <button class="dp-add-btn" id="bkAddBtn" aria-label="Adicionar demanda">+</button>
         </div>
         <datalist id="bkCats">${allCats.map(x => `<option value="${escapeHtml(x)}"></option>`).join('')}</datalist>
-        ${backlog.length ? groupsHtml : '<div class="dp-empty">Sem demandas no backlog. Despeje tudo aqui 👇</div>'}
+        ${backlog.length ? groupsHtml : '<div class="dp-empty">Sem demandas no backlog. Despeje tudo aqui.</div>'}
       </div>`;
   }
   if (concluidas.length) {
@@ -6160,7 +6386,7 @@ function renderWeekReview() {
   const parts = [];
   if (best && best.doneMs > 0) parts.push(`Melhor dia: <b>${PLAN_DAY_LABELS[best.i]}</b> (${fmtH(best.doneMs / 3600000)})`);
   if (shortfall) parts.push(`faltou em <b>${PLAN_DAY_LABELS[shortfall.d.i]}</b> (−${fmtH(shortfall.miss / 3600000)})`);
-  else if (weekPlanMs > 0 && weekDoneMs >= weekPlanMs) parts.push('meta da semana batida 🎉');
+  else if (weekPlanMs > 0 && weekDoneMs >= weekPlanMs) parts.push('meta da semana batida');
   const note = parts.join(' · ');
 
   const catsHtml = cats.map(x => {
@@ -6334,12 +6560,12 @@ function h2VarTok(v) { return v === 'V' ? H2_TOK.green : v === 'A' ? H2_TOK.gold
 
 // -- Tokens de cor no tema escuro (mapeiam as cores semânticas do original) --
 const H2_TOK = {
-  green: { c: '#34d399', b: 'rgba(52,211,153,0.12)', br: 'rgba(52,211,153,0.32)' },
-  gold: { c: '#fbbf24', b: 'rgba(251,191,36,0.12)', br: 'rgba(251,191,36,0.32)' },
-  red: { c: '#f87171', b: 'rgba(248,113,113,0.12)', br: 'rgba(248,113,113,0.32)' },
+  green: { c: '#9ad0a5', b: 'rgba(154,208,165,0.12)', br: 'rgba(154,208,165,0.32)' },
+  gold: { c: '#d9c58a', b: 'rgba(217,197,138,0.12)', br: 'rgba(217,197,138,0.32)' },
+  red: { c: '#e0a19b', b: 'rgba(224,161,155,0.12)', br: 'rgba(224,161,155,0.32)' },
   gray: { c: '#9ca3b8', b: 'rgba(255,255,255,0.04)', br: 'rgba(255,255,255,0.12)' },
-  blue: { c: '#93c5fd', b: 'rgba(147,197,253,0.12)', br: 'rgba(147,197,253,0.30)' },
-  purple: { c: 'oklch(0.83 0.045 78)', b: 'oklch(0.83 0.045 78 /0.12)', br: 'oklch(0.83 0.045 78 /0.30)' },
+  blue: { c: '#a8b6c8', b: 'rgba(168,182,200,0.12)', br: 'rgba(168,182,200,0.30)' },
+  purple: { c: '#f2f2f0', b: 'rgba(242,242,240,0.12)', br: 'rgba(242,242,240,0.30)' },
 };
 function h2Num(v) { if (v == null) return null; v = ('' + v).replace(',', '.').replace('%', '').trim(); if (v === '') return null; const f = parseFloat(v); return isFinite(f) ? f : null; }
 function h2TierTok(t) { return t === 1 ? H2_TOK.green : t === 2 ? H2_TOK.gold : H2_TOK.gray; }
@@ -6436,7 +6662,7 @@ function h2SecRegulatorio() {
     <div class="h2-eyebrow">06 · gatilhos das teses</div>
     <h1 class="h2-h1">Calendário regulatório — H2 / 2026</h1>
     <p class="h2-lead">Eventos regulatórios do setor elétrico são gatilhos das teses — bloqueie-os como capacidade comprometida. Fonte: MME/ANEEL/CCEE.</p>
-    <button id="h2RegAdd" style="margin-top:14px;padding:10px 16px;border-radius:10px;border:1px solid var(--border-strong);background:var(--card-elev);color:var(--text);font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer">📅 Adicionar os 8 ao calendário</button>
+    <button id="h2RegAdd" style="margin-top:14px;padding:10px 16px;border-radius:10px;border:1px solid var(--border-strong);background:var(--card-elev);color:var(--text);font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer">Adicionar os 8 ao calendário</button>
     ${cards}
     <div class="h2-eyebrow" style="margin:24px 0 0">Temas macro</div>
     ${macro}
@@ -6473,7 +6699,7 @@ function h2SecPlano(D) {
     const tok = h2PlanTok(t);
     const isNow = today >= x.s && today <= x.e;
     const isDone = !!D['wk_' + x.n];
-    const rowStyle = (isNow ? 'box-shadow:inset 3px 0 0 var(--accent);background:oklch(0.83 0.045 78 / 0.06);' : '')
+    const rowStyle = (isNow ? 'box-shadow:inset 3px 0 0 var(--accent);background:rgba(242,242,240,0.06);' : '')
       + (isDone ? 'opacity:0.55;' : '');
     // Renderiza TODOS os itens em TODAS as linhas (oculto onde não se aplica): permite atualizar
     // texto/visibilidade in place enquanto o usuário digita, sem re-render que rouba foco/clique
@@ -7017,7 +7243,7 @@ function h2AddRegToCalendar() {
     if (!dk) return;
     const id = 'h2reg-' + i;
     if (!ev[dk]) ev[dk] = [];
-    if (!ev[dk].some(e => e.id === id)) { ev[dk].push({ id, text: '⚖️ ' + r.ev, done: false }); added++; }
+    if (!ev[dk].some(e => e.id === id)) { ev[dk].push({ id, text: '' + r.ev, done: false }); added++; }
   });
   saveEvents(ev);
   return added;

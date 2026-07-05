@@ -42,7 +42,7 @@ wrangler deploy -c wrangler.api.jsonc  # API  (só quando mexer no worker.js)
 - **Checar sintaxe antes de deployar**: `node --check` no worker.js; nos scripts inline do index.html, extrair e `new Function(code)`.
 - `.assetsignore` **não funciona** quando o dir de assets é a raiz → por isso `public/` (mantém `.git`/`worker.js` fora do ar).
 - **oklch()** funciona em CSS mas **não** no canvas de WebView Android antigo → usar hex em `strokeStyle`/`fillStyle`.
-- Tema: **charcoal quente + champagne** (`--accent: oklch(0.83 0.045 78)`), fonte **Hanken Grotesk** (app) e **IBM Plex Serif/Mono** (aba Semestre). Não usar lavanda/roxo frio.
+- Tema: **Monólito** (jul/2026, Claude Design "App Monólito.html") — monocromático editorial: fundo `#0d0d0e`, creme `#f2f2f0` como único destaque, hairlines `rgba(255,255,255,0.08)`, textos `#8a8a90`/`#5b5b62`, seções flat separadas por hairline (sem cards), abas texto com sublinhado, pílulas outline (ativa = creme com texto escuro), numerais gigantes em Hanken 200. Fontes: **Hanken Grotesk** (app) e **IBM Plex Serif/Mono** (aba Semestre). Implementado como camada de override no fim do CSS ("MONÓLITO"); a camada champagne antiga ficou abaixo (morta). NÃO reintroduzir cor viva — semânticas (status/tiers) usam versões dessaturadas (#9ad0a5/#d9c58a/#e0a19b). Categorias de sessão = escala de cinza (`CATEGORY_COLORS`).
 - Firebase: domínio novo precisa entrar nos **Authorized domains**; **e-mail/senha** exige ativar o provider no console (Authentication → Sign-in method).
 - **"App não abre"** costuma ser **cache de DNS do roteador local** (abre no 4G), não a Cloudflare.
 

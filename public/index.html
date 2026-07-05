@@ -2375,6 +2375,10 @@ window.firebaseConfig = {
   .option input[type="checkbox"]:checked::after { transform: translateX(20px); }
   .option label { font-weight: 400; }
 
+  /* Plano semana-a-semana dentro da aba Plano */
+  .weekplan-block { border-top: 1px solid var(--hairline); margin-top: 22px; padding-top: 6px; }
+  .weekplan-block:empty { display: none; }
+
   /* Bloco de opções do Timer: flat */
   .options {
     background: transparent; border: none; border-radius: 0;
@@ -2726,12 +2730,15 @@ window.firebaseConfig = {
 
     <div class="tasks-card" id="tasksCard"></div>
 
+    <!-- Plano semana-a-semana do H2 (morava no Semestre; unificado aqui) -->
+    <div class="weekplan-block" id="weekPlanBlock"></div>
+
     <div class="weekreview-card" id="weekReviewCard"></div>
 
     <div class="plan-grid-card">
       <div class="plan-grid-title">
-        <span>Plano semanal</span>
-        <span class="plan-grid-sub">horas-alvo por dia · repete toda semana</span>
+        <span>Horas-alvo</span>
+        <span class="plan-grid-sub">por dia · repete toda semana</span>
       </div>
       <div class="plan-grid-scroll">
         <div class="plan-grid" id="planGrid"></div>
@@ -5980,7 +5987,16 @@ function renderPlano() {
   renderPlanGrid();
   renderPlanToday();
   renderTasks();
+  renderWeekPlan();
   renderWeekReview();
+}
+
+// Plano semana-a-semana do H2/2026 dentro da aba Plano (reusa o renderizador do Semestre)
+function renderWeekPlan() {
+  const c = $('#weekPlanBlock');
+  if (!c) return;
+  c.innerHTML = h2SecPlano(loadH2());
+  bindH2Plano(c);
 }
 
 // Monta a grade editável (só ao abrir a aba, p/ não perder o foco ao digitar)
@@ -6430,7 +6446,7 @@ const H2_SECTIONS = [
   { id: 'scorecard', n: '04', label: 'Scorecard mensal' },
   { id: 'calendario', n: '05', label: 'Calendário & cadência' },
   { id: 'regulatorio', n: '06', label: 'Calendário regulatório' },
-  { id: 'plano', n: '07', label: 'Plano semanal' },
+  // (07 · Plano semanal migrou pra aba Plano — renderWeekPlan/#weekPlanBlock)
 ];
 const H2_EARNINGS = [
   { per: 'Earnings 2T26', tri: '2º tri de 2026', what: 'Bloco pesado: 21 names reportam. Update ágil de modelos (Tier 1 em ≤48h), guidance vs. consenso. NÃO iniciar relatórios de iniciação aqui.', ini: '29/jul/2026', fim: '14/ago/2026' },
@@ -6613,7 +6629,6 @@ function renderH2Section() {
   else if (h2Active === 'scorecard') { c.innerHTML = h2SecScorecard(D); bindH2Scorecard(c); }
   else if (h2Active === 'calendario') c.innerHTML = h2SecCalendario();
   else if (h2Active === 'regulatorio') { c.innerHTML = h2SecRegulatorio(); bindH2Reg(c); }
-  else if (h2Active === 'plano') { c.innerHTML = h2SecPlano(D); bindH2Plano(c); }
   else {
     const lbl = (H2_SECTIONS.find(s => s.id === h2Active) || {}).label || '';
     c.innerHTML = `<div class="h2-sec"><div class="h2-soon">A seção <b>${escapeHtml(lbl)}</b> ainda não foi construída.</div></div>`;
@@ -6735,8 +6750,8 @@ ${escapeHtml(w)}</textarea>${itemsHtml}</td>
     <button type="button" class="h2-add-btn" id="h2WkAddItem" style="margin-top:10px">+ Adicionar item</button>
   </div>`;
   return `<div class="h2-sec">
-    <div class="h2-eyebrow">07 · execução semana a semana</div>
-    <h1 class="h2-h1">Plano semanal — H2 / 2026</h1>
+    <div class="h2-eyebrow">execução semana a semana · H2/2026</div>
+    <h1 class="h2-h1">Plano semanal</h1>
     <p class="h2-lead">Uma linha por semana. As janelas de balanço (2T26 e 3T26) são capacidade comprometida — nas outras semanas você constrói as ≥3 empresas novas e roda O3/O6/O7. Regra do 1,5×: multiplique toda estimativa por 1,5 antes de comprometer prazo. As 3 empresas novas: Nova #1 entrega em jul; Nova #2 e #3 no bloco de nov, pós-3T26.</p>
     ${itemsCard}
     <div class="h2-ticker" id="h2PlanProgress" style="margin:14px 0 4px">${done} de ${total} semanas concluídas</div>
@@ -6776,6 +6791,8 @@ function bindH2Plano(c) {
     el.style.cssText = h2Badge(tok) + ';cursor:pointer;font-family:inherit';
     el.textContent = next;
   }));
+  // Re-render local: o bloco vive na aba Plano (#weekPlanBlock); re-renderiza só o container
+  const rerender = () => { c.innerHTML = h2SecPlano(loadH2()); bindH2Plano(c); };
   // Adicionar item recorrente
   const add = c.querySelector('#h2WkAddItem');
   if (add) add.addEventListener('click', () => {
@@ -6783,8 +6800,8 @@ function bindH2Plano(c) {
     const items = h2WkItemsArr(D);
     const id = 'i' + (items.reduce((m, it) => Math.max(m, parseInt(String(it.id).slice(1)) || 0), 0) + 1);
     D.h2WkItems = items.concat([{ id, text: '', rec: 'first' }]);
-    saveH2(D); renderH2Section();
-    const inp = $('#h2Content [data-h2itext="' + id + '"]');
+    saveH2(D); rerender();
+    const inp = c.querySelector('[data-h2itext="' + id + '"]');
     if (inp) { inp.scrollIntoView({ block: 'center' }); inp.focus(); }
   });
   // Atualização in place das linhas das semanas (re-render síncrono no blur destruía o alvo
@@ -6805,7 +6822,7 @@ function bindH2Plano(c) {
   // Recorrência do item
   c.querySelectorAll('[data-h2irec]').forEach(el => el.addEventListener('change', () => {
     const D = loadH2(); const it = h2WkItemsArr(D).find(i => i.id === el.dataset.h2irec);
-    if (it) { it.rec = el.value; if (it.rec !== 'one') delete it.wk; saveH2(D); renderH2Section(); }
+    if (it) { it.rec = el.value; if (it.rec !== 'one') delete it.wk; saveH2(D); rerender(); }
   }));
   // Nº da semana (recorrência "semana única") — idem, in place
   c.querySelectorAll('[data-h2iwk]').forEach(el => el.addEventListener('input', () => {
@@ -6820,7 +6837,7 @@ function bindH2Plano(c) {
     if (it && (it.text || '').trim() && !confirm('Excluir o item "' + it.text + '"?')) return;
     D.h2WkItems = h2WkItemsArr(D).filter(i => i.id !== id);
     Object.keys(D).forEach(k => { if (k.startsWith('wkit_' + id + '_')) delete D[k]; });
-    saveH2(D); renderH2Section();
+    saveH2(D); rerender();
   }));
 }
 

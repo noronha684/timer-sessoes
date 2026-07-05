@@ -182,13 +182,57 @@ async function apiSuggestWeek(request, env, uid) {
   }
   const body = await request.json().catch(() => null);
   const task = body && typeof body.task === 'string' ? body.task.trim().slice(0, 300) : '';
+  // Modo lote: tasks = [{id, text}] → responde {assignments: [{id, week, reason}]}
+  const tasksArr = body && Array.isArray(body.tasks)
+    ? body.tasks.slice(0, 30)
+        .map(t => ({ id: String(t && t.id || '').slice(0, 40), text: String(t && t.text || '').trim().slice(0, 300) }))
+        .filter(t => t.id && t.text)
+    : null;
   const weeks = body && Array.isArray(body.weeks) ? body.weeks.slice(0, 30) : [];
   const today = body && typeof body.today === 'string' ? body.today.slice(0, 10) : '';
-  if (!task || !weeks.length) return json({ error: 'task e weeks são obrigatórios' }, 400);
+  if ((!task && !(tasksArr && tasksArr.length)) || !weeks.length) return json({ error: 'task (ou tasks) e weeks são obrigatórios' }, 400);
 
   const plano = weeks.map(w =>
     `Semana ${w.n} (${w.d})${w.done ? ' [JÁ CONCLUÍDA]' : ''} — tipo: ${w.t}. ${String(w.w || '').replace(/\s+/g, ' ').slice(0, 400)}`
   ).join('\n');
+
+  const system = 'Você aloca tarefas no plano semanal do semestre de um analista de equities (setor elétrico/saneamento, Brasil). Regras: semanas de tipo Balanços são capacidade comprometida — só recebem tarefas urgentes ligadas a resultados; nunca sugira semana já concluída ou anterior a hoje; case o tema da tarefa com o foco da semana (empresa nova, análise, deep work, cadência); prazos explícitos na tarefa têm prioridade; na dúvida entre duas semanas, escolha a menos carregada.'
+    + (tasksArr ? ' Ao alocar VÁRIAS tarefas, distribua a carga (evite empilhar tudo na mesma semana), aloque TODAS, uma semana por tarefa, e ecoe o id de cada uma exatamente como recebido.' : '');
+
+  const schema = tasksArr
+    ? {
+        type: 'object',
+        properties: {
+          assignments: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', description: 'id da tarefa, ecoado exatamente' },
+                week: { type: 'integer', description: 'nº da semana sugerida' },
+                reason: { type: 'string', description: 'justificativa em 1 frase curta, em português' },
+              },
+              required: ['id', 'week', 'reason'],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: ['assignments'],
+        additionalProperties: false,
+      }
+    : {
+        type: 'object',
+        properties: {
+          week: { type: 'integer', description: 'nº da semana sugerida' },
+          reason: { type: 'string', description: 'justificativa em 1 frase curta, em português' },
+        },
+        required: ['week', 'reason'],
+        additionalProperties: false,
+      };
+
+  const userMsg = tasksArr
+    ? `Hoje é ${today}.\n\nPLANO DO SEMESTRE:\n${plano}\n\nTAREFAS A ALOCAR:\n${tasksArr.map(t => `- [${t.id}] ${t.text}`).join('\n')}\n\nEm qual semana cada tarefa deve ser feita?`
+    : `Hoje é ${today}.\n\nPLANO DO SEMESTRE:\n${plano}\n\nTAREFA A ALOCAR: "${task}"\n\nEm qual semana essa tarefa deve ser feita?`;
 
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -199,28 +243,11 @@ async function apiSuggestWeek(request, env, uid) {
     },
     body: JSON.stringify({
       model: 'claude-opus-4-8',
-      max_tokens: 1024,
+      max_tokens: tasksArr ? 4096 : 1024,
       // structured output: garante que o 1º bloco de texto é JSON válido no schema
-      output_config: {
-        effort: 'low',
-        format: {
-          type: 'json_schema',
-          schema: {
-            type: 'object',
-            properties: {
-              week: { type: 'integer', description: 'nº da semana sugerida' },
-              reason: { type: 'string', description: 'justificativa em 1 frase curta, em português' },
-            },
-            required: ['week', 'reason'],
-            additionalProperties: false,
-          },
-        },
-      },
-      system: 'Você aloca tarefas no plano semanal do semestre de um analista de equities (setor elétrico/saneamento, Brasil). Regras: semanas de tipo Balanços são capacidade comprometida — só recebem tarefas urgentes ligadas a resultados; nunca sugira semana já concluída ou anterior a hoje; case o tema da tarefa com o foco da semana (empresa nova, análise, deep work, cadência); prazos explícitos na tarefa têm prioridade; na dúvida entre duas semanas, escolha a menos carregada.',
-      messages: [{
-        role: 'user',
-        content: `Hoje é ${today}.\n\nPLANO DO SEMESTRE:\n${plano}\n\nTAREFA A ALOCAR: "${task}"\n\nEm qual semana essa tarefa deve ser feita?`,
-      }],
+      output_config: { effort: 'low', format: { type: 'json_schema', schema } },
+      system,
+      messages: [{ role: 'user', content: userMsg }],
     }),
   });
 
@@ -233,6 +260,14 @@ async function apiSuggestWeek(request, env, uid) {
   const text = (data.content || []).find(b => b.type === 'text');
   let out = null;
   try { out = JSON.parse(text.text); } catch { /* cai no erro abaixo */ }
+  if (tasksArr) {
+    if (!out || !Array.isArray(out.assignments)) return json({ error: 'claude_parse' }, 502);
+    const valid = new Set(tasksArr.map(t => t.id));
+    const assignments = out.assignments
+      .filter(a => a && valid.has(String(a.id)) && typeof a.week === 'number')
+      .map(a => ({ id: String(a.id), week: a.week, reason: String(a.reason || '') }));
+    return json({ assignments });
+  }
   if (!out || typeof out.week !== 'number') return json({ error: 'claude_parse' }, 502);
   return json({ week: out.week, reason: String(out.reason || '') });
 }

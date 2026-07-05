@@ -2395,6 +2395,7 @@ window.firebaseConfig = {
   }
   .dp-toweek:hover { color: var(--text); border-color: rgba(255,255,255,0.35); }
   .dp-toweek:disabled { opacity: 0.4; cursor: default; }
+  #taskAddMsg { white-space: pre-line; } /* mensagens do lote listam uma demanda por linha */
 
   /* Tópicos da semana (clique abre o editor) */
   .wk-topics { cursor: text; display: flex; flex-direction: column; gap: 5px; padding: 3px 4px 3px 0; border-radius: 8px; }
@@ -6042,26 +6043,38 @@ function h2AddWeekItem(text, wk) {
   D.h2WkItems = items.concat([{ id, text, rec: 'one', wk: String(wk) }]);
   saveH2(D);
 }
-// Pede ao Claude (via Worker da API) a semana ideal pra tarefa; devolve {week, reason}
-async function suggestWeekForTask(text) {
+// Plano das 26 semanas (com overrides) no formato que o /api/suggest-week espera
+function h2WeeksPayload() {
   const D0 = loadH2();
-  const weeks = H2_WEEKPLAN.map(x => ({
+  return H2_WEEKPLAN.map(x => ({
     n: x.n,
     d: D0['wkd_' + x.n] != null ? D0['wkd_' + x.n] : x.d,
     w: D0['wkw_' + x.n] != null ? D0['wkw_' + x.n] : x.w,
     t: D0['wkt_' + x.n] || x.t,
     done: !!D0['wk_' + x.n],
   }));
+}
+async function h2SuggestFetch(payload) {
   const resp = await fetch(window.API_BASE + '/api/suggest-week', {
     method: 'POST',
     headers: await authHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ task: text, weeks, today: dateKey(new Date()) }),
+    body: JSON.stringify(Object.assign({ weeks: h2WeeksPayload(), today: dateKey(new Date()) }, payload)),
   });
   const out = await resp.json().catch(() => null);
-  if (!resp.ok || !out || typeof out.week !== 'number') {
-    throw new Error((out && (out.detail || out.error)) || ('HTTP ' + resp.status));
-  }
+  if (!resp.ok || !out) throw new Error((out && (out.detail || out.error)) || ('HTTP ' + resp.status));
   return out;
+}
+// Pede ao Claude (via Worker da API) a semana ideal pra UMA tarefa; devolve {week, reason}
+async function suggestWeekForTask(text) {
+  const out = await h2SuggestFetch({ task: text });
+  if (typeof out.week !== 'number') throw new Error(out.error || 'resposta inválida');
+  return out;
+}
+// Idem em LOTE: [{id, text}] → [{id, week, reason}] (uma chamada só; o modelo balanceia a carga)
+async function suggestWeeksForTasks(tasks) {
+  const out = await h2SuggestFetch({ tasks });
+  if (!Array.isArray(out.assignments)) throw new Error(out.error || 'resposta inválida');
+  return out.assignments;
 }
 
 // Monta a grade editável (só ao abrir a aba, p/ não perder o foco ao digitar)
@@ -6339,7 +6352,7 @@ function renderTasks() {
     }).join('');
     html += `
       <div class="tasks-sec tasks-sec-gap">
-        <div class="tasks-sec-title">A fazer <span class="tasks-count">${backlog.length}</span><span class="bk-hint">★ puxa pro Hoje · sem. agenda no plano</span></div>
+        <div class="tasks-sec-title">A fazer <span class="tasks-count">${backlog.length}</span><span class="bk-hint">★ puxa pro Hoje · sem. agenda no plano</span>${backlog.length ? `<button class="dp-toweek" id="bkBulkWeek" title="O Claude decide a semana de cada demanda e move todas pro plano">IA: agendar todas</button>` : ''}</div>
         ${backlog.length ? groupsHtml : '<div class="dp-empty">Sem demandas no backlog. Despeje tudo aqui.</div>'}
       </div>`;
   }
@@ -6436,6 +6449,43 @@ function renderTasks() {
     renderTasks();
     const i = $('#tasksCard #taskInput'); if (i) { i.value = keep; i.focus(); }
   }));
+  // Triagem em lote: o Claude decide a semana de CADA demanda do backlog (uma chamada só)
+  const bulkBtn = card.querySelector('#bkBulkWeek');
+  if (bulkBtn) bulkBtn.addEventListener('click', async () => {
+    if (taskAddBusy) return;
+    const pend = loadTasks().filter(t => !t.done && t.focusDate !== today);
+    if (!pend.length) return;
+    taskAddBusy = true;
+    bulkBtn.disabled = true;
+    setMsg('Perguntando ao Claude onde encaixar ' + pend.length + ' demanda' + (pend.length > 1 ? 's' : '') + '…');
+    try {
+      const assignments = await suggestWeeksForTasks(pend.map(t => ({ id: t.id, text: t.text })));
+      const fresh = loadTasks(); // relê: a lista pode ter mudado durante a espera
+      const lines = [];
+      assignments.forEach(a => {
+        const t = fresh.find(x => x.id === a.id && !x.done && x.focusDate !== today);
+        if (!t) return; // concluída/estrelada/excluída enquanto o Claude pensava
+        h2AddWeekItem(t.text, a.week);
+        fresh.splice(fresh.indexOf(t), 1);
+        lines.push('sem. ' + a.week + ' — ' + t.text.slice(0, 46) + (t.text.length > 46 ? '…' : '') + ' (' + a.reason + ')');
+      });
+      saveTasks(fresh);
+      // reset incondicional do card (nosso), preservando texto digitado na entrada
+      const iOld = $('#tasksCard #taskInput');
+      const residue = iOld ? iOld.value : '';
+      renderTasks();
+      const i2 = $('#tasksCard #taskInput'); if (i2 && residue) i2.value = residue;
+      refreshWeekPlanSafe(); // guardado: protege editor de tópicos aberto no plano
+      setMsg(lines.length
+        ? 'Agendadas ' + lines.length + ' demanda' + (lines.length > 1 ? 's' : '') + ':\n' + lines.join('\n') + '\nAjuste os nº no plano se discordar.'
+        : 'O Claude não devolveu alocações válidas — tenta de novo.');
+    } catch (e) {
+      setMsg('Não deu pra agendar em lote (' + e.message + ').');
+      const b = $('#tasksCard #bkBulkWeek'); if (b) b.disabled = false;
+    } finally {
+      taskAddBusy = false;
+    }
+  });
   // Checklist da semana corrente (ponte com o plano — mesmo store)
   card.querySelectorAll('[data-wkit]').forEach(row => {
     const btn = row.querySelector('[data-act="wkittoggle"]');

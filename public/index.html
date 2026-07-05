@@ -2378,6 +2378,12 @@ window.firebaseConfig = {
   /* Plano semana-a-semana dentro da aba Plano */
   .weekplan-block { border-top: 1px solid var(--hairline); margin-top: 22px; padding-top: 6px; }
   .weekplan-block:empty { display: none; }
+  /* Tópicos da semana (clique abre o editor) */
+  .wk-topics { cursor: text; display: flex; flex-direction: column; gap: 5px; padding: 3px 4px 3px 0; border-radius: 8px; }
+  .wk-topics:hover { background: rgba(255,255,255,0.03); }
+  .wk-topic { position: relative; padding-left: 13px; font-size: 12.5px; line-height: 1.45; color: var(--text); }
+  .wk-topic::before { content: '–'; position: absolute; left: 0; color: var(--text-subtle); }
+  .wk-topic-empty { color: var(--text-subtle); font-style: italic; }
 
   /* Bloco de opções do Timer: flat */
   .options {
@@ -6483,32 +6489,32 @@ const H2_MACRO = [
 const H2_MONTHS = ['Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 // Plano de execução semana a semana — H2/2026 (do PDF Plano_Semanal_2H26). s/e = janela ISO p/ destacar a semana corrente.
 const H2_WEEKPLAN = [
-  { n: 1,  d: '30/jun–04/jul', s: '2026-06-30', e: '2026-07-04', t: 'Empresa nova', w: 'Fechar o calendário completo de releases do 2T26 (todas as datas por name). Abrir o histórico e a estrutura do modelo da Empresa Nova #1 (P&L + fluxo + valuation do zero). Sexta: revisão semanal (20 min).' },
-  { n: 2,  d: '06–10/jul',     s: '2026-07-06', e: '2026-07-10', t: 'Empresa nova', w: 'SEG 06/07: enviar o update de sentimento (leitura de posicionamento/convicção do book). Empresa Nova #1: preencher o P&L histórico e as premissas operacionais; montar o esqueleto do fluxo de caixa. Começar a redação da tese/nota de iniciação em paralelo.' },
-  { n: 3,  d: '14–18/jul',     s: '2026-07-14', e: '2026-07-18', t: 'Empresa nova', w: 'Empresa Nova #1: fechar valuation (DCF + múltiplos), definir preço-alvo e recomendação; rascunho completo da nota. ATÉ SEX 17/07: concluir e submeter a AUTOAVALIAÇÃO (deixar pronta até quinta 16/07 para revisar sem correria).' },
-  { n: 4,  d: '21–25/jul',     s: '2026-07-21', e: '2026-07-25', t: 'Empresa nova', w: 'Empresa Nova #1: revisar, checar números e ENTREGAR a nota de iniciação (1 de ≥3). Buffer 26–28/jul se estourar. SEX 24/07: concluir a AVALIAÇÃO DOS PARES (reservar ~1h antes do prazo). Preparar templates de earnings preview (delta vs. consenso) para o 2T26.' },
-  { n: 5,  d: '28/jul–01/ago', s: '2026-07-28', e: '2026-08-01', t: 'Balanços',     w: 'INÍCIO BALANÇOS 2T26. Primeiros releases (29–30/jul): preview publicado ANTES de cada um. Update do modelo em ≤48h (Core) / ≤5 dias úteis (demais Tier 1).' },
-  { n: 6,  d: '04–08/ago',     s: '2026-08-04', e: '2026-08-08', t: 'Balanços',     w: "PICO DE BALANÇOS. Vários names reportam por dia — atualização ágil dos modelos, guidance vs. consenso Bloomberg, marcar 'x' em cada modelo concluído. Não iniciar nada novo esta semana." },
-  { n: 7,  d: '11–15/ago',     s: '2026-08-11', e: '2026-08-15', t: 'Balanços',     w: 'Fim do pico do 2T26: últimos releases e updates. Fechar 100% dos Tier 1 com o último tri incorporado (KR1.1). Guardar previsto vs. reportado para o cálculo do MAPE.' },
-  { n: 8,  d: '18–22/ago',     s: '2026-08-18', e: '2026-08-22', t: 'Análise',      w: 'Pós-earnings: calcular o MAPE do EBITDA 2T26 dos 10 Tier 1 (meta ≤8%; reportar mediana, p75 e erro por subsetor). Documentar onde errei e por quê.' },
-  { n: 9,  d: '25–29/ago',     s: '2026-08-25', e: '2026-08-29', t: 'Análise',      w: 'Reprecificar bull/bear de cada Tier 1 pós-resultado. Avançar a assimetria (O3): preço de long E de short. Revisão mensal de agosto + kill/pause/continue.' },
-  { n: 10, d: '01–05/set',     s: '2026-09-01', e: '2026-09-05', t: 'Empresa nova', w: 'Empresa Nova #2: abrir o modelo do zero (histórico + estrutura). Janela boa porque está fora de balanços.' },
-  { n: 11, d: '08–12/set',     s: '2026-09-08', e: '2026-09-12', t: 'Empresa nova', w: 'Empresa Nova #2: P&L histórico, premissas e esqueleto do fluxo. Continuar fechando a assimetria dos Tier 1 (O3).' },
-  { n: 12, d: '15–19/set',     s: '2026-09-15', e: '2026-09-19', t: 'Análise',      w: 'Assimetria O3: cravar preço de long E short para 100% dos 10 Tier 1 (um name só conta com os dois preços). Empresa Nova #2 segue em paralelo.' },
-  { n: 13, d: '22–26/set',     s: '2026-09-22', e: '2026-09-26', t: 'Deep work',    w: 'O6 — referência própria de preço de LP de energia: consolidar leilões, PLD, curva forward e CME; ligar às geradoras. Iniciar O7 (valor por R$1 de capex na RAB).' },
-  { n: 14, d: '29/set–03/out', s: '2026-09-29', e: '2026-10-03', t: 'Cadência',     w: 'RESET TRIMESTRAL (meio dia): pontuar cada KR 0,0–1,0, retrospectiva do ciclo e reescrever OKRs. Revalidar o plano com o PM.' },
-  { n: 15, d: '06–10/out',     s: '2026-10-06', e: '2026-10-10', t: 'Deep work',    w: 'Finalizar O6 (curva de preço de LP com premissas explícitas) e conectar aos modelos das geradoras. Empresa Nova #2: fechar valuation e preço-alvo.' },
-  { n: 16, d: '13–17/out',     s: '2026-10-13', e: '2026-10-17', t: 'Empresa nova', w: 'Finalizar O7 (valor por R$1 de capex na RAB) e ligar aos modelos de T&D. Empresa Nova #2: redigir e ENTREGAR a nota de iniciação (2 de ≥3).' },
-  { n: 17, d: '20–24/out',     s: '2026-10-20', e: '2026-10-24', t: 'Deep work',    w: 'Fechar o calendário de releases do 3T26 e preparar os templates de preview. Última semana calma antes da temporada.' },
-  { n: 18, d: '27–31/out',     s: '2026-10-27', e: '2026-10-31', t: 'Balanços',     w: 'INÍCIO BALANÇOS 3T26 (janela ~fim out–meados nov). Preview antes de cada release; update em ≤48h (Core). Revisão mensal de outubro.' },
-  { n: 19, d: '03–07/nov',     s: '2026-11-03', e: '2026-11-07', t: 'Balanços',     w: 'PICO DE BALANÇOS 3T26. Atualização ágil dos modelos; guidance vs. consenso; reprecificar a assimetria pós-release. Não iniciar nada novo.' },
-  { n: 20, d: '10–14/nov',     s: '2026-11-10', e: '2026-11-14', t: 'Balanços',     w: 'Fim do pico do 3T26: últimos updates, 100% dos Tier 1 com o tri incorporado. Empresa Nova #3: abrir o modelo do zero.' },
-  { n: 21, d: '17–21/nov',     s: '2026-11-17', e: '2026-11-21', t: 'Empresa nova', w: 'Empresa Nova #3: P&L histórico, premissas, fluxo e valuation. Recalcular o MAPE do EBITDA do 3T26.' },
-  { n: 22, d: '24–28/nov',     s: '2026-11-24', e: '2026-11-28', t: 'Empresa nova', w: 'Empresa Nova #3: ENTREGAR a nota de iniciação (3 de ≥3 — fecha KR2.1). Levar ≥1 dos nomes novos como tese acionável ao PM (KR2.2). Revisão mensal de novembro.' },
-  { n: 23, d: '01–05/dez',     s: '2026-12-01', e: '2026-12-05', t: 'Deep work',    w: 'Incorporar os leilões de nov/dez às curvas de preço; revisar premissas de valuation ancorando em O6 (preço de LP) e O7 (capex na RAB).' },
-  { n: 24, d: '08–12/dez',     s: '2026-12-08', e: '2026-12-12', t: 'Análise',      w: 'Conferência final: 100% dos Tier 1 com assimetria (long+short) e último tri incorporado; 100% das empresas novas entregues. Limpar pendências dos modelos.' },
-  { n: 25, d: '15–19/dez',     s: '2026-12-15', e: '2026-12-19', t: 'Cadência',     w: 'Retrospectiva do H2/2026: o que mudou estruturalmente, que capacidades construí, erros documentados. Montar o handoff para o H1/2027.' },
-  { n: 26, d: '22–31/dez',     s: '2026-12-22', e: '2026-12-31', t: 'Cadência',     w: 'RESET SEMESTRAL: pontuar os KRs finais, fechar post-mortems e reescrever os OKRs do H1/2027. Encerrar o semestre.' },
+  { n: 1,  d: '30/jun–04/jul', s: '2026-06-30', e: '2026-07-04', t: 'Empresa nova', w: 'Fechar o calendário completo de releases do 2T26 (todas as datas por name).\nAbrir o histórico e a estrutura do modelo da Empresa Nova #1 (P&L + fluxo + valuation do zero).\nSexta: revisão semanal (20 min).' },
+  { n: 2,  d: '06–10/jul',     s: '2026-07-06', e: '2026-07-10', t: 'Empresa nova', w: 'SEG 06/07: enviar o update de sentimento (posicionamento/convicção do book).\nEmpresa Nova #1: P&L histórico e premissas operacionais; esqueleto do fluxo de caixa.\nComeçar a redação da tese/nota de iniciação em paralelo.' },
+  { n: 3,  d: '14–18/jul',     s: '2026-07-14', e: '2026-07-18', t: 'Empresa nova', w: 'Empresa Nova #1: fechar valuation (DCF + múltiplos), preço-alvo e recomendação; rascunho completo da nota.\nATÉ SEX 17/07: concluir e submeter a AUTOAVALIAÇÃO (pronta até quinta 16/07 pra revisar sem correria).' },
+  { n: 4,  d: '21–25/jul',     s: '2026-07-21', e: '2026-07-25', t: 'Empresa nova', w: 'Empresa Nova #1: revisar, checar números e ENTREGAR a nota de iniciação (1 de ≥3). Buffer 26–28/jul se estourar.\nSEX 24/07: concluir a AVALIAÇÃO DOS PARES (reservar ~1h antes do prazo).\nPreparar templates de earnings preview (delta vs. consenso) para o 2T26.' },
+  { n: 5,  d: '28/jul–01/ago', s: '2026-07-28', e: '2026-08-01', t: 'Balanços',     w: 'INÍCIO BALANÇOS 2T26 — primeiros releases 29–30/jul.\nPreview publicado ANTES de cada release.\nUpdate do modelo em ≤48h (Core) / ≤5 dias úteis (demais Tier 1).' },
+  { n: 6,  d: '04–08/ago',     s: '2026-08-04', e: '2026-08-08', t: 'Balanços',     w: 'PICO DE BALANÇOS: vários names reportam por dia — atualização ágil dos modelos.\nGuidance vs. consenso Bloomberg; marcar x em cada modelo concluído.\nNão iniciar nada novo esta semana.' },
+  { n: 7,  d: '11–15/ago',     s: '2026-08-11', e: '2026-08-15', t: 'Balanços',     w: 'Fim do pico do 2T26: últimos releases e updates.\nFechar 100% dos Tier 1 com o último tri incorporado (KR1.1).\nGuardar previsto vs. reportado para o cálculo do MAPE.' },
+  { n: 8,  d: '18–22/ago',     s: '2026-08-18', e: '2026-08-22', t: 'Análise',      w: 'Calcular o MAPE do EBITDA 2T26 dos 10 Tier 1 (meta ≤8%).\nReportar mediana, p75 e erro por subsetor.\nDocumentar onde errei e por quê.' },
+  { n: 9,  d: '25–29/ago',     s: '2026-08-25', e: '2026-08-29', t: 'Análise',      w: 'Reprecificar bull/bear de cada Tier 1 pós-resultado.\nAvançar a assimetria (O3): preço de long E de short.\nRevisão mensal de agosto + kill/pause/continue.' },
+  { n: 10, d: '01–05/set',     s: '2026-09-01', e: '2026-09-05', t: 'Empresa nova', w: 'Empresa Nova #2: abrir o modelo do zero (histórico + estrutura).\nJanela boa porque está fora de balanços.' },
+  { n: 11, d: '08–12/set',     s: '2026-09-08', e: '2026-09-12', t: 'Empresa nova', w: 'Empresa Nova #2: P&L histórico, premissas e esqueleto do fluxo.\nContinuar fechando a assimetria dos Tier 1 (O3).' },
+  { n: 12, d: '15–19/set',     s: '2026-09-15', e: '2026-09-19', t: 'Análise',      w: 'Assimetria O3: cravar preço de long E short para 100% dos 10 Tier 1 (um name só conta com os dois preços).\nEmpresa Nova #2 segue em paralelo.' },
+  { n: 13, d: '22–26/set',     s: '2026-09-22', e: '2026-09-26', t: 'Deep work',    w: 'O6 — referência própria de preço de LP de energia: consolidar leilões, PLD, curva forward e CME; ligar às geradoras.\nIniciar O7 (valor por R$1 de capex na RAB).' },
+  { n: 14, d: '29/set–03/out', s: '2026-09-29', e: '2026-10-03', t: 'Cadência',     w: 'RESET TRIMESTRAL (meio dia): pontuar cada KR 0,0–1,0.\nRetrospectiva do ciclo e reescrever OKRs.\nRevalidar o plano com o PM.' },
+  { n: 15, d: '06–10/out',     s: '2026-10-06', e: '2026-10-10', t: 'Deep work',    w: 'Finalizar O6 (curva de preço de LP com premissas explícitas) e conectar aos modelos das geradoras.\nEmpresa Nova #2: fechar valuation e preço-alvo.' },
+  { n: 16, d: '13–17/out',     s: '2026-10-13', e: '2026-10-17', t: 'Empresa nova', w: 'Finalizar O7 (valor por R$1 de capex na RAB) e ligar aos modelos de T&D.\nEmpresa Nova #2: redigir e ENTREGAR a nota de iniciação (2 de ≥3).' },
+  { n: 17, d: '20–24/out',     s: '2026-10-20', e: '2026-10-24', t: 'Deep work',    w: 'Fechar o calendário de releases do 3T26 e preparar os templates de preview.\nÚltima semana calma antes da temporada.' },
+  { n: 18, d: '27–31/out',     s: '2026-10-27', e: '2026-10-31', t: 'Balanços',     w: 'INÍCIO BALANÇOS 3T26 (janela ~fim out–meados nov).\nPreview antes de cada release; update em ≤48h (Core).\nRevisão mensal de outubro.' },
+  { n: 19, d: '03–07/nov',     s: '2026-11-03', e: '2026-11-07', t: 'Balanços',     w: 'PICO DE BALANÇOS 3T26: atualização ágil dos modelos.\nGuidance vs. consenso; reprecificar a assimetria pós-release.\nNão iniciar nada novo.' },
+  { n: 20, d: '10–14/nov',     s: '2026-11-10', e: '2026-11-14', t: 'Balanços',     w: 'Fim do pico do 3T26: últimos updates, 100% dos Tier 1 com o tri incorporado.\nEmpresa Nova #3: abrir o modelo do zero.' },
+  { n: 21, d: '17–21/nov',     s: '2026-11-17', e: '2026-11-21', t: 'Empresa nova', w: 'Empresa Nova #3: P&L histórico, premissas, fluxo e valuation.\nRecalcular o MAPE do EBITDA do 3T26.' },
+  { n: 22, d: '24–28/nov',     s: '2026-11-24', e: '2026-11-28', t: 'Empresa nova', w: 'Empresa Nova #3: ENTREGAR a nota de iniciação (3 de ≥3 — fecha KR2.1).\nLevar ≥1 dos nomes novos como tese acionável ao PM (KR2.2).\nRevisão mensal de novembro.' },
+  { n: 23, d: '01–05/dez',     s: '2026-12-01', e: '2026-12-05', t: 'Deep work',    w: 'Incorporar os leilões de nov/dez às curvas de preço.\nRevisar premissas de valuation ancorando em O6 (preço de LP) e O7 (capex na RAB).' },
+  { n: 24, d: '08–12/dez',     s: '2026-12-08', e: '2026-12-12', t: 'Análise',      w: 'Conferência final: 100% dos Tier 1 com assimetria (long+short) e último tri incorporado.\n100% das empresas novas entregues.\nLimpar pendências dos modelos.' },
+  { n: 25, d: '15–19/dez',     s: '2026-12-15', e: '2026-12-19', t: 'Cadência',     w: 'Retrospectiva do H2/2026: o que mudou estruturalmente, capacidades construídas, erros documentados.\nMontar o handoff para o H1/2027.' },
+  { n: 26, d: '22–31/dez',     s: '2026-12-22', e: '2026-12-31', t: 'Cadência',     w: 'RESET SEMESTRAL: pontuar os KRs finais e fechar post-mortems.\nReescrever os OKRs do H1/2027. Encerrar o semestre.' },
 ];
 function h2PlanTok(t) {
   return t === 'Empresa nova' ? H2_TOK.green
@@ -6701,6 +6707,26 @@ function h2ItemAppliesTo(it, n, firsts) {
   if (it.rec === 'one') return parseInt(String(it.wk || '').trim(), 10) === Number(n); // numérico: "07" casa com 7
   return firsts.has(n); // 'first'
 }
+// Texto da semana em tópicos: uma linha = um tópico; textos antigos (parágrafo único,
+// ex.: overrides salvos antes desta versão) são divididos por sentença só na exibição.
+// Lookbehind via new RegExp em try/catch: como literal, o parse error derrubaria o
+// script inteiro em Safari/iOS < 16.4 — assim só degrada (parágrafo vira 1 tópico).
+let _wkSentSplit = null;
+try { _wkSentSplit = new RegExp('(?<=[.!?;])\\s+(?=[A-ZÀ-Ü0-9§("\'“–])', 'u'); } catch { _wkSentSplit = null; }
+function h2WkTopics(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return [];
+  if (s.includes('\n')) return s.split('\n').map(t => t.trim()).filter(Boolean);
+  if (_wkSentSplit) return s.split(_wkSentSplit).map(t => t.trim()).filter(Boolean);
+  return [s];
+}
+function h2WkTopicsHtml(raw, n) {
+  const tp = h2WkTopics(raw);
+  const inner = tp.length
+    ? tp.map(t => `<div class="wk-topic">${escapeHtml(t)}</div>`).join('')
+    : '<div class="wk-topic wk-topic-empty">clique para escrever…</div>';
+  return `<div class="wk-topics" data-h2wked="${n}" title="Clique para editar (um tópico por linha)">${inner}</div>`;
+}
 function h2SecPlano(D) {
   const today = dateKey(new Date());
   const done = H2_WEEKPLAN.filter(x => D['wk_' + x.n]).length;
@@ -6726,8 +6752,7 @@ function h2SecPlano(D) {
     return `<tr data-h2wk="${x.n}" style="${rowStyle}">
       <td class="mono" style="text-align:center;color:var(--text);font-weight:600">${x.n}</td>
       <td style="white-space:nowrap"><input class="h2-ta" data-h2key="wkd_${x.n}" value="${escapeHtml(d)}" style="min-height:0;padding:7px 9px;width:112px;font:600 11.5px var(--h2-mono)">${isNow ? '<div style="margin-top:5px"><span class="h2-badge" style="' + h2Badge(H2_TOK.purple) + '">agora</span></div>' : ''}</td>
-      <td style="min-width:280px"><textarea class="h2-ta" data-h2key="wkw_${x.n}" style="font-size:12.5px;min-height:76px">
-${escapeHtml(w)}</textarea>${itemsHtml}</td>
+      <td style="min-width:280px">${h2WkTopicsHtml(w, x.n)}${itemsHtml}</td>
       <td style="white-space:nowrap"><button data-h2wkt="${x.n}" title="Clique para trocar o tipo" style="${h2Badge(tok)};cursor:pointer;font-family:inherit">${escapeHtml(t)}</button></td>
       <td style="text-align:center"><input type="checkbox" class="h2-check" data-h2check="wk_${x.n}"${isDone ? ' checked' : ''}></td>
     </tr>`;
@@ -6781,10 +6806,48 @@ function bindH2Plano(c) {
       if (span) { span.style.textDecoration = el.checked ? 'line-through' : ''; span.style.color = el.checked ? 'var(--text-subtle)' : ''; }
     }
   }));
-  // Texto e datas: mesmo padrão data-h2key das outras seções (salva a cada tecla, sincroniza)
+  // Datas: mesmo padrão data-h2key das outras seções (salva a cada tecla, sincroniza)
   c.querySelectorAll('[data-h2key]').forEach(el => el.addEventListener('input', () => {
     const D = loadH2(); D[el.dataset.h2key] = el.value; saveH2(D);
   }));
+  // Tópicos da semana: clique troca a lista por um textarea NO LUGAR (sem re-render da
+  // seção — não rouba clique nem foco); blur salva e volta pra lista
+  const attachTopicsEditor = (el) => el.addEventListener('click', () => {
+    const n = el.dataset.h2wked;
+    const D = loadH2();
+    const seed = (H2_WEEKPLAN.find(x => String(x.n) === n) || {}).w || '';
+    const raw = D['wkw_' + n] != null ? D['wkw_' + n] : seed;
+    const ta = document.createElement('textarea');
+    ta.className = 'h2-ta';
+    // abre com a MESMA altura da lista (e cresce com o texto): minimiza o pulo de layout
+    ta.style.cssText = 'font-size:12.5px;min-height:' + Math.max(64, el.offsetHeight + 14) + 'px;overflow:hidden';
+    ta.placeholder = 'Um tópico por linha…';
+    ta.value = raw;
+    el.replaceWith(ta);
+    ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px';
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+    ta.addEventListener('input', () => {
+      const D2 = loadH2(); D2['wkw_' + n] = ta.value; saveH2(D2);
+      ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px';
+    });
+    // Swap-back ADIADO até o clique que causou o blur COMPLETAR (mouseup+click):
+    // trocar já no blur encolhia a linha entre mousedown e mouseup e o clique em
+    // alvos abaixo era retargetado pro ancestral (1º clique engolido).
+    ta.addEventListener('blur', () => {
+      const doSwap = () => {
+        if (!ta.isConnected) return; // re-render externo já removeu
+        const tmp = document.createElement('div');
+        tmp.innerHTML = h2WkTopicsHtml(ta.value, n);
+        const node = tmp.firstElementChild;
+        ta.replaceWith(node);
+        attachTopicsEditor(node);
+      };
+      const t = setTimeout(doSwap, 250); // fallback: blur sem clique (Tab, troca de janela)
+      document.addEventListener('click', () => { clearTimeout(t); doSwap(); }, { once: true });
+    });
+  });
+  c.querySelectorAll('[data-h2wked]').forEach(attachTopicsEditor);
   // Tipo: clique cicla Empresa nova → Balanços → Análise → Deep work → Cadência
   c.querySelectorAll('[data-h2wkt]').forEach(el => el.addEventListener('click', () => {
     const n = el.dataset.h2wkt;
@@ -6836,7 +6899,14 @@ function bindH2Plano(c) {
         throw new Error((out && (out.detail || out.error)) || ('HTTP ' + resp.status));
       }
       addItem(out.week);
-      rerender();
+      // limpa os campos e destrava o botão mesmo sem rerender (nós antigos podem sobreviver)
+      if (tEl) tEl.value = '';
+      if (nEl) nEl.value = '';
+      qAdd.disabled = false;
+      // a resposta chega segundos depois — se o usuário abriu um editor nesse meio
+      // tempo, NÃO re-renderiza (destruiria o textarea focado); o item já está salvo
+      // no store e aparece no próximo render natural
+      if (!(typeof isEditingField === 'function' && isEditingField())) rerender();
       // o rerender troca o DOM — re-busca o nó da mensagem pra mostrar a justificativa
       const m2 = c.querySelector('#wkQuickMsg');
       if (m2) {

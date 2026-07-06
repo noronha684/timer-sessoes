@@ -2400,8 +2400,9 @@ window.firebaseConfig = {
   /* Tópicos da semana (clique abre o editor) */
   .wk-topics { cursor: text; display: flex; flex-direction: column; gap: 5px; padding: 3px 4px 3px 0; border-radius: 8px; }
   .wk-topics:hover { background: rgba(255,255,255,0.03); }
-  .wk-topic { position: relative; padding-left: 13px; font-size: 12.5px; line-height: 1.45; color: var(--text); }
-  .wk-topic::before { content: '–'; position: absolute; left: 0; color: var(--text-subtle); }
+  .wk-topic { display: flex; gap: 7px; align-items: flex-start; font-size: 12.5px; line-height: 1.45; color: var(--text); }
+  .wk-topic-check { width: 15px; height: 15px; flex-shrink: 0; margin-top: 1px; cursor: pointer; }
+  .wk-topic.done span { text-decoration: line-through; color: var(--text-subtle); }
   .wk-topic-empty { color: var(--text-subtle); font-style: italic; }
 
   /* Bloco de opções do Timer: flat */
@@ -7084,12 +7085,28 @@ function h2WkTopics(raw) {
   if (_wkSentSplit) return s.split(_wkSentSplit).map(t => t.trim()).filter(Boolean);
   return [s];
 }
+// Chave de "feito" por tópico: semana + hash do texto (djb2 base36). Estável a reordenação
+// e à edição das OUTRAS linhas; editar o texto do tópico reseta o check dele (aceitável).
+function h2TopicKey(n, text) {
+  const s = String(text).trim();
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return 'wktp_' + n + '_' + h.toString(36);
+}
 function h2WkTopicsHtml(raw, n) {
   const tp = h2WkTopics(raw);
+  const D = loadH2();
   const inner = tp.length
-    ? tp.map(t => `<div class="wk-topic">${escapeHtml(t)}</div>`).join('')
-    : '<div class="wk-topic wk-topic-empty">clique para escrever…</div>';
-  return `<div class="wk-topics" data-h2wked="${n}" title="Clique para editar (um tópico por linha)">${inner}</div>`;
+    ? tp.map(t => {
+        const k = h2TopicKey(n, t);
+        const done = !!D[k];
+        return `<div class="wk-topic${done ? ' done' : ''}" data-tpk="${k}">
+          <input type="checkbox" class="h2-check wk-topic-check"${done ? ' checked' : ''} title="Concluir tópico">
+          <span>${escapeHtml(t)}</span>
+        </div>`;
+      }).join('')
+    : '<div class="wk-topic wk-topic-empty"><span>clique para escrever…</span></div>';
+  return `<div class="wk-topics" data-h2wked="${n}" title="Clique no texto para editar (um tópico por linha)">${inner}</div>`;
 }
 function h2SecPlano(D) {
   const today = dateKey(new Date());
@@ -7171,7 +7188,19 @@ function bindH2Plano(c) {
   }));
   // Tópicos da semana: clique troca a lista por um textarea NO LUGAR (sem re-render da
   // seção — não rouba clique nem foco); blur salva e volta pra lista
-  const attachTopicsEditor = (el) => el.addEventListener('click', () => {
+  const attachTopicsEditor = (el) => el.addEventListener('click', (ev) => {
+    // Clique no CHECKBOX de um tópico: alterna feito (in place, sem re-render que rouba
+    // clique) e NÃO abre o editor. Clique no texto continua abrindo o editor.
+    const cb = ev.target.closest && ev.target.closest('.wk-topic-check');
+    if (cb) {
+      const row = cb.closest('.wk-topic');
+      const k = row && row.dataset.tpk;
+      if (k) {
+        const Dt = loadH2(); Dt[k] = cb.checked; if (!cb.checked) delete Dt[k]; saveH2(Dt);
+        row.classList.toggle('done', cb.checked);
+      }
+      return;
+    }
     const n = el.dataset.h2wked;
     const D = loadH2();
     const seed = (H2_WEEKPLAN.find(x => String(x.n) === n) || {}).w || '';

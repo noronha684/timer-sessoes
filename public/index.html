@@ -2404,6 +2404,11 @@ window.firebaseConfig = {
   .wk-topic-check { width: 15px; height: 15px; flex-shrink: 0; margin-top: 1px; cursor: pointer; }
   .wk-topic.done span { text-decoration: line-through; color: var(--text-subtle); }
   .wk-topic-empty { color: var(--text-subtle); font-style: italic; }
+  .wk-item-del {
+    margin-left: auto; border: none; background: none; color: var(--text-subtle);
+    font-size: 14px; line-height: 1; cursor: pointer; padding: 0 3px; flex-shrink: 0; opacity: 0.55;
+  }
+  .wk-item-del:hover { color: var(--danger); opacity: 1; }
 
   /* Bloco de opções do Timer: flat */
   .options {
@@ -7130,7 +7135,7 @@ function h2SecPlano(D) {
       const show = (it.text || '').trim() && h2ItemAppliesTo(it, x.n, firsts);
       // mesma tipografia dos tópicos da semana (12.5px, cor cheia) — item e tópico são
       // visualmente a mesma coisa na lista; só o mecanismo de dado difere
-      return `<label data-h2itemrow="${it.id}" data-h2itemwk="${x.n}" style="display:${show ? 'flex' : 'none'};gap:7px;align-items:flex-start;margin-top:5px;font-size:12.5px;line-height:1.45;cursor:pointer;color:var(--text)"><input type="checkbox" class="h2-check" style="width:15px;height:15px;flex-shrink:0;margin-top:1px" data-h2check="${k}"${D[k] ? ' checked' : ''}><span${D[k] ? ' style="text-decoration:line-through;color:var(--text-subtle)"' : ''}>${escapeHtml(it.text)}</span></label>`;
+      return `<label data-h2itemrow="${it.id}" data-h2itemwk="${x.n}" style="display:${show ? 'flex' : 'none'};gap:7px;align-items:flex-start;margin-top:5px;font-size:12.5px;line-height:1.45;cursor:pointer;color:var(--text)"><input type="checkbox" class="h2-check" style="width:15px;height:15px;flex-shrink:0;margin-top:1px" data-h2check="${k}"${D[k] ? ' checked' : ''}><span${D[k] ? ' style="text-decoration:line-through;color:var(--text-subtle)"' : ''}>${escapeHtml(it.text)}</span><button type="button" class="wk-item-del" data-wkdel="${it.id}" title="Remover este item do plano">×</button></label>`;
     }).join('');
     return `<tr data-h2wk="${x.n}" style="${rowStyle}">
       <td class="mono" style="text-align:center;color:var(--text);font-weight:600">${x.n}</td>
@@ -7151,10 +7156,14 @@ function h2SecPlano(D) {
       ${it.rec === 'one' ? `<input class="h2-ta" data-h2iwk="${it.id}" value="${escapeHtml(it.wk || '')}" inputmode="numeric" placeholder="nº" style="min-height:0;padding:8px 4px;width:44px;text-align:center;font:600 12px var(--h2-mono)">` : ''}
       <button data-h2idel="${it.id}" title="Excluir item" style="border:none;background:none;color:var(--text-subtle);font-size:17px;cursor:pointer;padding:2px 6px;line-height:1">×</button>
     </div>`).join('');
+  // O card não duplica mais a lista: itens vivem SÓ dentro das semanas (com × pra remover).
+  // O editor completo (mudar nº/recorrência) fica recolhido atrás de "gerenciar itens".
+  const mgrOpen = (() => { try { return localStorage.getItem('timerWkItemsMgr') === '1'; } catch { return false; } })();
   const itemsCard = `<div class="h2-card" style="margin-top:14px">
     <div class="h2-card-h">Itens do plano</div>
-    <div class="h2-note">Entram como checklist nas semanas em que se aplicam; os da semana corrente aparecem também no card Tarefas. Tarefa nova entra pelo card Tarefas (destino "Semana" — sem nº, o Claude sugere).</div>
-    ${itemRows}
+    <div class="h2-note">Vivem como checklist dentro das semanas (o × em cada um remove; os da semana corrente aparecem também no card Tarefas). Tarefa nova entra pelo card Tarefas — destino "Semana".</div>
+    ${items.length ? `<button type="button" class="h2-add-btn" id="wkItemsMgr" style="margin-top:8px">${mgrOpen ? '▾ ocultar gerenciador' : '▸ gerenciar itens (' + items.length + ') — mudar semana/recorrência'}</button>` : ''}
+    ${mgrOpen ? itemRows : ''}
     <button type="button" class="h2-add-btn" id="h2WkAddItem" style="margin-top:10px">+ Adicionar item recorrente</button>
   </div>`;
   return `<div class="h2-sec">
@@ -7258,6 +7267,26 @@ function bindH2Plano(c) {
     bindH2Plano(c);
     if (typeof renderTasks === 'function' && !(typeof isEditingField === 'function' && isEditingField())) renderTasks();
   };
+  // Toggle do gerenciador de itens (a lista completa fica recolhida — evita duplicar
+  // visualmente o que já aparece dentro das semanas)
+  const mgrBtn = c.querySelector('#wkItemsMgr');
+  if (mgrBtn) mgrBtn.addEventListener('click', () => {
+    try { localStorage.setItem('timerWkItemsMgr', localStorage.getItem('timerWkItemsMgr') === '1' ? '0' : '1'); } catch {}
+    rerender();
+  });
+  // × inline no item dentro da semana: remove o item do plano (preventDefault: o botão
+  // vive dentro do <label> — sem isso o clique alternaria o checkbox)
+  c.querySelectorAll('[data-wkdel]').forEach(el => el.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const id = el.dataset.wkdel;
+    const D = loadH2();
+    const it = h2WkItemsArr(D).find(i => i.id === id);
+    if (it && !confirm('Remover "' + (it.text || '') + '" do plano?')) return;
+    D.h2WkItems = h2WkItemsArr(D).filter(i => i.id !== id);
+    Object.keys(D).forEach(k => { if (k.startsWith('wkit_' + id + '_')) delete D[k]; });
+    saveH2(D); rerender();
+  }));
   // (a adição rápida de tarefa migrou pro card Tarefas — entrada única com destino
   // Hoje / A fazer / Semana; ver renderTasks + h2AddWeekItem/suggestWeekForTask)
   // Adicionar item recorrente

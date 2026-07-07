@@ -7145,7 +7145,10 @@ function h2SecPlano(D) {
       <td style="text-align:center"><input type="checkbox" class="h2-check" data-h2check="wk_${x.n}"${isDone ? ' checked' : ''}></td>
     </tr>`;
   }).join('');
-  const itemRows = items.map(it => `
+  // O gerenciador só lista RECORRENTES (precisam de configuração). Item de "semana única"
+  // vive só dentro da semana dele — checkbox + × lá são os controles; listar aqui duplicava.
+  const recItems = items.filter(it => it.rec !== 'one');
+  const itemRows = recItems.map(it => `
     <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
       <input class="h2-ta" data-h2itext="${it.id}" value="${escapeHtml(it.text || '')}" placeholder="ex.: enviar update de sentimento" style="min-height:0;padding:8px 10px;flex:1;font-size:12.5px">
       <select class="h2-sel" data-h2irec="${it.id}" style="width:auto;padding:8px 6px;background:var(--card-elev);color:var(--text);border:1px solid var(--border-strong)">
@@ -7161,9 +7164,9 @@ function h2SecPlano(D) {
   const mgrOpen = (() => { try { return localStorage.getItem('timerWkItemsMgr') === '1'; } catch { return false; } })();
   const itemsCard = `<div class="h2-card" style="margin-top:14px">
     <div class="h2-card-h">Itens do plano</div>
-    <div class="h2-note">Vivem como checklist dentro das semanas (o × em cada um remove; os da semana corrente aparecem também no card Tarefas). Tarefa nova entra pelo card Tarefas — destino "Semana".</div>
-    ${items.length ? `<button type="button" class="h2-add-btn" id="wkItemsMgr" style="margin-top:8px">${mgrOpen ? '▾ ocultar gerenciador' : '▸ gerenciar itens (' + items.length + ') — mudar semana/recorrência'}</button>` : ''}
-    ${mgrOpen ? itemRows : ''}
+    <div class="h2-note">Vivem como checklist dentro das semanas — o × em cada um remove; pra trocar de semana, remova e re-adicione com o nº (card Tarefas, destino "Semana"). Aqui ficam só os recorrentes.</div>
+    ${recItems.length ? `<button type="button" class="h2-add-btn" id="wkItemsMgr" style="margin-top:8px">${mgrOpen ? '▾ ocultar recorrentes' : '▸ gerenciar recorrentes (' + recItems.length + ')'}</button>` : ''}
+    ${mgrOpen && recItems.length ? itemRows : ''}
     <button type="button" class="h2-add-btn" id="h2WkAddItem" style="margin-top:10px">+ Adicionar item recorrente</button>
   </div>`;
   return `<div class="h2-sec">
@@ -7296,6 +7299,7 @@ function bindH2Plano(c) {
     const items = h2WkItemsArr(D);
     const id = 'i' + (items.reduce((m, it) => Math.max(m, parseInt(String(it.id).slice(1)) || 0), 0) + 1);
     D.h2WkItems = items.concat([{ id, text: '', rec: 'first' }]);
+    try { localStorage.setItem('timerWkItemsMgr', '1'); } catch {} // abre o gerenciador (a linha nova vive nele)
     saveH2(D); rerender();
     const inp = c.querySelector('[data-h2itext="' + id + '"]');
     if (inp) { inp.scrollIntoView({ block: 'center' }); inp.focus(); }
@@ -7318,7 +7322,14 @@ function bindH2Plano(c) {
   // Recorrência do item
   c.querySelectorAll('[data-h2irec]').forEach(el => el.addEventListener('change', () => {
     const D = loadH2(); const it = h2WkItemsArr(D).find(i => i.id === el.dataset.h2irec);
-    if (it) { it.rec = el.value; if (it.rec !== 'one') delete it.wk; saveH2(D); rerender(); }
+    if (it) {
+      it.rec = el.value;
+      if (it.rec !== 'one') delete it.wk;
+      // 'one' sem nº válido ficaria invisível (sai do gerenciador e não cai em semana
+      // nenhuma) → default pra semana corrente
+      else if (h2ClampWeek(it.wk) == null) { const cw = h2CurrentWeek(); it.wk = String(cw ? cw.n : 1); }
+      saveH2(D); rerender();
+    }
   }));
   // Nº da semana (recorrência "semana única") — idem, in place
   c.querySelectorAll('[data-h2iwk]').forEach(el => el.addEventListener('input', () => {

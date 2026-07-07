@@ -1,4 +1,4 @@
-const CACHE_NAME = 'timer-sessoes-v109';
+const CACHE_NAME = 'timer-sessoes-v110';
 const ASSETS = [
   './',
   './index.html',

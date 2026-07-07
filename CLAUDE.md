@@ -26,7 +26,8 @@ wrangler deploy                        # app  → timer.gnoronha.app
 wrangler deploy -c wrangler.api.jsonc  # API  (só quando mexer no worker.js)
 ```
 - O GitHub **não deploya** nada (o Workers Builds foi desconectado). GitHub = backup do código.
-- **Ao mudar o app, SEMPRE bumpar `CACHE_NAME`** em `public/service-worker.js` (é stale-while-revalidate + auto-reload). Versão atual: **v113**.
+- **Ao mudar o app, SEMPRE bumpar `CACHE_NAME`** em `public/service-worker.js` (é stale-while-revalidate + auto-reload). Versão atual: **v114**.
+- O SW tem um **cache permanente `CDN_CACHE`** (fontes + Firebase SDK) que sobrevive a bumps — NÃO apagá-lo no activate (era isso que causava primeira abertura de 3–5 min pós-deploy: re-download de 3 CDNs com DNS de roteador ruim). Imutáveis (woff2/firebasejs) = cache-first puro; CSS do Google Fonts = stale-while-revalidate em modo CORS (opaque nunca entra). **Se mudar a versão do firebasejs no index.html, atualizar `FIREBASEJS_VER` no service-worker.js** (poda das versões velhas no activate).
 - Segredos da API (todos já setados; `wrangler deploy` preserva): `WHOOP_CLIENT_SECRET`, `ANTHROPIC_API_KEY` (usado pelo `/api/suggest-week`; sem ele o endpoint responde 501) e `OWNER_UID` (trava a API ao uid do dono — outros uids levam 403). `wrangler secret put <NOME> -c wrangler.api.jsonc`.
 - Rollback rápido da API: `wrangler rollback -c wrangler.api.jsonc`.
 

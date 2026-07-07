@@ -7075,6 +7075,12 @@ function h2WkFirstWeeks() {
 function h2ItemAppliesTo(it, n, firsts) {
   if (it.rec === 'all') return true;
   if (it.rec === 'one') return parseInt(String(it.wk || '').trim(), 10) === Number(n); // numérico: "07" casa com 7
+  if (it.rec === 'range') {
+    // várias semanas seguidas: início (wk) + duração (len) → semanas [wk, wk+len-1]
+    const start = parseInt(String(it.wk || '').trim(), 10);
+    const len = Math.max(1, parseInt(String(it.len || '').trim(), 10) || 1);
+    return Number.isFinite(start) && Number(n) >= start && Number(n) < start + len;
+  }
   return firsts.has(n); // 'first'
 }
 // Texto da semana em tópicos: uma linha = um tópico; textos antigos (parágrafo único,
@@ -7155,8 +7161,10 @@ function h2SecPlano(D) {
         <option value="first"${it.rec === 'first' ? ' selected' : ''}>1ª semana do mês</option>
         <option value="all"${it.rec === 'all' ? ' selected' : ''}>Toda semana</option>
         <option value="one"${it.rec === 'one' ? ' selected' : ''}>Semana única</option>
+        <option value="range"${it.rec === 'range' ? ' selected' : ''}>Várias semanas</option>
       </select>
-      ${it.rec === 'one' ? `<input class="h2-ta" data-h2iwk="${it.id}" value="${escapeHtml(it.wk || '')}" inputmode="numeric" placeholder="nº" style="min-height:0;padding:8px 4px;width:44px;text-align:center;font:600 12px var(--h2-mono)">` : ''}
+      ${(it.rec === 'one' || it.rec === 'range') ? `<input class="h2-ta" data-h2iwk="${it.id}" value="${escapeHtml(it.wk || '')}" inputmode="numeric" placeholder="nº" title="Semana inicial" style="min-height:0;padding:8px 4px;width:44px;text-align:center;font:600 12px var(--h2-mono)">` : ''}
+      ${it.rec === 'range' ? `<input class="h2-ta" data-h2ilen="${it.id}" value="${escapeHtml(it.len || '')}" inputmode="numeric" placeholder="dur" title="Duração em semanas (ex.: 8)" style="min-height:0;padding:8px 4px;width:44px;text-align:center;font:600 12px var(--h2-mono)">` : ''}
       <button data-h2idel="${it.id}" title="Excluir item" style="border:none;background:none;color:var(--text-subtle);font-size:17px;cursor:pointer;padding:2px 6px;line-height:1">×</button>
     </div>`).join('');
   // O card não duplica mais a lista: itens vivem SÓ dentro das semanas (com × pra remover).
@@ -7324,17 +7332,26 @@ function bindH2Plano(c) {
     const D = loadH2(); const it = h2WkItemsArr(D).find(i => i.id === el.dataset.h2irec);
     if (it) {
       it.rec = el.value;
-      if (it.rec !== 'one') delete it.wk;
-      // 'one' sem nº válido ficaria invisível (sai do gerenciador e não cai em semana
-      // nenhuma) → default pra semana corrente
-      else if (h2ClampWeek(it.wk) == null) { const cw = h2CurrentWeek(); it.wk = String(cw ? cw.n : 1); }
+      if (it.rec !== 'one' && it.rec !== 'range') { delete it.wk; delete it.len; }
+      else {
+        // 'one'/'range' sem nº válido ficaria invisível → default pra semana corrente;
+        // 'range' sem duração ganha 4 semanas de default
+        if (h2ClampWeek(it.wk) == null) { const cw = h2CurrentWeek(); it.wk = String(cw ? cw.n : 1); }
+        if (it.rec === 'range') { if (!(parseInt(it.len, 10) > 0)) it.len = '4'; }
+        else delete it.len;
+      }
       saveH2(D); rerender();
     }
   }));
-  // Nº da semana (recorrência "semana única") — idem, in place
+  // Nº da semana (inicial, p/ "semana única" e "várias semanas") — in place
   c.querySelectorAll('[data-h2iwk]').forEach(el => el.addEventListener('input', () => {
     const D = loadH2(); const it = h2WkItemsArr(D).find(i => i.id === el.dataset.h2iwk);
     if (it) { it.wk = el.value.trim(); saveH2(D); refreshItemRows(it); }
+  }));
+  // Duração em semanas (só "várias semanas") — in place
+  c.querySelectorAll('[data-h2ilen]').forEach(el => el.addEventListener('input', () => {
+    const D = loadH2(); const it = h2WkItemsArr(D).find(i => i.id === el.dataset.h2ilen);
+    if (it) { it.len = el.value.trim(); saveH2(D); refreshItemRows(it); }
   }));
   // Excluir item (limpa também os checks dele nas semanas)
   c.querySelectorAll('[data-h2idel]').forEach(el => el.addEventListener('click', () => {

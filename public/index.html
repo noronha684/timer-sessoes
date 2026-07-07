@@ -7074,9 +7074,9 @@ function h2SecPlano(D) {
       <td style="text-align:center"><input type="checkbox" class="h2-check" data-h2check="wk_${x.n}"${isDone ? ' checked' : ''}></td>
     </tr>`;
   }).join('');
-  // O gerenciador só lista RECORRENTES (precisam de configuração). Item de "semana única"
-  // vive só dentro da semana dele — checkbox + × lá são os controles; listar aqui duplicava.
-  const recItems = items.filter(it => it.rec !== 'one');
+  // O card só mostra itens EM CRIAÇÃO (draft). Confirmou (Enter/✓), o item some daqui
+  // e vive só dentro das semanas — × na semana remove de todas; recriar = re-adicionar.
+  const recItems = items.filter(it => it.draft);
   const itemRows = recItems.map(it => `
     <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
       <input class="h2-ta" data-h2itext="${it.id}" value="${escapeHtml(it.text || '')}" placeholder="ex.: enviar update de sentimento" style="min-height:0;padding:8px 10px;flex:1;font-size:12.5px">
@@ -7088,16 +7088,13 @@ function h2SecPlano(D) {
       </select>
       ${(it.rec === 'one' || it.rec === 'range') ? `<input class="h2-ta" data-h2iwk="${it.id}" value="${escapeHtml(it.wk || '')}" inputmode="numeric" placeholder="nº" title="Semana inicial" style="min-height:0;padding:8px 4px;width:44px;text-align:center;font:600 12px var(--h2-mono)">` : ''}
       ${it.rec === 'range' ? `<input class="h2-ta" data-h2ilen="${it.id}" value="${escapeHtml(it.len || '')}" inputmode="numeric" placeholder="dur" title="Duração em semanas (ex.: 8)" style="min-height:0;padding:8px 4px;width:44px;text-align:center;font:600 12px var(--h2-mono)">` : ''}
+      <button data-h2iok="${it.id}" title="Confirmar (ou Enter): desce pras semanas" style="border:1px solid var(--border-strong);background:none;border-radius:8px;color:var(--text);font-size:13px;cursor:pointer;padding:6px 10px;line-height:1">✓</button>
       <button data-h2idel="${it.id}" title="Excluir item" style="border:none;background:none;color:var(--text-subtle);font-size:17px;cursor:pointer;padding:2px 6px;line-height:1">×</button>
     </div>`).join('');
-  // O card não duplica mais a lista: itens vivem SÓ dentro das semanas (com × pra remover).
-  // O editor completo (mudar nº/recorrência) fica recolhido atrás de "gerenciar itens".
-  const mgrOpen = (() => { try { return localStorage.getItem('timerWkItemsMgr') === '1'; } catch { return false; } })();
   const itemsCard = `<div class="h2-card" style="margin-top:14px">
     <div class="h2-card-h">Itens do plano</div>
-    <div class="h2-note">Vivem como checklist dentro das semanas — o × em cada um remove; pra trocar de semana, arraste pelo ⠿ e solte na linha da outra semana (tópicos também). Aqui ficam só os recorrentes.</div>
-    ${recItems.length ? `<button type="button" class="h2-add-btn" id="wkItemsMgr" style="margin-top:8px">${mgrOpen ? '▾ ocultar recorrentes' : '▸ gerenciar recorrentes (' + recItems.length + ')'}</button>` : ''}
-    ${mgrOpen && recItems.length ? itemRows : ''}
+    <div class="h2-note">Vivem como checklist dentro das semanas — o × em cada um remove (recorrente sai de todas); pra trocar de semana, arraste pelo ⠿ e solte na linha da outra semana (tópicos também). Recorrente novo: adicione abaixo, configure e Enter/✓ — ele desce pras semanas e some daqui.</div>
+    ${itemRows}
     <button type="button" class="h2-add-btn" id="h2WkAddItem" style="margin-top:10px">+ Adicionar item recorrente</button>
   </div>`;
   return `<div class="h2-sec">
@@ -7202,13 +7199,17 @@ function bindH2Plano(c) {
     bindH2Plano(c);
     if (typeof renderTasks === 'function' && !(typeof isEditingField === 'function' && isEditingField())) renderTasks();
   };
-  // Toggle do gerenciador de itens (a lista completa fica recolhida — evita duplicar
-  // visualmente o que já aparece dentro das semanas)
-  const mgrBtn = c.querySelector('#wkItemsMgr');
-  if (mgrBtn) mgrBtn.addEventListener('click', () => {
-    try { localStorage.setItem('timerWkItemsMgr', localStorage.getItem('timerWkItemsMgr') === '1' ? '0' : '1'); } catch {}
+  // Confirmar rascunho de recorrente (✓ ou Enter): tira o draft — o item some do card
+  // e passa a viver só dentro das semanas
+  const confirmDraft = (id) => {
+    const D = loadH2();
+    const it = h2WkItemsArr(D).find(i => i.id === id);
+    if (!it || !(it.text || '').trim()) return; // vazio ficaria invisível — não confirma
+    delete it.draft;
+    saveH2(D);
     rerender();
-  });
+  };
+  c.querySelectorAll('[data-h2iok]').forEach(el => el.addEventListener('click', () => confirmDraft(el.dataset.h2iok)));
   // × inline no item dentro da semana: remove o item do plano (preventDefault: o botão
   // vive dentro do <label> — sem isso o clique alternaria o checkbox)
   c.querySelectorAll('[data-wkdel]').forEach(el => el.addEventListener('click', (ev) => {
@@ -7312,8 +7313,7 @@ function bindH2Plano(c) {
     const D = loadH2();
     const items = h2WkItemsArr(D);
     const id = 'i' + (items.reduce((m, it) => Math.max(m, parseInt(String(it.id).slice(1)) || 0), 0) + 1);
-    D.h2WkItems = items.concat([{ id, text: '', rec: 'first' }]);
-    try { localStorage.setItem('timerWkItemsMgr', '1'); } catch {} // abre o gerenciador (a linha nova vive nele)
+    D.h2WkItems = items.concat([{ id, text: '', rec: 'first', draft: true }]); // draft: vive no card até confirmar
     saveH2(D); rerender();
     const inp = c.querySelector('[data-h2itext="' + id + '"]');
     if (inp) { inp.scrollIntoView({ block: 'center' }); inp.focus(); }
@@ -7333,13 +7333,11 @@ function bindH2Plano(c) {
     const D = loadH2(); const it = h2WkItemsArr(D).find(i => i.id === el.dataset.h2itext);
     if (it) { it.text = el.value; saveH2(D); refreshItemRows(it); }
   }));
-  // Enter no texto = confirmar: recolhe o gerenciador — o item passa a viver só nas semanas
+  // Enter no texto = confirmar (mesmo efeito do ✓): o item some do card
   c.querySelectorAll('[data-h2itext]').forEach(el => el.addEventListener('keydown', (ev) => {
     if (ev.key !== 'Enter') return;
     ev.preventDefault();
-    if (!el.value.trim()) return; // vazio ficaria invisível nas semanas — não recolhe
-    try { localStorage.setItem('timerWkItemsMgr', '0'); } catch {}
-    rerender();
+    confirmDraft(el.dataset.h2itext);
   }));
   // Recorrência do item
   c.querySelectorAll('[data-h2irec]').forEach(el => el.addEventListener('change', () => {

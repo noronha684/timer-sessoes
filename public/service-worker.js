@@ -1,4 +1,4 @@
-const CACHE_NAME = 'timer-sessoes-v111';
+const CACHE_NAME = 'timer-sessoes-v112';
 const ASSETS = [
   './',
   './index.html',
@@ -33,14 +33,20 @@ self.addEventListener('activate', (event) => {
 // Stale-while-revalidate: serve do cache na hora (rápido) e atualiza em background.
 // A versão nova aparece na próxima abertura — sem espera de rede no carregamento.
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
+// SDK do Firebase: URLs versionadas (imutáveis) → cache-first seguro. Tira ~200KB de
+// rede do caminho crítico do cold start (o portão de login espera o SDK carregar).
+function isCacheFirstCdn(url) {
+  return FONT_HOSTS.includes(url.hostname)
+    || (url.hostname === 'www.gstatic.com' && url.pathname.startsWith('/firebasejs/'));
+}
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
 
-  // Fontes do Google (CSS + woff2): cache-first — o app abre com as fontes do tema mesmo
-  // offline/rede ruim, e o CSS de fontes sai do caminho crítico do cold start.
-  if (FONT_HOSTS.includes(url.hostname)) {
+  // CDNs imutáveis (fontes + Firebase SDK): cache-first — o app abre mesmo com rede
+  // ruim/offline e esses bytes saem do caminho crítico do cold start.
+  if (isCacheFirstCdn(url)) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
         const net = fetch(event.request).then((response) => {

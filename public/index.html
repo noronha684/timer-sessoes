@@ -2968,6 +2968,8 @@ const state = {
   startedAt: null,
   intervalId: null,
   totalElapsedMs: 0,
+  sessionId: null, // identidade IMUTÁVEL da sessão (epoch do start; startedAt muda a cada retomada)
+  owner: null,     // null = esta sessão começou AQUI; senão, DEVICE_ID do dono (sou espelho adotado)
 };
 
 let audioCtx = null;
@@ -3612,6 +3614,8 @@ function persistTimerState() {
       category: state.category,
       subcategory: state.subcategory,
       currentSegStart: currentSegStart,
+      sessionId: state.sessionId,
+      owner: state.owner,
     }));
   }
   // Propaga o estado do timer pros outros dispositivos (espelho) + atualiza banner local
@@ -3627,6 +3631,8 @@ startBtn.addEventListener('click', () => {
   state.running = true;
   state.paused = false;
   state.startedAt = Date.now();
+  state.sessionId = state.startedAt; // identidade da sessão (não muda em pausa/retomada)
+  state.owner = null;                // começou aqui: eu sou o dono
   state.totalElapsedMs = 0;
   state.remainingMs = state.durationMs;
   state.intervalId = setInterval(tick, 250);
@@ -3657,7 +3663,7 @@ pauseBtn.addEventListener('click', () => {
     pauseBtn.textContent = 'Pausar';
     pauseBtn.classList.remove('btn-resume');
     pauseBtn.classList.add('btn-pause');
-    openSegment();
+    if (!state.owner) openSegment(); // espelho não grava segmento (o dono grava — evita dobrar foco)
     requestWakeLock();
   } else {
     // Pausar
@@ -3686,10 +3692,12 @@ function finishSession(completed, opts = {}) {
   if (!state.paused && state.running) {
     elapsedMs += Date.now() - state.startedAt;
   }
+  const sid = state.sessionId || state.startedAt;
   // Fecha o segmento de foco aberto. Se COMPLETOU, o fim real = quando o tempo acabaria
   // (startedAt + tempo restante deste trecho), não "agora" — evita segmento inflado (#18).
+  // opts.segEnd: sessão parada em OUTRO device — fecha meu segmento no momento real da parada.
   if (state.running && !state.paused) {
-    const segEnd = completed ? (state.startedAt + (state.durationMs - state.totalElapsedMs)) : null;
+    const segEnd = completed ? (state.startedAt + (state.durationMs - state.totalElapsedMs)) : (opts.segEnd || null);
     closeSegment(segEnd);
   }
   if (completed) elapsedMs = state.durationMs;
@@ -3697,8 +3705,14 @@ function finishSession(completed, opts = {}) {
   state.running = false;
   state.paused = false;
   state.intervalId = null;
+  state.sessionId = null;
+  state.owner = null;
 
-  if (elapsedMs >= 1000) saveSession(state.category, elapsedMs, state.subcategory);
+  // opts.noSave: quem parou foi OUTRO device (a sessão foi salva lá) — aqui só limpa.
+  if (elapsedMs >= 1000 && !opts.noSave) {
+    saveSession(state.category, elapsedMs, state.subcategory, (completed && sid) ? sid + state.durationMs : undefined);
+  }
+  if (!opts.noSave && sid) setStopTombstone(sid); // avisa os outros devices: "esta sessão acabou"
 
   if (completed && !opts.suppressAlert) triggerAlert();
 
@@ -3774,7 +3788,7 @@ function loadHistory() {
   try { return JSON.parse(localStorage.getItem('timerHistory') || '{}'); }
   catch { return {}; }
 }
-function saveSession(category, elapsedMs, subcategory) {
+function saveSession(category, elapsedMs, subcategory, at) {
   const history = loadHistory();
   const today = dateKey(new Date());
   if (!history[today]) history[today] = {};
@@ -3784,7 +3798,9 @@ function saveSession(category, elapsedMs, subcategory) {
   // Registra a sessão individual (pra contar sessões de 50min e breakdown por sub)
   const sessions = loadSessions();
   if (!sessions[today]) sessions[today] = [];
-  const rec = { category, durationMs: elapsedMs, at: Date.now() };
+  // at determinístico (sessionId+duração) quando a sessão sincronizada completa: os dois
+  // devices gravam a MESMA chave at|categoria|duração e o merge deduplica sozinho
+  const rec = { category, durationMs: elapsedMs, at: at || Date.now() };
   if (subcategory) rec.subcategory = subcategory;
   sessions[today].push(rec);
   localStorage.setItem('timerSessions', JSON.stringify(sessions));
@@ -4192,6 +4208,10 @@ function buildPushPayload() {
       h2Plan: loadH2(),
       events: loadEvents(),
       target: loadTarget(),
+      // Rodando: estado completo (device = DONO, preservado na adoção; by = quem escreveu).
+      // Parado COM tombstone: {stopped} — sinal de "sessão encerrada" pros outros limparem.
+      // Parado SEM tombstone: undefined — a chave nem vai no JSON e o servidor NÃO é tocado
+      // (antes, todo push de device parado clobberava o espelho com null).
       activeTimer: state.running ? {
         paused: state.paused,
         startedAt: state.startedAt,
@@ -4199,12 +4219,22 @@ function buildPushPayload() {
         durationMs: state.durationMs,
         category: state.category,
         subcategory: state.subcategory,
-        device: DEVICE_ID,
+        sessionId: state.sessionId || state.startedAt,
+        device: state.owner || DEVICE_ID,
+        by: DEVICE_ID,
         updatedAt: Date.now(),
-      } : null,
+      } : (() => {
+        const t = loadStopTombstone();
+        return t ? { stopped: true, sessionId: t.sessionId, device: DEVICE_ID, by: DEVICE_ID, updatedAt: t.at } : undefined;
+      })(),
     },
   };
 }
+
+// Tombstone de parada: sobrevive a reload; sai do localStorage quando um push confirma
+function setStopTombstone(sessionId) { try { localStorage.setItem('timerStopTombstone', JSON.stringify({ sessionId, at: Date.now() })); } catch {} }
+function loadStopTombstone() { try { return JSON.parse(localStorage.getItem('timerStopTombstone') || 'null'); } catch { return null; } }
+function clearStopTombstone() { try { localStorage.removeItem('timerStopTombstone'); } catch {} }
 
 // Flush síncrono no fechamento (pagehide/hidden): fetch keepalive com o token em cache,
 // SEM await (o browser não garante continuações de promise no unload). Fire-and-forget:
@@ -4239,6 +4269,7 @@ async function pushToCloud() {
     lastPushedSessionAt = beforeMax;
     try { localStorage.setItem('timerLastPushedSessionAt', String(beforeMax)); } catch {}
     const merged = await res.json();
+    clearStopTombstone(); // o payload enviado incluía o tombstone (se havia) — entregue
     // O servidor já mesclou — aplica de volta como remoto (mas sem device check pois é nossa resposta)
     applyServerSnapshot(merged);
     lastSyncedAt = new Date();
@@ -4369,12 +4400,8 @@ function applyServerSnapshot(snap) {
           localStorage.setItem('timerEvents', JSON.stringify(merged));
         }
       }
-      // Timer ativo em outro dispositivo (espelho informativo)
-      if (S.activeTimer !== undefined) {
-        const rt = S.activeTimer;
-        remoteActiveTimer = (rt && rt.device !== DEVICE_ID) ? rt : null;
-        if (typeof startRemoteBanner === 'function') startRemoteBanner();
-      }
+      // Timer ativo: sincroniza de verdade (adota / reconcilia pausa / limpa no tombstone)
+      if (S.activeTimer !== undefined && typeof applyRemoteTimer === 'function') applyRemoteTimer(S.activeTimer);
     }
     // #19: NÃO troca a categoria da sessão em andamento (senão grava no lugar errado)
     if (!state.running) {
@@ -4642,8 +4669,10 @@ function restoreTimerState() {
   state.durationMs = saved.durationMs;
   state.category = saved.category;
   state.subcategory = saved.subcategory || null;
-  // Restaura o segmento de foco aberto (se estava rodando)
-  currentSegStart = saved.paused ? null : (saved.currentSegStart || saved.startedAt);
+  state.sessionId = saved.sessionId || saved.startedAt;
+  state.owner = saved.owner || null;
+  // Restaura o segmento de foco aberto (se estava rodando E a sessão é minha — espelho não grava)
+  currentSegStart = (saved.paused || saved.owner) ? null : (saved.currentSegStart || saved.startedAt);
 
   // Calcula quanto tempo realmente passou
   let elapsedTotal = saved.totalElapsedMs;
@@ -6102,40 +6131,103 @@ $('#saveManualBtn').addEventListener('click', () => {
   if ($('#history-panel').classList.contains('active')) renderHistory();
 });
 
-// ====== Espelho do timer ativo em outro dispositivo ======
-let remoteActiveTimer = null;
-let remoteBannerInterval = null;
-function updateRemoteBanner() {
-  const banner = $('#remoteTimerBanner');
-  if (!banner) return;
-  // Não mostra se: não há timer remoto, ou eu mesmo estou rodando
-  if (!remoteActiveTimer || state.running) {
-    banner.style.display = 'none';
-    if (remoteBannerInterval) { clearInterval(remoteBannerInterval); remoteBannerInterval = null; }
+// ====== Timer sincronizado entre dispositivos ======
+// Quem INICIA é o dono (rt.device). Os outros ADOTAM: timer de verdade, com pausar/parar
+// funcionando. Integridade: só o dono grava segmentos de foco; quem PARA salva a sessão e
+// publica {stopped} (tombstone) — os demais só limpam; conclusão automática grava com at
+// determinístico (sessionId+duração), então dois devices concluindo juntos deduplicam no merge.
+function updateRemoteBanner() { const b = $('#remoteTimerBanner'); if (b) b.style.display = 'none'; }
+let lastRemoteTimerStamp = 0;
+function applyRemoteTimer(rt) {
+  if (!rt || rt.by === DEVICE_ID) return;              // null legado ou eco meu
+  if (!(rt.updatedAt > lastRemoteTimerStamp)) return;  // já apliquei este estado
+  lastRemoteTimerStamp = rt.updatedAt;
+  const mySid = state.sessionId || state.startedAt;
+
+  if (rt.stopped) {
+    // Pararam a sessão em outro device (a sessão foi SALVA lá) — aqui só limpa,
+    // fechando meu segmento (se sou o dono) no momento real da parada
+    if (state.running && rt.sessionId === mySid) {
+      finishSession(false, { suppressAlert: true, noSave: true, segEnd: rt.updatedAt });
+    }
     return;
   }
-  const rt = remoteActiveTimer;
-  let elapsed = rt.totalElapsedMs || 0;
-  if (!rt.paused) elapsed += Date.now() - rt.startedAt;
-  const remaining = Math.max(0, (rt.durationMs || 0) - elapsed);
-  if (remaining <= 0) {
-    // a sessão remota já deve ter terminado
-    banner.style.display = 'none';
-    remoteActiveTimer = null;
-    if (remoteBannerInterval) { clearInterval(remoteBannerInterval); remoteBannerInterval = null; }
+
+  const remain = rt.durationMs - (rt.totalElapsedMs || 0) - (rt.paused ? 0 : (Date.now() - rt.startedAt));
+  if (!rt.paused && remain <= 0) return; // já expirou: quem estiver com ela rodando registra
+
+  if (!state.running) {
+    // ADOTA: vira um timer de verdade aqui (sem gravar segmentos — o dono grava)
+    state.running = true;
+    state.paused = !!rt.paused;
+    state.startedAt = rt.startedAt;
+    state.totalElapsedMs = rt.totalElapsedMs || 0;
+    state.durationMs = rt.durationMs;
+    state.category = rt.category;
+    state.subcategory = rt.subcategory || null;
+    state.sessionId = rt.sessionId || rt.startedAt;
+    state.owner = rt.device;
+    currentSegStart = null;
+    clearInterval(state.intervalId);
+    state.intervalId = state.paused ? null : setInterval(tick, 250);
+    $('#focusIdle').style.display = 'none';
+    $('#focusRunning').style.display = 'block';
+    $('#runningCat').textContent = state.subcategory ? `${state.category} · ${state.subcategory}` : state.category;
+    durationValue.textContent = String(Math.round(state.durationMs / 60000));
+    display.classList.toggle('paused', state.paused);
+    pauseBtn.textContent = state.paused ? 'Retomar' : 'Pausar';
+    pauseBtn.classList.toggle('btn-resume', state.paused);
+    pauseBtn.classList.toggle('btn-pause', !state.paused);
+    if (!state.paused) requestWakeLock();
+    updateDisplay();
+    updatePipMediaState();
+    persistTimerState(); // triggerSync no-opa aqui (isApplyingRemote) — só grava a cópia local
     return;
   }
-  const mm = String(Math.floor(remaining / 60000)).padStart(2, '0');
-  const ss = String(Math.floor((remaining % 60000) / 1000)).padStart(2, '0');
-  const cat = rt.subcategory ? `${rt.category} · ${rt.subcategory}` : rt.category;
-  $('#remoteTimerText').innerHTML = `Em andamento em outro dispositivo — <b>${escapeHtml(cat)}</b> · ${mm}:${ss}${rt.paused ? ' (pausado)' : ''}`;
-  banner.style.display = 'flex';
-}
-function startRemoteBanner() {
-  updateRemoteBanner();
-  if (remoteActiveTimer && !state.running && !remoteBannerInterval) {
-    remoteBannerInterval = setInterval(updateRemoteBanner, 1000);
+
+  if (rt.sessionId === mySid || (!rt.sessionId && rt.startedAt === state.startedAt)) {
+    // MESMA sessão: reconcilia pausa/retomada feita no outro device
+    if (rt.paused && !state.paused) {
+      state.paused = true;
+      clearInterval(state.intervalId);
+      state.intervalId = null;
+      state.totalElapsedMs = rt.totalElapsedMs || state.totalElapsedMs;
+      display.classList.add('paused');
+      pauseBtn.textContent = 'Retomar';
+      pauseBtn.classList.remove('btn-pause');
+      pauseBtn.classList.add('btn-resume');
+      if (!state.owner) closeSegment(rt.updatedAt); // sou o dono: fecho meu segmento na hora real
+      syncWakeLock();
+    } else if (!rt.paused && state.paused) {
+      state.paused = false;
+      state.startedAt = rt.startedAt;
+      state.totalElapsedMs = rt.totalElapsedMs || state.totalElapsedMs;
+      clearInterval(state.intervalId);
+      state.intervalId = setInterval(tick, 250);
+      display.classList.remove('paused');
+      pauseBtn.textContent = 'Pausar';
+      pauseBtn.classList.remove('btn-resume');
+      pauseBtn.classList.add('btn-pause');
+      if (!state.owner) openSegment(); // dono: reabre segmento
+      requestWakeLock();
+    } else if (state.owner && !state.paused && !rt.paused) {
+      // sou espelho: ajusta deriva com os números do dono
+      state.startedAt = rt.startedAt;
+      state.totalElapsedMs = rt.totalElapsedMs || 0;
+    }
+    persistTimerState();
+    updateDisplay();
+    return;
   }
+
+  // Sessões DIFERENTES rodando ao mesmo tempo (raro): a ação mais recente ganha.
+  // O meu tempo real é salvo como sessão antes de adotar a remota.
+  if (rt.updatedAt >= (mySid || 0)) {
+    finishSession(false, { suppressAlert: true });
+    lastRemoteTimerStamp = 0;
+    applyRemoteTimer(rt);
+  }
+  // senão: mantenho a minha; meu próximo push sobrescreve o servidor
 }
 
 // ===== Plano semanal (horas-alvo por dia da semana) =====

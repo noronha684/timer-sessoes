@@ -2365,6 +2365,12 @@ window.firebaseConfig = {
   .wk-topic-check { width: 15px; height: 15px; flex-shrink: 0; margin-top: 1px; cursor: pointer; }
   .wk-topic.done span { text-decoration: line-through; color: var(--text-subtle); }
   .wk-topic-empty { color: var(--text-subtle); font-style: italic; }
+  /* Alça de arrasto: mover tópico/item pra outra semana (pointer events, mouse e toque) */
+  .wk-drag { flex-shrink: 0; width: 14px; text-align: center; margin-top: 1px; cursor: grab; color: var(--text-subtle); opacity: 0; font-size: 11px; user-select: none; -webkit-user-select: none; touch-action: none; }
+  .wk-topic:hover .wk-drag, [data-h2itemrow]:hover .wk-drag { opacity: 0.7; }
+  @media (hover: none) { .wk-drag { opacity: 0.45; } } /* celular: sempre visível */
+  tr.wk-drop td { background: rgba(242,242,240,0.10); }
+  .wk-ghost { position: fixed; z-index: 999; pointer-events: none; background: #1a1a1b; border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; padding: 6px 10px; font-size: 12.5px; color: var(--text); max-width: 60vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; box-shadow: 0 10px 28px rgba(0,0,0,0.55); }
   .wk-item-del {
     margin-left: auto; border: none; background: none; color: var(--text-subtle);
     font-size: 14px; line-height: 1; cursor: pointer; padding: 0 3px; flex-shrink: 0; opacity: 0.55;
@@ -6844,12 +6850,47 @@ function h2WkTopicsHtml(raw, n) {
         const k = h2TopicKey(n, t);
         const done = !!D[k];
         return `<div class="wk-topic${done ? ' done' : ''}" data-tpk="${k}">
+          <span class="wk-drag" title="Arrastar pra outra semana">⠿</span>
           <input type="checkbox" class="h2-check wk-topic-check"${done ? ' checked' : ''} title="Concluir tópico">
           <span>${escapeHtml(t)}</span>
         </div>`;
       }).join('')
     : '<div class="wk-topic wk-topic-empty"><span>clique para escrever…</span></div>';
   return `<div class="wk-topics" data-h2wked="${n}" title="Clique no texto para editar (um tópico por linha)">${inner}</div>`;
+}
+// ===== Mover tópico/item entre semanas (drag-and-drop) =====
+// Tópico: sai da lista da semana n1 e entra no fim da n2 (reconstrói via h2WkTopics —
+// normaliza inclusive o formato legado de frase única); o "feito" migra de chave.
+function h2MoveTopic(n1, text, n2) {
+  const D = loadH2();
+  const seedW = (n) => { const x = H2_WEEKPLAN.find(w => String(w.n) === String(n)); return x ? x.w : ''; };
+  const t = String(text).trim();
+  if (!t) return false;
+  const tp1 = h2WkTopics(D['wkw_' + n1] != null ? D['wkw_' + n1] : seedW(n1));
+  const i = tp1.indexOf(t);
+  if (i < 0) return false;
+  tp1.splice(i, 1);
+  D['wkw_' + n1] = tp1.join('\n');
+  const tp2 = h2WkTopics(D['wkw_' + n2] != null ? D['wkw_' + n2] : seedW(n2));
+  tp2.push(t);
+  D['wkw_' + n2] = tp2.join('\n');
+  const k1 = h2TopicKey(n1, t);
+  if (D[k1]) D[h2TopicKey(n2, t)] = true;
+  delete D[k1];
+  saveH2(D);
+  return true;
+}
+// Item de semana única: troca o wk; o check wkit_<id>_<n> migra junto
+function h2MoveItem(id, n1, n2) {
+  const D = loadH2();
+  const it = h2WkItemsArr(D).find(i => i.id === id);
+  if (!it || it.rec !== 'one') return false;
+  it.wk = String(n2);
+  const k1 = 'wkit_' + id + '_' + n1;
+  if (D[k1]) D['wkit_' + id + '_' + n2] = true;
+  delete D[k1];
+  saveH2(D);
+  return true;
 }
 function h2SecPlano(D) {
   const today = dateKey(new Date());
@@ -6873,7 +6914,7 @@ function h2SecPlano(D) {
       const show = (it.text || '').trim() && h2ItemAppliesTo(it, x.n, firsts);
       // mesma tipografia dos tópicos da semana (12.5px, cor cheia) — item e tópico são
       // visualmente a mesma coisa na lista; só o mecanismo de dado difere
-      return `<label data-h2itemrow="${it.id}" data-h2itemwk="${x.n}" style="display:${show ? 'flex' : 'none'};gap:7px;align-items:flex-start;margin-top:5px;font-size:12.5px;line-height:1.45;cursor:pointer;color:var(--text)"><input type="checkbox" class="h2-check" style="width:15px;height:15px;flex-shrink:0;margin-top:1px" data-h2check="${k}"${D[k] ? ' checked' : ''}><span${D[k] ? ' style="text-decoration:line-through;color:var(--text-subtle)"' : ''}>${escapeHtml(it.text)}</span><button type="button" class="wk-item-del" data-wkdel="${it.id}" title="Remover este item do plano">×</button></label>`;
+      return `<label data-h2itemrow="${it.id}" data-h2itemwk="${x.n}" style="display:${show ? 'flex' : 'none'};gap:7px;align-items:flex-start;margin-top:5px;font-size:12.5px;line-height:1.45;cursor:pointer;color:var(--text)">${it.rec === 'one' ? '<span class="wk-drag" title="Arrastar pra outra semana">⠿</span>' : ''}<input type="checkbox" class="h2-check" style="width:15px;height:15px;flex-shrink:0;margin-top:1px" data-h2check="${k}"${D[k] ? ' checked' : ''}><span${D[k] ? ' style="text-decoration:line-through;color:var(--text-subtle)"' : ''}>${escapeHtml(it.text)}</span><button type="button" class="wk-item-del" data-wkdel="${it.id}" title="Remover este item do plano">×</button></label>`;
     }).join('');
     return `<tr data-h2wk="${x.n}" style="${rowStyle}">
       <td class="mono" style="text-align:center;color:var(--text);font-weight:600">${x.n}</td>
@@ -6904,7 +6945,7 @@ function h2SecPlano(D) {
   const mgrOpen = (() => { try { return localStorage.getItem('timerWkItemsMgr') === '1'; } catch { return false; } })();
   const itemsCard = `<div class="h2-card" style="margin-top:14px">
     <div class="h2-card-h">Itens do plano</div>
-    <div class="h2-note">Vivem como checklist dentro das semanas — o × em cada um remove; pra trocar de semana, remova e re-adicione com o nº (campo "Nova tarefa…" do card Tarefas). Aqui ficam só os recorrentes.</div>
+    <div class="h2-note">Vivem como checklist dentro das semanas — o × em cada um remove; pra trocar de semana, arraste pelo ⠿ e solte na linha da outra semana (tópicos também). Aqui ficam só os recorrentes.</div>
     ${recItems.length ? `<button type="button" class="h2-add-btn" id="wkItemsMgr" style="margin-top:8px">${mgrOpen ? '▾ ocultar recorrentes' : '▸ gerenciar recorrentes (' + recItems.length + ')'}</button>` : ''}
     ${mgrOpen && recItems.length ? itemRows : ''}
     <button type="button" class="h2-add-btn" id="h2WkAddItem" style="margin-top:10px">+ Adicionar item recorrente</button>
@@ -6945,6 +6986,7 @@ function bindH2Plano(c) {
   const attachTopicsEditor = (el) => el.addEventListener('click', (ev) => {
     // Clique no CHECKBOX de um tópico: alterna feito (in place, sem re-render que rouba
     // clique) e NÃO abre o editor. Clique no texto continua abrindo o editor.
+    if (ev.target.closest && ev.target.closest('.wk-drag')) return; // alça é do drag, não do editor
     const cb = ev.target.closest && ev.target.closest('.wk-topic-check');
     if (cb) {
       const row = cb.closest('.wk-topic');
@@ -7030,6 +7072,74 @@ function bindH2Plano(c) {
     Object.keys(D).forEach(k => { if (k.startsWith('wkit_' + id + '_')) delete D[k]; });
     saveH2(D); rerender();
   }));
+  // Arrastar tópicos/itens entre semanas (pointer events: funciona com mouse E toque;
+  // touch-action:none só na alça — o resto da página continua rolando normal). Soltar
+  // sobre outra <tr data-h2wk> move; rolagem automática perto das bordas da tela.
+  c.querySelectorAll('.wk-drag').forEach(h => {
+    h.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); }); // tap sem drag: não alterna checkbox/label
+    h.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      const row = h.closest('.wk-topic, [data-h2itemrow]');
+      const srcTr = h.closest('tr[data-h2wk]');
+      if (!row || !srcTr) return;
+      const srcN = srcTr.dataset.h2wk;
+      const sp = row.querySelector('span:not(.wk-drag)');
+      const label = sp ? sp.textContent : '';
+      const x0 = ev.clientX, y0 = ev.clientY;
+      let ghost = null, curTr = null, dragging = false, px = x0, py = y0, raf = 0;
+      const setDrop = (tr) => {
+        if (tr === curTr) return;
+        if (curTr) curTr.classList.remove('wk-drop');
+        curTr = tr;
+        if (curTr) curTr.classList.add('wk-drop');
+      };
+      const tick = () => {
+        if (py < 90) window.scrollBy(0, -14);
+        else if (py > innerHeight - 90) window.scrollBy(0, 14);
+        const under = document.elementFromPoint(px, py);
+        setDrop(under && under.closest ? under.closest('tr[data-h2wk]') : null);
+        if (ghost) { ghost.style.left = (px + 12) + 'px'; ghost.style.top = (py - 14) + 'px'; }
+        raf = requestAnimationFrame(tick);
+      };
+      const onMove = (e) => {
+        px = e.clientX; py = e.clientY;
+        if (!dragging && Math.hypot(px - x0, py - y0) > 6) {
+          dragging = true;
+          ghost = document.createElement('div');
+          ghost.className = 'wk-ghost';
+          ghost.textContent = label;
+          document.body.appendChild(ghost);
+          row.style.opacity = '0.35';
+          raf = requestAnimationFrame(tick); // rAF só pra auto-scroll/fantasma durante rolagem
+        }
+        if (dragging) {
+          // alvo marcado AQUI (não depende do rAF): cada movimento reavalia
+          const under = document.elementFromPoint(px, py);
+          setDrop(under && under.closest ? under.closest('tr[data-h2wk]') : null);
+          if (ghost) { ghost.style.left = (px + 12) + 'px'; ghost.style.top = (py - 14) + 'px'; }
+        }
+      };
+      const onUp = () => {
+        h.removeEventListener('pointermove', onMove);
+        h.removeEventListener('pointerup', onUp);
+        h.removeEventListener('pointercancel', onUp);
+        cancelAnimationFrame(raf);
+        if (ghost) ghost.remove();
+        row.style.opacity = '';
+        const dstN = curTr && curTr.dataset.h2wk;
+        setDrop(null);
+        if (!dragging || !dstN || dstN === srcN) return;
+        const moved = row.dataset && row.dataset.h2itemrow
+          ? h2MoveItem(row.dataset.h2itemrow, srcN, dstN)
+          : h2MoveTopic(srcN, label, dstN);
+        if (moved) rerender();
+      };
+      try { h.setPointerCapture(ev.pointerId); } catch {}
+      h.addEventListener('pointermove', onMove);
+      h.addEventListener('pointerup', onUp);
+      h.addEventListener('pointercancel', onUp);
+    });
+  });
   // (a adição rápida de tarefa migrou pro card Tarefas — entrada única: tudo vira
   // item do plano; ver renderTasks + h2AddWeekItem/suggestWeekForTask)
   // Adicionar item recorrente

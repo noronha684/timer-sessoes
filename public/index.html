@@ -7333,6 +7333,14 @@ function bindH2Plano(c) {
     const D = loadH2(); const it = h2WkItemsArr(D).find(i => i.id === el.dataset.h2itext);
     if (it) { it.text = el.value; saveH2(D); refreshItemRows(it); }
   }));
+  // Enter no texto = confirmar: recolhe o gerenciador — o item passa a viver só nas semanas
+  c.querySelectorAll('[data-h2itext]').forEach(el => el.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    if (!el.value.trim()) return; // vazio ficaria invisível nas semanas — não recolhe
+    try { localStorage.setItem('timerWkItemsMgr', '0'); } catch {}
+    rerender();
+  }));
   // Recorrência do item
   c.querySelectorAll('[data-h2irec]').forEach(el => el.addEventListener('change', () => {
     const D = loadH2(); const it = h2WkItemsArr(D).find(i => i.id === el.dataset.h2irec);

@@ -2371,6 +2371,14 @@ window.firebaseConfig = {
   @media (hover: none) { .wk-drag { opacity: 0.45; } } /* celular: sempre visível */
   tr.wk-drop td { background: rgba(242,242,240,0.10); }
   .wk-ghost { position: fixed; z-index: 999; pointer-events: none; background: #1a1a1b; border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; padding: 6px 10px; font-size: 12.5px; color: var(--text); max-width: 60vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; box-shadow: 0 10px 28px rgba(0,0,0,0.55); }
+  /* Itens do plano semanal projetados no calendário (borda PONTILHADA = plano; sólida = evento) */
+  .cal-plan { font-size: 9.5px; line-height: 1.3; color: var(--text-muted); border-left: 2px dotted rgba(242,242,240,0.45); padding-left: 4px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .cal-plan.done { text-decoration: line-through; color: var(--text-subtle); }
+  .cal-cell.cal-drop { background: rgba(242,242,240,0.10); }
+  .cal-cell.cal-nodrop { outline: 1px dashed rgba(224,161,155,0.5); outline-offset: -2px; }
+  .cal-week-plan { border-left: 2px dotted rgba(242,242,240,0.45); padding-left: 6px; margin-top: 3px; font-size: 12px; color: var(--text-muted); }
+  .cal-week-plan.done { text-decoration: line-through; color: var(--text-subtle); }
+  .day-plan-note { font-size: 10.5px; color: var(--text-subtle); margin: 10px 0 4px; text-transform: uppercase; letter-spacing: 0.5px; }
   .wk-item-del {
     margin-left: auto; border: none; background: none; color: var(--text-subtle);
     font-size: 14px; line-height: 1; cursor: pointer; padding: 0 3px; flex-shrink: 0; opacity: 0.55;
@@ -5670,6 +5678,45 @@ function sleepForDay(key) {
   return s && s.durationMin ? s.durationMin * 60000 : 0;
 }
 
+// ===== Plano semanal projetado no calendário =====
+// Cada tópico/item da semana N vira uma linha num dia: por padrão a SEXTA da semana
+// (última sexta dentro da janela s..e; fallback fim da janela); arrastar o chip pra
+// outro dia DA MESMA SEMANA grava override wkday_<n>_<slug> no doc h2Plan (sincroniza).
+function h2WeekDefaultDay(x) {
+  const s = new Date(x.s + 'T00:00:00');
+  for (let d = new Date(x.e + 'T00:00:00'); d >= s; d.setDate(d.getDate() - 1)) {
+    if (d.getDay() === 5) return dateKey(d);
+  }
+  return x.e;
+}
+function h2PlanCalKey(n, slug) { return 'wkday_' + n + '_' + slug; }
+// slug 't<hash>' (tópico) / 'i<id>' (item) → chave do estado "feito" correspondente
+function h2PlanDoneKey(n, slug) {
+  return slug[0] === 'i' ? ('wkit_' + slug.slice(1) + '_' + n) : ('wktp_' + n + '_' + slug.slice(1));
+}
+// Mapa dateKey → [{slug, n, text, done}] de todas as semanas do H2
+function h2PlanCalEntries() {
+  const D = loadH2();
+  const firsts = h2WkFirstWeeks();
+  const items = h2WkItemsArr(D);
+  const out = {};
+  const push = (dk, e) => { (out[dk] = out[dk] || []).push(e); };
+  for (const x of H2_WEEKPLAN) {
+    const def = h2WeekDefaultDay(x);
+    const raw = D['wkw_' + x.n] != null ? D['wkw_' + x.n] : x.w;
+    for (const t of h2WkTopics(raw)) {
+      const kk = h2TopicKey(x.n, t);
+      const slug = 't' + kk.slice(kk.lastIndexOf('_') + 1);
+      push(D[h2PlanCalKey(x.n, slug)] || def, { slug, n: x.n, text: t, done: !!D[kk] });
+    }
+    for (const it of items) {
+      if (!(it.text || '').trim() || !h2ItemAppliesTo(it, x.n, firsts)) continue;
+      const slug = 'i' + it.id;
+      push(D[h2PlanCalKey(x.n, slug)] || def, { slug, n: x.n, text: it.text, done: !!D['wkit_' + it.id + '_' + x.n] });
+    }
+  }
+  return out;
+}
 function renderCalendar() {
   // Mostra/esconde os containers conforme a visão
   $('#calGrid').style.display = calView === 'month' ? 'grid' : 'none';
@@ -5697,6 +5744,7 @@ function renderCalMonth() {
   const gridStart = new Date(year, month, 1 - offsetToMonday);
 
   const events = loadEvents();
+  const planMap = (typeof h2PlanCalEntries === 'function') ? h2PlanCalEntries() : {};
   const todayKey = dateKey(new Date());
   const cells = [];
   for (let i = 0; i < 42; i++) {
@@ -5715,6 +5763,10 @@ function renderCalMonth() {
       return `<div class="cal-event ${e.done ? 'done' : ''}" style="border-left:2px solid ${col};padding-left:4px">${r}${t}${escapeHtml(e.text)}</div>`;
     }).join('');
     const moreHtml = dayEvents.length > 2 ? `<div class="cal-more">+${dayEvents.length - 2}</div>` : '';
+    const dayPlan = planMap[key] || [];
+    const planHtml = dayPlan.slice(0, 3).map(p =>
+      `<div class="cal-plan${p.done ? ' done' : ''}" data-plan="${p.slug}" data-plann="${p.n}" title="Plano · sem. ${p.n} — arraste pra outro dia da semana">${escapeHtml(p.text)}</div>`).join('');
+    const planMoreHtml = dayPlan.length > 3 ? `<div class="cal-more">+${dayPlan.length - 3} plano</div>` : '';
     const dots = [];
     if (focusMs > 0) dots.push('<span class="cal-dot focus"></span>');
     if (sleepMs > 0) dots.push('<span class="cal-dot sleep"></span>');
@@ -5723,7 +5775,7 @@ function renderCalMonth() {
     cells.push(`
       <div class="cal-cell ${otherMonth ? 'other-month' : ''} ${key === todayKey ? 'today' : ''}" data-key="${key}">
         <div class="cal-daynum">${d.getDate()}</div>
-        <div class="cal-events">${evHtml}${moreHtml}</div>
+        <div class="cal-events">${evHtml}${moreHtml}${planHtml}${planMoreHtml}</div>
         ${dotsHtml}
       </div>`);
 
@@ -5731,6 +5783,75 @@ function renderCalMonth() {
     if (i >= 34 && d.getMonth() !== month && d.getDay() === 0) break;
   }
   $('#calGrid').innerHTML = cells.join('');
+  bindCalPlanDrag();
+}
+
+// Arrastar chip do plano pra outro dia DA MESMA SEMANA (mesmo padrão do plano: pointer
+// events com captura, fantasma, limpeza idempotente; _h2DragActive pausa re-renders)
+function bindCalPlanDrag() {
+  document.querySelectorAll('#calGrid .cal-plan').forEach(chip => {
+    chip.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      const slug = chip.dataset.plan, wn = chip.dataset.plann;
+      const wk = H2_WEEKPLAN.find(x => String(x.n) === String(wn));
+      if (!wk) return;
+      const x0 = ev.clientX, y0 = ev.clientY;
+      let ghost = null, cur = null, dragging = false, px = x0, py = y0, finished = false;
+      const inWeek = (dk) => dk >= wk.s && dk <= wk.e;
+      const setDrop = (cell) => {
+        if (cell === cur) return;
+        if (cur) cur.classList.remove('cal-drop', 'cal-nodrop');
+        cur = cell;
+        if (cur) cur.classList.add(inWeek(cur.dataset.key) ? 'cal-drop' : 'cal-nodrop');
+      };
+      const onMove = (e) => {
+        px = e.clientX; py = e.clientY;
+        if (!dragging && Math.hypot(px - x0, py - y0) > 6) {
+          dragging = true;
+          window._h2DragActive = true;
+          ghost = document.createElement('div');
+          ghost.className = 'wk-ghost';
+          ghost.textContent = chip.textContent;
+          document.body.appendChild(ghost);
+          chip.style.opacity = '0.35';
+        }
+        if (dragging) {
+          const under = document.elementFromPoint(px, py);
+          setDrop(under && under.closest ? under.closest('.cal-cell') : null);
+          if (ghost) { ghost.style.left = (px + 12) + 'px'; ghost.style.top = (py - 14) + 'px'; }
+        }
+      };
+      const cleanup = () => {
+        if (finished) return;
+        finished = true;
+        window._h2DragActive = false;
+        chip.removeEventListener('pointermove', onMove);
+        chip.removeEventListener('pointerup', onUp);
+        chip.removeEventListener('pointercancel', cleanup);
+        chip.removeEventListener('lostpointercapture', onLost);
+        if (ghost) ghost.remove();
+        chip.style.opacity = '';
+        setDrop(null);
+      };
+      const onLost = () => setTimeout(cleanup, 0);
+      const onUp = () => {
+        const dst = cur && cur.dataset.key;
+        const did = dragging;
+        cleanup();
+        if (did) _calDragEndAt = Date.now(); // o clique fantasma logo depois não abre o modal
+        if (!did || !dst || !inWeek(dst)) return; // fora da janela da semana: volta
+        const D = loadH2();
+        D[h2PlanCalKey(wn, slug)] = dst;
+        saveH2(D);
+        renderCalendar();
+      };
+      try { chip.setPointerCapture(ev.pointerId); } catch {}
+      chip.addEventListener('pointermove', onMove);
+      chip.addEventListener('pointerup', onUp);
+      chip.addEventListener('pointercancel', cleanup);
+      chip.addEventListener('lostpointercapture', onLost);
+    });
+  });
 }
 
 function openDayModal(key) {
@@ -5758,9 +5879,10 @@ function openDayModal(key) {
 
 function renderDayEvents() {
   const list = eventsForDay(dayModalKey);
+  const plan = (typeof h2PlanCalEntries === 'function') ? (h2PlanCalEntries()[dayModalKey] || []) : [];
   const el = $('#dayEventsList');
   if (list.length === 0) {
-    el.innerHTML = '<div class="day-events-empty">Nenhum evento neste dia.</div>';
+    el.innerHTML = plan.length ? '' : '<div class="day-events-empty">Nenhum evento neste dia.</div>';
   } else {
     el.innerHTML = list.map(e => {
       const col = evCatColor(e.cat);
@@ -5776,6 +5898,15 @@ function renderDayEvents() {
         <button class="todo-remove" data-del="${e.id}" aria-label="Remover">×</button>
       </div>`;
     }).join('');
+  }
+  // Itens do plano semanal projetados neste dia (checkbox marca o "feito" do plano;
+  // editar/mover mora na aba Plano e no arrasto da grade)
+  if (plan.length) {
+    el.innerHTML += '<div class="day-plan-note">Plano semanal</div>' + plan.map(p => `
+      <div class="day-event-item ${p.done ? 'done' : ''}" style="border-left-color:rgba(242,242,240,0.45)">
+        <div class="todo-check ${p.done ? 'done' : ''}" data-plantoggle="${p.slug}" data-plann="${p.n}"></div>
+        <span class="ev-text">${escapeHtml(p.text)}<span class="ev-recur-note">plano · sem. ${p.n}</span></span>
+      </div>`).join('');
   }
 }
 
@@ -5813,16 +5944,18 @@ function renderCalWeek() {
   $('#calRange').textContent = calWeekOffset === 0 ? 'Esta semana' : `${fmt(days[0])} – ${fmt(days[6])}`;
 
   const events = loadEvents();
+  const planMap = (typeof h2PlanCalEntries === 'function') ? h2PlanCalEntries() : {};
   const todayKey = dateKey(new Date());
   $('#calWeekList').innerHTML = days.map(d => {
     const key = dateKey(d);
     const dayEvents = eventsForDay(key, events);
+    const dayPlan = planMap[key] || [];
     const focusMs = focusTotalForDay(key);
     const sleepMs = sleepForDay(key);
     const dayNum = d.toLocaleDateString('pt-BR', { day: '2-digit' });       // "02"
     const weekdayAbbr = d.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''); // "seg" (CSS deixa maiúsculo)
     const isWeekend = (d.getDay() === 0 || d.getDay() === 6);
-    const isEmpty = dayEvents.length === 0;
+    const isEmpty = dayEvents.length === 0 && dayPlan.length === 0;
 
     const summaryParts = [];
     if (focusMs > 0) summaryParts.push(`<span><i class="focus"></i>${formatDuration(focusMs)}</span>`);
@@ -5835,7 +5968,9 @@ function renderCalWeek() {
           const r = e.recur ? '<span class="ev-recur-badge">↻</span>' : '';
           return `<div class="cal-week-event ${e.done ? 'done' : ''}" style="border-left-color:${col}">${r}${t}<span>${escapeHtml(e.text)}</span></div>`;
         }).join('')
-      : '<div class="cal-week-empty">Sem eventos</div>';
+      : (dayPlan.length ? '' : '<div class="cal-week-empty">Sem eventos</div>');
+    const planHtml = dayPlan.map(p =>
+      `<div class="cal-week-plan${p.done ? ' done' : ''}">${escapeHtml(p.text)} <span class="ev-recur-note">plano · sem. ${p.n}</span></div>`).join('');
 
     return `
       <div class="cal-week-day ${key === todayKey ? 'today' : ''} ${isWeekend ? 'weekend' : ''} ${isEmpty ? 'empty' : ''}" data-key="${key}">
@@ -5845,7 +5980,7 @@ function renderCalWeek() {
         </div>
         <div class="cal-week-body">
           <div class="cal-week-summary">${summaryParts.join('')}</div>
-          <div class="cal-week-events">${evHtml}</div>
+          <div class="cal-week-events">${evHtml}${planHtml}</div>
         </div>
       </div>`;
   }).join('');
@@ -5863,7 +5998,9 @@ $('#calNext').addEventListener('click', () => {
   if (calView === 'week') calWeekOffset++; else calMonthOffset++;
   renderCalendar();
 });
+let _calDragEndAt = 0;
 $('#calGrid').addEventListener('click', (e) => {
+  if (Date.now() - _calDragEndAt < 350) return; // clique residual do arrasto
   const cell = e.target.closest('.cal-cell');
   if (cell) openDayModal(cell.dataset.key);
 });
@@ -5876,6 +6013,17 @@ $('#newEventInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') 
 $('#dayModalClose').addEventListener('click', () => $('#dayModal').classList.remove('active'));
 $('#dayModal').addEventListener('click', (e) => { if (e.target.id === 'dayModal') $('#dayModal').classList.remove('active'); });
 $('#dayEventsList').addEventListener('click', (e) => {
+  const pt = e.target.closest('[data-plantoggle]');
+  if (pt) {
+    const D = loadH2();
+    const k = h2PlanDoneKey(pt.dataset.plann, pt.dataset.plantoggle);
+    if (D[k]) delete D[k]; else D[k] = true;
+    saveH2(D);
+    renderDayEvents();
+    renderCalendar();
+    if (typeof refreshWeekPlanSafe === 'function') refreshWeekPlanSafe();
+    return;
+  }
   const toggle = e.target.closest('.todo-check');
   const del = e.target.closest('.todo-remove');
   if (toggle) {

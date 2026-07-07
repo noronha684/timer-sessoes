@@ -4254,6 +4254,7 @@ async function pullFromCloud() {
 
 // True se o usuário está digitando num campo editável (evita re-render que rouba o foco)
 function isEditingField() {
+  if (window._h2DragActive) return true; // arrasto de tópico/item em andamento: re-render mataria a captura do ponteiro (fantasma preso)
   const el = document.activeElement;
   if (!el) return false;
   const tag = el.tagName;
@@ -7105,6 +7106,7 @@ function bindH2Plano(c) {
         px = e.clientX; py = e.clientY;
         if (!dragging && Math.hypot(px - x0, py - y0) > 6) {
           dragging = true;
+          window._h2DragActive = true; // pausa re-renders externos (poll do sync etc.) — ver isEditingField
           ghost = document.createElement('div');
           ghost.className = 'wk-ghost';
           ghost.textContent = label;
@@ -7119,16 +7121,28 @@ function bindH2Plano(c) {
           if (ghost) { ghost.style.left = (px + 12) + 'px'; ghost.style.top = (py - 14) + 'px'; }
         }
       };
-      const onUp = () => {
+      // Limpeza IDEMPOTENTE: roda no pointerup normal, no cancel e no lostpointercapture
+      // (se algo remover a alça do DOM no meio do arrasto, o fantasma não fica preso)
+      let finished = false;
+      const cleanup = () => {
+        if (finished) return;
+        finished = true;
+        window._h2DragActive = false;
         h.removeEventListener('pointermove', onMove);
         h.removeEventListener('pointerup', onUp);
-        h.removeEventListener('pointercancel', onUp);
+        h.removeEventListener('pointercancel', cleanup);
+        h.removeEventListener('lostpointercapture', onLost);
         cancelAnimationFrame(raf);
         if (ghost) ghost.remove();
         row.style.opacity = '';
-        const dstN = curTr && curTr.dataset.h2wk;
         setDrop(null);
-        if (!dragging || !dstN || dstN === srcN) return;
+      };
+      const onLost = () => setTimeout(cleanup, 0); // depois do pointerup (que solta a captura no caminho feliz)
+      const onUp = () => {
+        const dstN = curTr && curTr.dataset.h2wk;
+        const did = dragging;
+        cleanup();
+        if (!did || !dstN || dstN === srcN) return;
         const moved = row.dataset && row.dataset.h2itemrow
           ? h2MoveItem(row.dataset.h2itemrow, srcN, dstN)
           : h2MoveTopic(srcN, label, dstN);
@@ -7137,7 +7151,8 @@ function bindH2Plano(c) {
       try { h.setPointerCapture(ev.pointerId); } catch {}
       h.addEventListener('pointermove', onMove);
       h.addEventListener('pointerup', onUp);
-      h.addEventListener('pointercancel', onUp);
+      h.addEventListener('pointercancel', cleanup);
+      h.addEventListener('lostpointercapture', onLost);
     });
   });
   // (a adição rápida de tarefa migrou pro card Tarefas — entrada única: tudo vira

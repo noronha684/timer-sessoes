@@ -26,8 +26,8 @@ wrangler deploy                        # app  → timer.gnoronha.app
 wrangler deploy -c wrangler.api.jsonc  # API  (só quando mexer no worker.js)
 ```
 - O GitHub **não deploya** nada (o Workers Builds foi desconectado). GitHub = backup do código.
-- **Ao mudar o app, SEMPRE bumpar `CACHE_NAME`** em `public/service-worker.js` (é stale-while-revalidate + auto-reload). Versão atual: **v106**.
-- Segredos da API: `wrangler secret put WHOOP_CLIENT_SECRET -c wrangler.api.jsonc` (já setado) e `wrangler secret put ANTHROPIC_API_KEY -c wrangler.api.jsonc` (usado pelo `/api/suggest-week` — IA que sugere semana do plano; sem ele o endpoint responde 501). `wrangler deploy` preserva secrets.
+- **Ao mudar o app, SEMPRE bumpar `CACHE_NAME`** em `public/service-worker.js` (é stale-while-revalidate + auto-reload). Versão atual: **v113**.
+- Segredos da API (todos já setados; `wrangler deploy` preserva): `WHOOP_CLIENT_SECRET`, `ANTHROPIC_API_KEY` (usado pelo `/api/suggest-week`; sem ele o endpoint responde 501) e `OWNER_UID` (trava a API ao uid do dono — outros uids levam 403). `wrangler secret put <NOME> -c wrangler.api.jsonc`.
 - Rollback rápido da API: `wrangler rollback -c wrangler.api.jsonc`.
 
 ## Autenticação / segurança (feito em jul/2026)
@@ -45,12 +45,13 @@ wrangler deploy -c wrangler.api.jsonc  # API  (só quando mexer no worker.js)
 - Tema: **Monólito** (jul/2026, Claude Design "App Monólito.html") — monocromático editorial: fundo `#0d0d0e`, creme `#f2f2f0` como único destaque, hairlines `rgba(255,255,255,0.08)`, textos `#8a8a90`/`#5b5b62`, seções flat separadas por hairline (sem cards), abas texto com sublinhado, pílulas outline (ativa = creme com texto escuro), numerais gigantes em Hanken 200. Fontes: **Hanken Grotesk** (app) e **IBM Plex Serif/Mono** (aba Semestre). Implementado como camada de override no fim do CSS ("MONÓLITO"); a camada champagne antiga ficou abaixo (morta). NÃO reintroduzir cor viva — semânticas (status/tiers) usam versões dessaturadas (#9ad0a5/#d9c58a/#e0a19b). Categorias de sessão = escala de cinza (`CATEGORY_COLORS`).
 - Firebase: domínio novo precisa entrar nos **Authorized domains**; **e-mail/senha** exige ativar o provider no console (Authentication → Sign-in method).
 - **"App não abre"** costuma ser **cache de DNS do roteador local** (abre no 4G), não a Cloudflare.
+- **Tarefas ⊂ Plano (fusão jul/2026)**: não existe mais Hoje / A fazer / Concluídas — o card Tarefas é entrada única (nº de semana opcional; sem nº o `/api/suggest-week` sugere) + checklist da semana corrente (itens `wkit_<id>_<n>` no blob h2Plan). Pendências antigas no blob `tasks` **não migram sozinhas**: seção "Soltas do sistema antigo" com migração manual (dedupe por texto, categoria vira prefixo `[cat]`, uma escrita por blob). **Nunca reintroduzir migração automática em render** — roda dentro do apply do sync (push não agendado) e duplica itens quando o blob ressuscita por LWW.
 
 ## Sync (reescrito jul/2026 — blobs versionados)
 - **Modelo:** cada blob deletável (tasks, events, weekPlan, goals, alarms, h2Plan, target) sincroniza por **last-writer-wins com carimbo LÓGICO (Lamport)** guardado em `timerStamps` + `timerStampClock`. `stampBlob()` gera valor sempre > tudo já visto (robusto a clock skew). No pull, `applyServerSnapshot` só aplica o blob do servidor se `srvStamps[name] > blobStamps[name]`. Exclusão propaga (o blob inteiro do último editor ganha). **Categorias, subcategorias, sono, segmentos, sessões = merge aditivo/união** (não versionados). História preserva dias legacy.
 - **Push:** `sessionsDelta()` (só sessões com `at > lastPushedSessionAt`, não o histórico inteiro) + `settings._stamps`. **Pull:** `?since=lastServerStamp` → worker responde `{unchanged}` quando nada mudou. Flush no fechamento = `beaconPush()` (fetch keepalive síncrono com `_lastIdToken` em cache).
 - **serverStamp** (worker) = `MAX(settings.updated_at)` só (relógio do servidor; NÃO usa `started_at` do cliente, que pode vir do futuro).
-- **PENDENTE do dono:** travar a API ao seu uid — pegue via `GET /api/whoami` (logado) e rode `wrangler secret put OWNER_UID -c wrangler.api.jsonc`. Sem isso, qualquer conta Google logada acessa a API (o /api/suggest-week tem rate limit, mas o gate é a proteção real).
+- **OWNER_UID já está setado** (jul/2026): a API só responde ao uid do dono; outros uids autenticados levam 403. `/api/whoami` fica antes do gate (serve pra descobrir o uid).
 
 ## Pendências conhecidas
 - Ativar **Email/Password** no console do Firebase (Google já funciona).

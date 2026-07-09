@@ -2838,6 +2838,7 @@ window.firebaseConfig = {
       <div class="user-info" id="userInfo"></div>
       <button class="sync-danger-btn" id="disconnectBtn">Sair da conta</button>
     </div>
+    <div class="h2-note" id="appVersionLine" style="margin-top:12px;font-size:11px"></div>
     <button class="modal-close" id="syncModalClose">Fechar</button>
   </div>
 </div>
@@ -4570,13 +4571,33 @@ function updateSyncUI() {
   }
 }
 
+// Versão do app no painel de conta: a LOCAL vem dos caches do SW (verdade deste device);
+// a do servidor denuncia atualização pendente — essencial pra depurar device desatualizado
+async function updateAppVersionLine() {
+  const el = $('#appVersionLine');
+  if (!el) return;
+  let local = '?';
+  try {
+    const ks = await caches.keys();
+    const vs = ks.map(k => (k.match(/^timer-sessoes-v(\d+)$/) || [])[1]).filter(Boolean).map(Number);
+    if (vs.length) local = 'v' + Math.max(...vs);
+  } catch {}
+  el.textContent = 'App ' + local + ' · device ' + String(typeof DEVICE_ID !== 'undefined' ? DEVICE_ID : '?').slice(0, 8);
+  try {
+    const txt = await (await fetch('./service-worker.js', { cache: 'no-store' })).text();
+    const m = txt.match(/timer-sessoes-v(\d+)/);
+    if (m && ('v' + m[1]) !== local) el.textContent += ' · servidor v' + m[1] + ' — atualização pendente: feche e reabra o app';
+  } catch {}
+}
 $('#syncBtn').addEventListener('click', () => {
   $('#syncModal').classList.add('active');
   updateSyncUI();
+  updateAppVersionLine();
 });
 $('#accountChip').addEventListener('click', () => {
   $('#syncModal').classList.add('active');
   updateSyncUI();
+  updateAppVersionLine();
 });
 $('#syncModalClose').addEventListener('click', () => $('#syncModal').classList.remove('active'));
 $('#syncModal').addEventListener('click', (e) => {

@@ -3710,7 +3710,7 @@ function finishSession(completed, opts = {}) {
 
   // opts.noSave: quem parou foi OUTRO device (a sessão foi salva lá) — aqui só limpa.
   if (elapsedMs >= 1000 && !opts.noSave) {
-    saveSession(state.category, elapsedMs, state.subcategory, (completed && sid) ? sid + state.durationMs : undefined);
+    saveSession(state.category, elapsedMs, state.subcategory, (completed && sid) ? sid + state.durationMs : (opts.at || undefined));
   }
   if (!opts.noSave && sid) setStopTombstone(sid); // avisa os outros devices: "esta sessão acabou"
 
@@ -3789,20 +3789,23 @@ function loadHistory() {
   catch { return {}; }
 }
 function saveSession(category, elapsedMs, subcategory, at) {
+  const when = at || Date.now();
+  // Credita no dia em que a sessão RODOU (derivado do `at`), não no dia do save —
+  // sessão que expirou/pausou ontem e foi fechada ao abrir hoje vai pro dia certo
+  const day = dateKey(new Date(when));
   const history = loadHistory();
-  const today = dateKey(new Date());
-  if (!history[today]) history[today] = {};
-  history[today][category] = (history[today][category] || 0) + elapsedMs;
+  if (!history[day]) history[day] = {};
+  history[day][category] = (history[day][category] || 0) + elapsedMs;
   localStorage.setItem('timerHistory', JSON.stringify(history));
 
   // Registra a sessão individual (pra contar sessões de 50min e breakdown por sub)
   const sessions = loadSessions();
-  if (!sessions[today]) sessions[today] = [];
+  if (!sessions[day]) sessions[day] = [];
   // at determinístico (sessionId+duração) quando a sessão sincronizada completa: os dois
   // devices gravam a MESMA chave at|categoria|duração e o merge deduplica sozinho
-  const rec = { category, durationMs: elapsedMs, at: at || Date.now() };
+  const rec = { category, durationMs: elapsedMs, at: when };
   if (subcategory) rec.subcategory = subcategory;
-  sessions[today].push(rec);
+  sessions[day].push(rec);
   localStorage.setItem('timerSessions', JSON.stringify(sessions));
 }
 
@@ -4593,8 +4596,8 @@ $('#disconnectBtn').addEventListener('click', async () => {
 
 // Adiciona markLocalUpdate + triggerSync nas funções de save existentes
 const _origSaveSession = saveSession;
-saveSession = function(category, elapsedMs, subcategory) {
-  _origSaveSession(category, elapsedMs, subcategory);
+saveSession = function(...args) { // repassa TODOS os args (o 4º, `at`, credita o dia certo)
+  _origSaveSession(...args);
   markLocalUpdate();
   // Sessões são dado crítico: push imediato em vez de debounced
   if (syncCode && window.API_BASE && !isApplyingRemote) pushToCloud();
@@ -4680,9 +4683,17 @@ function restoreTimerState() {
   state.remainingMs = saved.durationMs - elapsedTotal;
 
   // Se o tempo acabou enquanto a página estava fechada, finaliza silenciosamente
+  // (o crédito cai no dia em que a sessão rodou — `at` determinístico em saveSession)
   if (state.remainingMs <= 0) {
     state.remainingMs = 0;
     finishSession(true, { suppressAlert: true });
+    return;
+  }
+
+  // Sessão PAUSADA de outro dia: não ressuscita — fecha creditando o tempo no dia em
+  // que rodou (at = início) e o timer abre zerado. Pausada só sobrevive no MESMO dia.
+  if (saved.paused && dateKey(new Date(saved.startedAt)) !== dateKey(new Date())) {
+    finishSession(false, { suppressAlert: true, at: saved.startedAt });
     return;
   }
 

@@ -155,12 +155,16 @@ export default {
       try { uid = await requireUid(request); }
       catch (e) { return json({ error: 'unauthorized', detail: e.message }, 401); }
 
-      // Diz quem é você (pra descobrir o uid e setar OWNER_UID). Aberto a qualquer logado.
-      if (path === '/api/whoami' && request.method === 'GET') return json({ uid });
+      // Diz quem é você (uid + se é o dono — o app usa pra decidir plano seed × plano
+      // gerado em branco). Aberto a qualquer logado.
+      if (path === '/api/whoami' && request.method === 'GET') {
+        return json({ uid, owner: env.OWNER_UID ? uid === env.OWNER_UID : true });
+      }
 
-      // Allowlist: app pessoal (1 dono). Setar o secret OWNER_UID trava tudo ao seu uid.
-      // Sem o secret, deixa passar (não quebra) — mas /api/suggest-week (custo) fica limitado.
-      if (env.OWNER_UID && uid !== env.OWNER_UID) return json({ error: 'forbidden' }, 403);
+      // Allowlist: dono (OWNER_UID) + convidados (ALLOWED_UIDS, uids separados por vírgula —
+      // `wrangler secret put ALLOWED_UIDS -c wrangler.api.jsonc`). Sem OWNER_UID, deixa passar.
+      const allowedUids = String(env.ALLOWED_UIDS || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (env.OWNER_UID && uid !== env.OWNER_UID && !allowedUids.includes(uid)) return json({ error: 'forbidden' }, 403);
 
       if (path === '/api/snapshot' && request.method === 'GET') return apiSnapshot(request, env, uid);
       if (path === '/api/session' && request.method === 'POST') return apiAddSession(request, env, uid);

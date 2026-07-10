@@ -3265,7 +3265,7 @@ function loadCategories() {
     const stored = JSON.parse(localStorage.getItem('timerCategories') || 'null');
     if (Array.isArray(stored) && stored.length > 0) return stored;
   } catch {}
-  return ['CFA', 'Trabalho'];
+  return h2IsOwner() ? ['CFA', 'Trabalho'] : ['Trabalho', 'Estudo', 'Pessoal'];
 }
 function saveCategories(cats) {
   localStorage.setItem('timerCategories', JSON.stringify(cats));
@@ -4148,8 +4148,29 @@ function setServerStamp(v) {
   if (typeof v === 'number' && v > 0) { lastServerStamp = v; try { localStorage.setItem('timerServerStamp', String(v)); } catch {} }
 }
 
+// Dono ou convidado? Decide plano-seed × plano gerado; troca some/mostra a aba Semestre
+let _whoamiDone = false;
+async function refreshWhoami() {
+  if (_whoamiDone || !window.API_BASE || !syncCode) return;
+  try {
+    const r = await fetch(`${window.API_BASE}/api/whoami`, { headers: await authHeaders() });
+    if (!r.ok) return;
+    _whoamiDone = true;
+    const j = await r.json();
+    const now = j.owner ? '1' : '0';
+    if (localStorage.getItem('timerIsOwner') !== now) {
+      try { localStorage.setItem('timerIsOwner', now); } catch {}
+      if (typeof h2ApplyPlanConfig === 'function') h2ApplyPlanConfig();
+      const st = document.querySelector('[data-panel="semestre"]');
+      if (st) st.style.display = j.owner ? '' : 'none';
+      const pp = document.querySelector('#plano-panel');
+      if (typeof renderPlano === 'function' && pp && pp.classList.contains('active')) renderPlano();
+    }
+  } catch {}
+}
 function recomputeSyncCode() {
   syncCode = currentUser ? currentUser.uid : ''; // só sincroniza logado (API exige Bearer)
+  if (syncCode) refreshWhoami();
 }
 recomputeSyncCode();
 
@@ -4290,6 +4311,7 @@ async function pullFromCloud() {
     const surl = `${window.API_BASE}/api/snapshot?uid=${encodeURIComponent(syncCode)}&since=${lastServerStamp}`;
     let res = await fetch(surl, { headers: await authHeaders() });
     if (res.status === 401) res = await fetch(surl, { headers: await authHeaders(null, true) });
+    try { if (res.status === 403) localStorage.setItem('timerApiForbidden', '1'); else if (res.ok) localStorage.removeItem('timerApiForbidden'); } catch {}
     if (!res.ok) throw new Error('snapshot failed ' + res.status);
     const snap = await res.json();
     applyServerSnapshot(snap);
@@ -4420,6 +4442,7 @@ function applyServerSnapshot(snap) {
     if (typeof renderBurndown === 'function') renderBurndown();
     const active = (id) => { const p = $(id); return p && p.classList.contains('active'); };
     if (active('#history-panel') && !isEditingField()) renderHistory();
+    if (typeof h2ApplyPlanConfig === 'function') h2ApplyPlanConfig(); // planStart/planWeeks podem ter mudado no h2Plan
     if (typeof renderPlano === 'function' && active('#plano-panel') && !isEditingField()) renderPlano();
     // #12: painéis de calendário/agenda/sono também refletem o pull quando abertos
     if (typeof renderCalendar === 'function' && active('#cal-panel') && !isEditingField()) renderCalendar();
@@ -4585,6 +4608,9 @@ async function updateAppVersionLine() {
     if (vs.length) local = 'v' + Math.max(...vs);
   } catch {}
   el.textContent = 'App ' + local + ' · device ' + String(typeof DEVICE_ID !== 'undefined' ? DEVICE_ID : '?').slice(0, 8);
+  if (localStorage.getItem('timerApiForbidden') === '1') {
+    el.textContent += ' · SEM ACESSO ao sync — envie este código pro dono liberar: ' + (syncCode || '?');
+  }
   try {
     const txt = await (await fetch('./service-worker.js', { cache: 'no-store' })).text();
     const m = txt.match(/timer-sessoes-v(\d+)/);
@@ -7154,13 +7180,58 @@ function h2SecRegulatorio() {
 // -- Seção 07 · Plano semanal --
 // Tudo editável: texto/datas salvam no store como override (wkw_N / wkd_N); o tipo cicla no clique (wkt_N).
 // Os valores do PDF ficam como seed em H2_WEEKPLAN.
+// ===== Plano configurável (multiusuário) =====
+// O plano do dono (H2/2026) fica como SEED. Pra outros logins (timerIsOwner='0', vindo
+// do /api/whoami) — ou quando o doc h2Plan tem planStart — as semanas são GERADAS em
+// branco: início (segunda) + nº de semanas; o usuário preenche (overrides wkw_/wkd_/wkt_
+// sincronizam normal). H2_WEEKPLAN é const-ARRAY: muta-se o CONTEÚDO in place e todos os
+// leitores (plano, calendário, hoje, ponte, IA) acompanham sem refactor.
+const H2_WEEKPLAN_SEED = H2_WEEKPLAN.slice();
+let _h2CustomPlan = false;
+function h2IsOwner() { try { return localStorage.getItem('timerIsOwner') !== '0'; } catch { return true; } }
+function h2ThisMonday() {
+  const d = new Date();
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return dateKey(d);
+}
+function h2BuildWeeks(startKey, count) {
+  const abbr = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const d0 = new Date(startKey + 'T00:00:00');
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const s = new Date(d0); s.setDate(d0.getDate() + i * 7);
+    const e = new Date(s); e.setDate(s.getDate() + 4); // seg–sex
+    const lab = String(s.getDate()).padStart(2, '0') + '/' + abbr[s.getMonth()] + '–' + String(e.getDate()).padStart(2, '0') + '/' + abbr[e.getMonth()];
+    out.push({ n: i + 1, d: lab, s: dateKey(s), e: dateKey(e), t: 'Deep work', w: '' });
+  }
+  return out;
+}
+function h2ApplyPlanConfig() {
+  const D = loadH2();
+  const start = (typeof D.planStart === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(D.planStart)) ? D.planStart : null;
+  const count = Math.min(52, Math.max(4, parseInt(D.planWeeks, 10) || 26));
+  if (!start && h2IsOwner()) {
+    if (_h2CustomPlan) { H2_WEEKPLAN.length = 0; H2_WEEKPLAN.push(...H2_WEEKPLAN_SEED); _h2CustomPlan = false; }
+    return;
+  }
+  _h2CustomPlan = true;
+  H2_WEEKPLAN.length = 0;
+  H2_WEEKPLAN.push(...h2BuildWeeks(start || h2ThisMonday(), count));
+}
+
 const H2_PLAN_TYPES = ['Empresa nova', 'Balanços', 'Análise', 'Deep work', 'Cadência'];
 // Itens recorrentes do plano (criados no app; vivem no store e sincronizam)
 function h2WkItemsArr(D) { return Array.isArray(D.h2WkItems) ? D.h2WkItems : []; }
 // 1ª semana de cada mês do semestre = primeira semana cujo início cai naquele mês (jul–dez)
 function h2WkFirstWeeks() {
   const seen = new Set(), out = new Set();
-  H2_WEEKPLAN.forEach(x => { const m = +x.s.slice(5, 7); if (m >= 7 && !seen.has(m)) { seen.add(m); out.add(x.n); } });
+  // Plano gerado: 1ª semana de CADA mês (chave ano-mês, plano pode cruzar o ano).
+  // Seed do dono mantém o recorte m>=7 (mudar realocaria recorrentes já criados).
+  H2_WEEKPLAN.forEach(x => {
+    const mk = _h2CustomPlan ? x.s.slice(0, 7) : +x.s.slice(5, 7);
+    const skip = !_h2CustomPlan && +x.s.slice(5, 7) < 7;
+    if (!skip && !seen.has(mk)) { seen.add(mk); out.add(x.n); }
+  });
   return out;
 }
 function h2ItemAppliesToBase(it, n, firsts) {
@@ -7320,9 +7391,17 @@ function h2SecPlano(D) {
     <button type="button" class="h2-add-btn" id="h2WkAddItem" style="margin-top:10px">+ Adicionar item recorrente</button>
   </div>`;
   return `<div class="h2-sec">
-    <div class="h2-eyebrow">execução semana a semana · H2/2026</div>
+    <div class="h2-eyebrow">execução semana a semana${_h2CustomPlan ? '' : ' · H2/2026'}</div>
     <h1 class="h2-h1">Plano semanal</h1>
-    <p class="h2-lead">Uma linha por semana. As janelas de balanço (2T26 e 3T26) são capacidade comprometida — nas outras semanas você constrói as ≥3 empresas novas e roda O3/O6/O7. Regra do 1,5×: multiplique toda estimativa por 1,5 antes de comprometer prazo. As 3 empresas novas: Nova #1 entrega em jul; Nova #2 e #3 no bloco de nov, pós-3T26.</p>
+    ${_h2CustomPlan ? `<p class="h2-lead">Uma linha por semana: clique no texto pra escrever os tópicos (um por linha), marque o feito, arraste itens entre semanas — e no calendário, entre dias. Configure o início e o tamanho do plano abaixo.</p>
+    <div class="h2-card" style="margin-top:14px">
+      <div class="h2-card-h">Configuração do plano</div>
+      <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:8px">
+        <label class="h2-note" style="display:flex;gap:8px;align-items:center;margin:0">início (segunda-feira) <input type="date" class="h2-ta" id="h2PlanStart" value="${escapeHtml(D.planStart || '')}" style="min-height:0;padding:7px 9px;width:160px"></label>
+        <label class="h2-note" style="display:flex;gap:8px;align-items:center;margin:0">semanas <input type="number" class="h2-ta" id="h2PlanWeeks" min="4" max="52" value="${escapeHtml(String(parseInt(D.planWeeks, 10) || H2_WEEKPLAN.length))}" style="min-height:0;padding:7px 9px;width:70px"></label>
+      </div>
+      <div class="h2-note" style="margin-top:6px">O conteúdo escrito fica preso à NUMERAÇÃO da semana (semana 3 continua semana 3 se o início mudar).</div>
+    </div>` : `<p class="h2-lead">Uma linha por semana. As janelas de balanço (2T26 e 3T26) são capacidade comprometida — nas outras semanas você constrói as ≥3 empresas novas e roda O3/O6/O7. Regra do 1,5×: multiplique toda estimativa por 1,5 antes de comprometer prazo. As 3 empresas novas: Nova #1 entrega em jul; Nova #2 e #3 no bloco de nov, pós-3T26.</p>`}
     ${itemsCard}
     <div class="h2-ticker" id="h2PlanProgress" style="margin:14px 0 4px">${done} de ${total} semanas concluídas</div>
     <div class="h2-table-wrap"><table class="h2-table"><thead><tr>
@@ -7346,6 +7425,17 @@ function bindH2Plano(c) {
       if (typeof renderTasks === 'function' && !(typeof isEditingField === 'function' && isEditingField())) renderTasks();
     }
   }));
+  // Configuração do plano gerado (início/semanas) → regenera as semanas e re-renderiza
+  const ps = c.querySelector('#h2PlanStart');
+  if (ps) ps.addEventListener('change', () => {
+    const D2 = loadH2();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(ps.value)) D2.planStart = ps.value; else delete D2.planStart;
+    saveH2(D2); h2ApplyPlanConfig(); rerender();
+  });
+  const pw = c.querySelector('#h2PlanWeeks');
+  if (pw) pw.addEventListener('change', () => {
+    const D2 = loadH2(); D2.planWeeks = pw.value; saveH2(D2); h2ApplyPlanConfig(); rerender();
+  });
   // Datas: mesmo padrão data-h2key das outras seções (salva a cada tecla, sincroniza)
   c.querySelectorAll('[data-h2key]').forEach(el => el.addEventListener('input', () => {
     const D = loadH2(); D[el.dataset.h2key] = el.value; saveH2(D);
@@ -8053,6 +8143,8 @@ renderToday();
 renderGoals();
 renderBurndown();
 renderAlarms();
+h2ApplyPlanConfig(); // plano gerado (não-dono/config) ou seed do dono
+if (!h2IsOwner()) { const st = document.querySelector('[data-panel="semestre"]'); if (st) st.style.display = 'none'; }
 restoreTimerState();
 
 // Atalhos do app (manifest shortcuts / deep links: ?tab=history, ?quickstart=50)

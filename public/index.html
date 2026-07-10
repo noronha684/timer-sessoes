@@ -3732,11 +3732,14 @@ function finishSession(completed, opts = {}) {
   state.sessionId = null;
   state.owner = null;
 
+  // Tombstone ANTES do saveSession: o wrapper de save dispara push imediato com payload
+  // montado de forma SÍNCRONA — o "parei" precisa já existir pra embarcar nesse push
+  // (senão o outro device nunca fica sabendo e credita a sessão cheia ao expirar).
+  if (!opts.noSave && sid) setStopTombstone(sid);
   // opts.noSave: quem parou foi OUTRO device (a sessão foi salva lá) — aqui só limpa.
   if (elapsedMs >= 1000 && !opts.noSave) {
-    saveSession(state.category, elapsedMs, state.subcategory, (completed && sid) ? sid + state.durationMs : (opts.at || undefined));
+    saveSession(state.category, elapsedMs, state.subcategory, (completed && sid) ? sid + state.durationMs : (opts.at || undefined), sid);
   }
-  if (!opts.noSave && sid) setStopTombstone(sid); // avisa os outros devices: "esta sessão acabou"
 
   if (completed && !opts.suppressAlert) triggerAlert();
 
@@ -3813,7 +3816,7 @@ function loadHistory() {
   try { return JSON.parse(localStorage.getItem('timerHistory') || '{}'); }
   catch { return {}; }
 }
-function saveSession(category, elapsedMs, subcategory, at) {
+function saveSession(category, elapsedMs, subcategory, at, sid) {
   const when = at || Date.now();
   // Credita no dia em que a sessão RODOU (derivado do `at`), não no dia do save —
   // sessão que expirou/pausou ontem e foi fechada ao abrir hoje vai pro dia certo
@@ -3829,6 +3832,7 @@ function saveSession(category, elapsedMs, subcategory, at) {
   // at determinístico (sessionId+duração) quando a sessão sincronizada completa: os dois
   // devices gravam a MESMA chave at|categoria|duração e o merge deduplica sozinho
   const rec = { category, durationMs: elapsedMs, at: when };
+  if (sid) rec.sid = sid; // identidade da sessão sincronizada: dedupe de parada dupla no merge
   if (subcategory) rec.subcategory = subcategory;
   sessions[day].push(rec);
   localStorage.setItem('timerSessions', JSON.stringify(sessions));
@@ -3901,12 +3905,12 @@ function showRecordToast(msg) {
   clearTimeout(showRecordToast._t);
   showRecordToast._t = setTimeout(() => t.classList.remove('on'), 4200);
 }
-function checkNewRecords() {
+function checkNewRecords(quiet) {
   const rec = computeRecords();
   let prev = null;
   try { prev = JSON.parse(localStorage.getItem('timerRecords') || 'null'); } catch {}
   try { localStorage.setItem('timerRecords', JSON.stringify({ bestDayMs: rec.bestDayMs, bestWeekMs: rec.bestWeekMs, bestStreak: rec.bestStreak })); } catch {}
-  if (!prev) return; // primeira medição só grava a base — não comemora o passado
+  if (!prev || quiet) return; // 1ª medição/re-base silenciosa — não comemora o passado
   if (rec.bestDayMs > (prev.bestDayMs || 0)) showRecordToast('novo recorde — melhor dia: ' + formatDuration(rec.bestDayMs));
   else if (rec.bestWeekMs > (prev.bestWeekMs || 0)) showRecordToast('novo recorde — melhor semana: ' + formatDuration(rec.bestWeekMs));
   else if (rec.bestStreak > (prev.bestStreak || 0)) showRecordToast('novo recorde — streak: ' + rec.bestStreak + ' dias');
@@ -4275,8 +4279,10 @@ async function refreshWhoami() {
     }
   } catch {}
 }
+let _whoamiUid = '';
 function recomputeSyncCode() {
   syncCode = currentUser ? currentUser.uid : ''; // só sincroniza logado (API exige Bearer)
+  if (syncCode !== _whoamiUid) { _whoamiDone = false; _whoamiUid = syncCode; } // trocou de conta: re-consulta
   if (syncCode) refreshWhoami();
 }
 recomputeSyncCode();
@@ -4389,7 +4395,8 @@ async function pushToCloud() {
   if (!window.API_BASE || !syncCode || isApplyingRemote) return;
   try {
     const beforeMax = maxSessionAt();
-    const bodyStr = JSON.stringify(buildPushPayload());
+    const payload = buildPushPayload();
+    const bodyStr = JSON.stringify(payload);
     let res = await fetch(`${window.API_BASE}/api/sync`, {
       method: 'POST', headers: await authHeaders({ 'Content-Type': 'application/json' }), body: bodyStr,
     });
@@ -4403,7 +4410,9 @@ async function pushToCloud() {
     lastPushedSessionAt = beforeMax;
     try { localStorage.setItem('timerLastPushedSessionAt', String(beforeMax)); } catch {}
     const merged = await res.json();
-    clearStopTombstone(); // o payload enviado incluía o tombstone (se havia) — entregue
+    // Só limpa o tombstone se ele EMBARCOU neste push (payload montado antes do tombstone
+    // existir não conta — limpar cegamente matava o "parei" sem nunca enviá-lo)
+    if (payload.settings && payload.settings.activeTimer !== undefined) clearStopTombstone();
     // O servidor já mesclou — aplica de volta como remoto (mas sem device check pois é nossa resposta)
     applyServerSnapshot(merged);
     lastSyncedAt = new Date();
@@ -4422,6 +4431,7 @@ async function pullFromCloud() {
     if (!res.ok) throw new Error('snapshot failed ' + res.status);
     const snap = await res.json();
     applyServerSnapshot(snap);
+    if (typeof refreshWhoami === 'function') refreshWhoami(); // re-tenta até responder (_whoamiDone guarda)
     lastSyncedAt = new Date();
     updateSyncUI();
   } catch (e) { console.warn('pullFromCloud:', e); }
@@ -4550,6 +4560,14 @@ function applyServerSnapshot(snap) {
     const active = (id) => { const p = $(id); return p && p.classList.contains('active'); };
     if (active('#history-panel') && !isEditingField()) renderHistory();
     if (typeof h2ApplyPlanConfig === 'function') h2ApplyPlanConfig(); // planStart/planWeeks podem ter mudado no h2Plan
+    // Convidado sem planStart: ANCORA o plano agora, PÓS-merge (escrever no boot, antes do
+    // 1º pull, avançaria o carimbo do h2Plan e o blob local quase-vazio venceria o servidor).
+    // Sem âncora persistida, h2ThisMonday() desliza toda segunda e o conteúdo escorrega.
+    if (typeof h2IsOwner === 'function' && !h2IsOwner()) {
+      const Dp = loadH2();
+      if (!Dp.planStart) { Dp.planStart = h2ThisMonday(); saveH2(Dp); h2ApplyPlanConfig(); }
+    }
+    if (typeof checkNewRecords === 'function') checkNewRecords(true); // base dos recordes acompanha o history mesclado
     if (typeof renderPlano === 'function' && active('#plano-panel') && !isEditingField()) renderPlano();
     // #12: painéis de calendário/agenda/sono também refletem o pull quando abertos
     if (typeof renderCalendar === 'function' && active('#cal-panel') && !isEditingField()) renderCalendar();
@@ -4567,7 +4585,9 @@ function mergeSessions(local, cloud) {
   for (const date of dates) {
     const map = new Map();
     for (const s of [...(local?.[date] || []), ...(cloud?.[date] || [])]) {
-      const key = `${s.at}|${s.category}|${s.durationMs}`;
+      // sid (sessão sincronizada): mesma sessão parada em 2 devices = 1 registro só;
+      // legado sem sid mantém a chave antiga
+      const key = s.sid ? ('s:' + s.sid + '|' + s.category) : `${s.at}|${s.category}|${s.durationMs}`;
       if (!map.has(key)) map.set(key, s);
     }
     merged[date] = [...map.values()].sort((a, b) => a.at - b.at);
@@ -6308,7 +6328,9 @@ let lastRemoteTimerStamp = 0;
 function applyRemoteTimer(rt) {
   if (!rt || rt.by === DEVICE_ID) return;              // null legado ou eco meu
   if (!(rt.updatedAt > lastRemoteTimerStamp)) return;  // já apliquei este estado
-  lastRemoteTimerStamp = rt.updatedAt;
+  // clamp: device com relógio adiantado não pode calar pausas/paradas legítimas dos
+  // outros — o stamp guarda no máx. agora+60s (estado futuro re-aplica idempotente)
+  lastRemoteTimerStamp = Math.min(rt.updatedAt, Date.now() + 60000);
   const mySid = state.sessionId || state.startedAt;
 
   if (rt.stopped) {
@@ -6334,6 +6356,7 @@ function applyRemoteTimer(rt) {
     state.subcategory = rt.subcategory || null;
     state.sessionId = rt.sessionId || rt.startedAt;
     state.owner = rt.device;
+    state.remainingMs = rt.durationMs - (rt.totalElapsedMs || 0) - (rt.paused ? 0 : (Date.now() - rt.startedAt));
     currentSegStart = null;
     clearInterval(state.intervalId);
     state.intervalId = state.paused ? null : setInterval(tick, 250);
@@ -6390,7 +6413,8 @@ function applyRemoteTimer(rt) {
   // Sessões DIFERENTES rodando ao mesmo tempo (raro): a ação mais recente ganha.
   // O meu tempo real é salvo como sessão antes de adotar a remota.
   if (rt.updatedAt >= (mySid || 0)) {
-    finishSession(false, { suppressAlert: true });
+    // espelho NÃO salva a sessão do dono (ele salva quando parar) — só sessão iniciada aqui
+    finishSession(false, { suppressAlert: true, noSave: !!state.owner });
     lastRemoteTimerStamp = 0;
     applyRemoteTimer(rt);
   }
@@ -8363,7 +8387,7 @@ renderGoals();
 renderBurndown();
 renderAlarms();
 h2ApplyPlanConfig(); // plano gerado (não-dono/config) ou seed do dono
-checkNewRecords(); // semeia a base dos recordes (sem toast na 1ª medição)
+checkNewRecords(true); // semeia a base dos recordes (silencioso)
 if (!h2IsOwner()) { const st = document.querySelector('[data-panel="semestre"]'); if (st) st.style.display = 'none'; }
 restoreTimerState();
 

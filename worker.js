@@ -201,11 +201,35 @@ function suggestRateOk(uid) {
   return true;
 }
 
+// Teto diário PERSISTENTE por uid pros endpoints de IA (o limiter em memória é por
+// isolate — Cloudflare roda N isolates, então sozinho ele não protege a conta Anthropic).
+// Contador em settings ('_ai_<dia>'): 2 queries baratas por chamada, LWW irrelevante.
+const AI_DAILY_CAP = 100;
+async function aiDailyOk(env, uid) {
+  try {
+    const key = '_ai_' + new Date().toISOString().slice(0, 10);
+    const row = await env.DB.prepare('SELECT value FROM settings WHERE uid = ? AND key = ?').bind(uid, key).first();
+    let count = 0;
+    try { count = parseInt(JSON.parse(row && row.value || '0'), 10) || 0; } catch {}
+    if (count >= AI_DAILY_CAP) return false;
+    await env.DB.prepare(
+      'INSERT INTO settings (uid, key, value, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(uid, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at'
+    ).bind(uid, key, JSON.stringify(count + 1), Date.now()).run();
+    return true;
+  } catch { return true; } // D1 fora do ar não derruba a feature (o limiter em memória segura)
+}
+// Corpo grande queima CPU antes dos caps de campo — barra antes do json()
+function bodyTooLarge(request) {
+  return +(request.headers.get('content-length') || 0) > 65536;
+}
+
 async function apiSuggestWeek(request, env, uid) {
   if (!env.ANTHROPIC_API_KEY) {
     return json({ error: 'ia_nao_configurada', detail: 'Defina o secret ANTHROPIC_API_KEY no Worker da API.' }, 501);
   }
+  if (bodyTooLarge(request)) return json({ error: 'payload_too_large' }, 413);
   if (!suggestRateOk(uid)) return json({ error: 'rate_limited', detail: 'Muitas sugestões seguidas. Espere alguns minutos.' }, 429);
+  if (!(await aiDailyOk(env, uid))) return json({ error: 'rate_limited', detail: 'Limite diário de IA atingido.' }, 429);
   const body = await request.json().catch(() => null);
   const task = body && typeof body.task === 'string' ? body.task.trim().slice(0, 300) : '';
   // Modo lote: tasks = [{id, text}] → responde {assignments: [{id, week, reason}]}
@@ -280,8 +304,11 @@ async function apiSuggestWeek(request, env, uid) {
   });
 
   if (!resp.ok) {
+    // detail fica no log do Worker — o corpo cru da Anthropic (billing, request-id)
+    // não deve chegar na UI de convidado
     const detail = await resp.text().catch(() => '');
-    return json({ error: 'claude_error', status: resp.status, detail: detail.slice(0, 400) }, 502);
+    console.error('anthropic error', resp.status, detail.slice(0, 400));
+    return json({ error: 'claude_error', status: resp.status }, 502);
   }
   const data = await resp.json();
   if (data.stop_reason === 'refusal') return json({ error: 'claude_refusal' }, 502);
@@ -305,7 +332,9 @@ async function apiSuggestWeek(request, env, uid) {
 // como se fosse um resultado trimestral. Divide o rate limit do suggest-week.
 async function apiWeekNote(request, env, uid) {
   if (!env.ANTHROPIC_API_KEY) return json({ error: 'ia_nao_configurada' }, 501);
+  if (bodyTooLarge(request)) return json({ error: 'payload_too_large' }, 413);
   if (!suggestRateOk(uid)) return json({ error: 'rate_limited', detail: 'Muitas chamadas seguidas. Espere alguns minutos.' }, 429);
+  if (!(await aiDailyOk(env, uid))) return json({ error: 'rate_limited', detail: 'Limite diário de IA atingido.' }, 429);
   const body = await request.json().catch(() => null);
   if (!body || typeof body.n !== 'number') return json({ error: 'payload inválido' }, 400);
   const cap = (v, m) => String(v == null ? '' : v).replace(/\s+/g, ' ').slice(0, m);
@@ -331,8 +360,11 @@ async function apiWeekNote(request, env, uid) {
     }),
   });
   if (!resp.ok) {
+    // detail fica no log do Worker — o corpo cru da Anthropic (billing, request-id)
+    // não deve chegar na UI de convidado
     const detail = await resp.text().catch(() => '');
-    return json({ error: 'claude_error', status: resp.status, detail: detail.slice(0, 400) }, 502);
+    console.error('anthropic error', resp.status, detail.slice(0, 400));
+    return json({ error: 'claude_error', status: resp.status }, 502);
   }
   const data = await resp.json();
   if (data.stop_reason === 'refusal') return json({ error: 'claude_refusal' }, 502);

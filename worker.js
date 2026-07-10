@@ -172,6 +172,7 @@ export default {
       if (path === '/api/settings' && request.method === 'PUT') return apiPutSetting(request, env, uid);
       if (path === '/api/sync' && request.method === 'POST') return apiBulkSync(request, env, uid);
       if (path === '/api/suggest-week' && request.method === 'POST') return apiSuggestWeek(request, env, uid);
+      if (path === '/api/week-note' && request.method === 'POST') return apiWeekNote(request, env, uid);
       if (path === '/api/whoop/connect' && request.method === 'POST') return apiWhoopConnect(request, env, uid);
       if (path === '/api/whoop/status' && request.method === 'GET') return whoopStatus(env, uid);
       if (path === '/api/whoop/sync' && request.method === 'POST') return whoopSync(env, uid);
@@ -298,6 +299,48 @@ async function apiSuggestWeek(request, env, uid) {
   }
   if (!out || typeof out.week !== 'number') return json({ error: 'claude_parse' }, 502);
   return json({ week: clampWeek(out.week), reason: String(out.reason || '') });
+}
+
+// Nota "sell-side" da semana: o Claude avalia a execução (horas vs alvo, itens, sono)
+// como se fosse um resultado trimestral. Divide o rate limit do suggest-week.
+async function apiWeekNote(request, env, uid) {
+  if (!env.ANTHROPIC_API_KEY) return json({ error: 'ia_nao_configurada' }, 501);
+  if (!suggestRateOk(uid)) return json({ error: 'rate_limited', detail: 'Muitas chamadas seguidas. Espere alguns minutos.' }, 429);
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body.n !== 'number') return json({ error: 'payload inválido' }, 400);
+  const cap = (v, m) => String(v == null ? '' : v).replace(/\s+/g, ' ').slice(0, m);
+  const fmtMap = (o) => (o && typeof o === 'object')
+    ? Object.entries(o).slice(0, 12).map(([c, h]) => `${cap(c, 30)}: ${cap((+h || 0).toFixed(1), 6)}h`).join(', ') : '';
+  const hours = fmtMap(body.hours);
+  const targets = fmtMap(body.targets);
+  const lines = Array.isArray(body.entries)
+    ? body.entries.slice(0, 30).map(e => `${e && e.done ? '[FEITO]' : '[NÃO FEITO]'} ${cap(e && e.text, 140)}`).join('\n') : '';
+  const sleep = (body.sleepAvgH != null && isFinite(+body.sleepAvgH)) ? (+body.sleepAvgH).toFixed(1) : '';
+  const system = 'Você é um analista sell-side que cobre a EXECUÇÃO SEMANAL de um profissional de buy-side (equities, setor elétrico/saneamento, estudando pro CFA). Escreva uma nota curta de research (60–110 palavras, pt-BR) avaliando a semana dele como se fosse um resultado trimestral: comece com um rating (ex.: "Reiteramos COMPRA na execução", "Rebaixamos para NEUTRO"), compare horas entregues vs alvo por categoria, cite itens entregues e perdidos, e trate o sono como fator de risco quando relevante. Tom: research de equities — seco, quantitativo, com uma pitada de humor de mesa. Primeira pessoa do plural. Sem markdown, um parágrafo só.';
+  const userMsg = `Semana ${cap(body.n, 4)} (${cap(body.dates, 40)}).\nHoras entregues por categoria: ${hours || 'n/d'}.\nHoras-alvo da semana: ${targets || 'n/d'}.\nItens/tópicos da semana:\n${lines || 'n/d'}\nSono médio no período: ${sleep ? sleep + 'h/noite' : 'n/d'}.\nStreak atual de dias com foco: ${cap(body.streak, 5)}.`;
+  const schema = { type: 'object', properties: { note: { type: 'string', description: 'a nota, um parágrafo em pt-BR' } }, required: ['note'], additionalProperties: false };
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-opus-4-8',
+      max_tokens: 1024,
+      output_config: { effort: 'low', format: { type: 'json_schema', schema } },
+      system,
+      messages: [{ role: 'user', content: userMsg }],
+    }),
+  });
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '');
+    return json({ error: 'claude_error', status: resp.status, detail: detail.slice(0, 400) }, 502);
+  }
+  const data = await resp.json();
+  if (data.stop_reason === 'refusal') return json({ error: 'claude_refusal' }, 502);
+  const text = (data.content || []).find(b => b.type === 'text');
+  let out = null;
+  try { out = JSON.parse(text.text); } catch { /* cai no erro abaixo */ }
+  if (!out || typeof out.note !== 'string') return json({ error: 'claude_parse' }, 502);
+  return json({ note: out.note.slice(0, 1200) });
 }
 
 // ====== Whoop OAuth ======

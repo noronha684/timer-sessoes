@@ -2380,6 +2380,25 @@ window.firebaseConfig = {
   .cal-week-plan { border-left: 2px dotted rgba(242,242,240,0.45); padding-left: 6px; margin-top: 3px; font-size: 12px; color: var(--text-muted); }
   .cal-week-plan.done { text-decoration: line-through; color: var(--text-subtle); }
   .day-plan-note { font-size: 10.5px; color: var(--text-subtle); margin: 10px 0 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  /* Recordes: toast sóbrio */
+  #recordToast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(8px); background: #1a1a1b; border: 1px solid rgba(242,242,240,0.35); color: var(--accent); border-radius: 10px; padding: 10px 18px; font-size: 12.5px; letter-spacing: 0.4px; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 1000; }
+  #recordToast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* Heatmap anual (Histórico) */
+  .hm-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin: 0 0 14px; }
+  .hm-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .hm-title { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-subtle); }
+  .hm-total { font-size: 12.5px; color: var(--text-muted); }
+  .hm-grid { display: grid; grid-template-rows: repeat(7, 10px); grid-auto-flow: column; grid-auto-columns: 10px; gap: 2px; overflow-x: auto; padding-bottom: 4px; }
+  .hm-cell { width: 10px; height: 10px; border-radius: 2px; background: rgba(255,255,255,0.05); }
+  .hm-cell.hm-l1 { background: rgba(242,242,240,0.18); }
+  .hm-cell.hm-l2 { background: rgba(242,242,240,0.38); }
+  .hm-cell.hm-l3 { background: rgba(242,242,240,0.62); }
+  .hm-cell.hm-l4 { background: rgba(242,242,240,0.92); }
+  .hm-cell.hm-fut { visibility: hidden; }
+  .hm-rec { margin-top: 10px; font-size: 11.5px; color: var(--text-subtle); }
+  /* Nota sell-side da semana */
+  .wk-ai-note { margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.10); font-size: 11.5px; line-height: 1.55; color: var(--text-muted); font-style: italic; max-width: 560px; }
+  .wk-note-btn { border: none; background: none; color: var(--text-subtle); font-size: 11px; cursor: pointer; text-decoration: underline; padding: 2px 0; font-style: normal; }
   .wk-item-del {
     margin-left: auto; border: none; background: none; color: var(--text-subtle);
     font-size: 14px; line-height: 1; cursor: pointer; padding: 0 3px; flex-shrink: 0; opacity: 0.55;
@@ -2614,6 +2633,8 @@ window.firebaseConfig = {
       <button class="range-tab" data-range="30">30 dias</button>
       <button class="range-tab" data-range="60">2 meses</button>
     </div>
+
+    <div class="hm-card" id="heatmapCard"></div>
 
     <div class="chart-card">
       <div class="chart-header">
@@ -3729,6 +3750,7 @@ function finishSession(completed, opts = {}) {
   updateDisplay();
   updatePipMediaState();
   renderToday();
+  if (typeof checkNewRecords === 'function') checkNewRecords();
   if (typeof renderGoals === 'function') renderGoals();
   if (typeof renderBurndown === 'function') renderBurndown();
   persistTimerState();
@@ -3832,6 +3854,63 @@ function formatDuration(ms) {
   return `${h}h${m.toString().padStart(2, '0')}`;
 }
 
+// ===== Recordes (gamificação sóbria: melhor dia, melhor semana, maior streak) =====
+function computeRecords() {
+  const history = loadHistory();
+  const dayTotals = {};
+  for (const k in history) dayTotals[k] = Object.values(history[k]).reduce((a, b) => a + b, 0);
+  let bestDayMs = 0, bestDayKey = '';
+  for (const k in dayTotals) if (dayTotals[k] > bestDayMs) { bestDayMs = dayTotals[k]; bestDayKey = k; }
+  const weekTotals = {};
+  for (const k in dayTotals) {
+    const d = new Date(k + 'T00:00:00');
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // segunda da semana
+    const wk = dateKey(d);
+    weekTotals[wk] = (weekTotals[wk] || 0) + dayTotals[k];
+  }
+  let bestWeekMs = 0, bestWeekKey = '';
+  for (const k in weekTotals) if (weekTotals[k] > bestWeekMs) { bestWeekMs = weekTotals[k]; bestWeekKey = k; }
+  const keys = Object.keys(dayTotals).filter(k => dayTotals[k] > 0).sort();
+  let bestStreak = 0, run = 0, prev = null;
+  for (const k of keys) {
+    if (prev) { const d = new Date(prev + 'T00:00:00'); d.setDate(d.getDate() + 1); run = (dateKey(d) === k) ? run + 1 : 1; }
+    else run = 1;
+    if (run > bestStreak) bestStreak = run;
+    prev = k;
+  }
+  return { bestDayMs, bestDayKey, bestWeekMs, bestWeekKey, bestStreak };
+}
+function currentStreakDays() {
+  const history = loadHistory();
+  let s = 0;
+  const cur = new Date(); cur.setHours(0, 0, 0, 0);
+  const t = history[dateKey(cur)];
+  if (!t || !Object.values(t).reduce((a, b) => a + b, 0)) cur.setDate(cur.getDate() - 1);
+  while (true) {
+    const k = dateKey(cur);
+    const dt = history[k] ? Object.values(history[k]).reduce((a, b) => a + b, 0) : 0;
+    if (dt > 0) { s++; cur.setDate(cur.getDate() - 1); } else break;
+  }
+  return s;
+}
+function showRecordToast(msg) {
+  let t = $('#recordToast');
+  if (!t) { t = document.createElement('div'); t.id = 'recordToast'; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.classList.add('on');
+  clearTimeout(showRecordToast._t);
+  showRecordToast._t = setTimeout(() => t.classList.remove('on'), 4200);
+}
+function checkNewRecords() {
+  const rec = computeRecords();
+  let prev = null;
+  try { prev = JSON.parse(localStorage.getItem('timerRecords') || 'null'); } catch {}
+  try { localStorage.setItem('timerRecords', JSON.stringify({ bestDayMs: rec.bestDayMs, bestWeekMs: rec.bestWeekMs, bestStreak: rec.bestStreak })); } catch {}
+  if (!prev) return; // primeira medição só grava a base — não comemora o passado
+  if (rec.bestDayMs > (prev.bestDayMs || 0)) showRecordToast('novo recorde — melhor dia: ' + formatDuration(rec.bestDayMs));
+  else if (rec.bestWeekMs > (prev.bestWeekMs || 0)) showRecordToast('novo recorde — melhor semana: ' + formatDuration(rec.bestWeekMs));
+  else if (rec.bestStreak > (prev.bestStreak || 0)) showRecordToast('novo recorde — streak: ' + rec.bestStreak + ' dias');
+}
 function renderToday() {
   const history = loadHistory();
   const today = dateKey(new Date());
@@ -3992,7 +4071,35 @@ function updateChartDetail() {
     ${sessLine}`;
 }
 
+// Heatmap anual (estilo GitHub, cinza→creme): 53 semanas, colunas = semanas, linhas = seg–dom
+function renderHeatmap() {
+  const c = $('#heatmapCard');
+  if (!c) return;
+  const history = loadHistory();
+  const end = new Date(); end.setHours(0, 0, 0, 0);
+  const endSunday = new Date(end); endSunday.setDate(end.getDate() + (6 - ((end.getDay() + 6) % 7)));
+  const start = new Date(endSunday); start.setDate(endSunday.getDate() - 53 * 7 + 1);
+  let cells = '', total = 0;
+  for (let i = 0; i < 53 * 7; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const k = dateKey(d);
+    const ms = history[k] ? Object.values(history[k]).reduce((a, b) => a + b, 0) : 0;
+    const fut = d > end;
+    if (!fut) total += ms;
+    const lv = ms <= 0 ? 0 : ms < 3600000 ? 1 : ms < 2 * 3600000 ? 2 : ms < 4 * 3600000 ? 3 : 4;
+    cells += `<span class="hm-cell hm-l${lv}${fut ? ' hm-fut' : ''}" title="${k}${ms > 0 ? ' — ' + formatDuration(ms) : ''}"></span>`;
+  }
+  const rec = computeRecords();
+  const dm = (k) => k ? k.slice(5).split('-').reverse().join('/') : '';
+  c.innerHTML = `
+    <div class="hm-head"><span class="hm-title">último ano</span><span class="hm-total">${formatDuration(total)}</span></div>
+    <div class="hm-grid">${cells}</div>
+    <div class="hm-rec">recordes — dia ${rec.bestDayMs ? formatDuration(rec.bestDayMs) + ' (' + dm(rec.bestDayKey) + ')' : '—'} · semana ${rec.bestWeekMs ? formatDuration(rec.bestWeekMs) + ' (' + dm(rec.bestWeekKey) + ')' : '—'} · maior streak ${rec.bestStreak || 0}d</div>`;
+  const g = c.querySelector('.hm-grid');
+  if (g) g.scrollLeft = g.scrollWidth; // abre mostrando as semanas RECENTES (o fim do ano)
+}
 function renderHistory() {
+  renderHeatmap();
   const days = getRangeData(currentRange);
   const total = days.reduce((s, d) => s + d.total, 0);
   const activeDays = days.filter(d => d.total > 0).length;
@@ -6583,6 +6690,44 @@ function looseTaskText(t) {
   return (cat ? '[' + cat + '] ' : '') + t.text.trim();
 }
 
+// ===== Índice de execução (0–100): horas entregues vs alvo + itens do dia =====
+function execHoursScore(key) {
+  const plan = loadWeekPlan();
+  const idx = planWeekdayIndex(new Date(key + 'T00:00:00'));
+  const day = loadHistory()[key] || {};
+  let tgt = 0, got = 0;
+  for (const cat in plan) {
+    const t = (plan[cat] && typeof plan[cat][idx] === 'number' && plan[cat][idx] > 0) ? plan[cat][idx] * 3600000 : 0;
+    if (t > 0) { tgt += t; got += Math.min(day[cat] || 0, t); }
+  }
+  return tgt > 0 ? got / tgt : null;
+}
+function execScoreToday() {
+  const todayK = dateKey(new Date());
+  const hs = execHoursScore(todayK);
+  let is = null;
+  const E = (typeof h2DayPlanEntries === 'function') ? h2DayPlanEntries() : null;
+  if (E && E.inWindow && E.today.length) is = E.today.filter(e => e.done).length / E.today.length;
+  if (hs == null && is == null) return null;
+  const parts = [hs, is].filter(v => v != null);
+  return Math.round(100 * parts.reduce((a, b) => a + b, 0) / parts.length);
+}
+function execWeekAvg() {
+  const cur = (typeof h2CurrentWeek === 'function') ? h2CurrentWeek() : null;
+  if (!cur) return null;
+  const todayK = dateKey(new Date());
+  let sum = 0, count = 0;
+  for (let d = new Date(cur.s + 'T00:00:00'); ; d.setDate(d.getDate() + 1)) {
+    const k = dateKey(d);
+    if (k > todayK || k > cur.e) break;
+    let v = null;
+    if (k === todayK) v = execScoreToday();
+    else { const hs = execHoursScore(k); if (hs != null) v = Math.round(hs * 100); }
+    if (v != null) { sum += v; count++; }
+  }
+  return count ? Math.round(sum / count) : null;
+}
+
 // ===== Plano de hoje: lente diária sobre o plano semanal =====
 // Cada item/tópico da semana tem um "dia resolvido" (override wkday_<n>_<slug> do
 // calendário; padrão = sexta). Hoje = o que está resolvido pra hoje; o pool lista o que
@@ -6632,7 +6777,10 @@ function renderDayPlan() {
   c.innerHTML = `
     <div class="dp-head">
       <div class="dp-title">Plano de hoje</div>
-      ${E.today.length ? `<div class="dp-progress${doneN === E.today.length ? ' all' : ''}">${doneN}/${E.today.length} ✓</div>` : ''}
+      <div style="display:flex;gap:12px;align-items:center">
+        ${(() => { const s = execScoreToday(); const w = execWeekAvg(); return (s != null || w != null) ? `<div class="dp-progress" title="Índice de execução: horas entregues vs alvo + itens do dia (0–100)">${s != null ? 'exec ' + s : ''}${s != null && w != null ? ' · ' : ''}${w != null ? 'sem ' + w : ''}</div>` : ''; })()}
+        ${E.today.length ? `<div class="dp-progress${doneN === E.today.length ? ' all' : ''}">${doneN}/${E.today.length} ✓</div>` : ''}
+      </div>
     </div>
     <div class="dp-list">${E.today.length ? E.today.map(e => row(e, 'today')).join('') : '<div class="dp-empty">Nada puxado pra hoje ainda — traga do pool abaixo, ou arraste no calendário.</div>'}</div>
     ${E.pool.length ? `<div class="tasks-sec tasks-sec-gap">
@@ -7362,7 +7510,9 @@ function h2SecPlano(D) {
     return `<tr data-h2wk="${x.n}" style="${rowStyle}">
       <td class="mono" style="text-align:center;color:var(--text);font-weight:600">${x.n}</td>
       <td style="white-space:nowrap"><input class="h2-ta" data-h2key="wkd_${x.n}" value="${escapeHtml(d)}" style="min-height:0;padding:7px 9px;width:112px;font:600 11.5px var(--h2-mono)">${isNow ? '<div style="margin-top:5px"><span class="h2-badge" style="' + h2Badge(H2_TOK.purple) + '">agora</span></div>' : ''}</td>
-      <td style="min-width:280px">${h2WkTopicsHtml(w, x.n)}${itemsHtml}</td>
+      <td style="min-width:280px">${h2WkTopicsHtml(w, x.n)}${itemsHtml}${D['wknote_' + x.n]
+        ? `<div class="wk-ai-note">${escapeHtml(D['wknote_' + x.n])} <button type="button" class="wk-note-btn" data-wknote="${x.n}" title="Reescrever a nota">↻</button></div>`
+        : (isDone ? `<div style="margin-top:6px"><button type="button" class="wk-note-btn" data-wknote="${x.n}">✎ nota da semana</button></div>` : '')}</td>
       <td style="white-space:nowrap"><button data-h2wkt="${x.n}" title="Clique para trocar o tipo" style="${h2Badge(tok)};cursor:pointer;font-family:inherit">${escapeHtml(t)}</button></td>
       <td style="text-align:center"><input type="checkbox" class="h2-check" data-h2check="wk_${x.n}"${isDone ? ' checked' : ''}></td>
     </tr>`;
@@ -7409,6 +7559,71 @@ function h2SecPlano(D) {
     </tr></thead><tbody>${rows}</tbody></table></div>
   </div>`;
 }
+// Nota "sell-side" da semana: junta horas × alvo, itens/tópicos e sono e pede ao Claude
+// (POST /api/week-note). Salva em wknote_<n> no doc h2Plan (sincroniza).
+let _wkNoteBusy = false;
+async function h2GenWeekNote(wn, force) {
+  if (_wkNoteBusy) return;
+  const D0 = loadH2();
+  if (!force && D0['wknote_' + wn]) return;
+  const x = H2_WEEKPLAN.find(w => String(w.n) === String(wn));
+  if (!x || !window.API_BASE || !syncCode) return;
+  _wkNoteBusy = true;
+  const slot = document.querySelector('tr[data-h2wk="' + wn + '"] td:nth-child(3)');
+  const tmp = document.createElement('div');
+  tmp.className = 'wk-ai-note';
+  tmp.textContent = 'escrevendo a nota da semana…';
+  const old = slot && slot.querySelector('.wk-ai-note');
+  if (old) old.replaceWith(tmp); else if (slot) slot.appendChild(tmp);
+  try {
+    const history = loadHistory();
+    const hours = {};
+    for (let d = new Date(x.s + 'T00:00:00'); dateKey(d) <= x.e; d.setDate(d.getDate() + 1)) {
+      const day = history[dateKey(d)] || {};
+      for (const c2 in day) hours[c2] = (hours[c2] || 0) + day[c2] / 3600000;
+    }
+    for (const c2 in hours) hours[c2] = Math.round(hours[c2] * 10) / 10;
+    const plan = loadWeekPlan();
+    const targets = {};
+    for (const c2 in plan) {
+      const t = (plan[c2] || []).slice(0, 5).reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0);
+      if (t > 0) targets[c2] = t;
+    }
+    const D = loadH2();
+    const firsts = h2WkFirstWeeks();
+    const raw = D['wkw_' + wn] != null ? D['wkw_' + wn] : x.w;
+    const entries = h2WkTopics(raw).map(t => ({ text: t, done: !!D[h2TopicKey(x.n, t)] }))
+      .concat(h2WkItemsArr(D).filter(it => (it.text || '').trim() && h2ItemAppliesTo(it, x.n, firsts))
+        .map(it => ({ text: it.text, done: !!D['wkit_' + it.id + '_' + x.n] })));
+    let sleepSum = 0, sleepN = 0;
+    if (typeof sleepForDay === 'function') {
+      for (let d = new Date(x.s + 'T00:00:00'); dateKey(d) <= x.e; d.setDate(d.getDate() + 1)) {
+        const ms = sleepForDay(dateKey(d));
+        if (ms > 0) { sleepSum += ms / 3600000; sleepN++; }
+      }
+    }
+    const resp = await fetch(`${window.API_BASE}/api/week-note`, {
+      method: 'POST',
+      headers: await authHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        n: Number(wn), dates: x.d, hours, targets, entries,
+        sleepAvgH: sleepN ? Math.round(sleepSum / sleepN * 10) / 10 : null,
+        streak: (typeof currentStreakDays === 'function') ? currentStreakDays() : 0,
+      }),
+    });
+    const out = await resp.json().catch(() => null);
+    if (!resp.ok || !out || !out.note) throw new Error((out && (out.detail || out.error)) || ('HTTP ' + resp.status));
+    const D2 = loadH2();
+    D2['wknote_' + wn] = out.note;
+    saveH2(D2);
+    tmp.innerHTML = escapeHtml(out.note) + ' <button type="button" class="wk-note-btn" data-wknote="' + wn + '" title="Reescrever a nota">↻</button>';
+    refreshWeekPlanSafe(); // re-render liga o handler do ↻; se guardado, o texto acima já está certo
+  } catch (e) {
+    tmp.textContent = 'não deu pra escrever a nota (' + e.message + ') — o botão "✎ nota da semana" tenta de novo.';
+  } finally {
+    _wkNoteBusy = false;
+  }
+}
 function bindH2Plano(c) {
   c.querySelectorAll('[data-h2check]').forEach(el => el.addEventListener('change', () => {
     const D = loadH2(); D[el.dataset.h2check] = el.checked; saveH2(D);
@@ -7418,6 +7633,8 @@ function bindH2Plano(c) {
       if (tr) tr.style.opacity = el.checked ? '0.55' : '';
       const done = H2_WEEKPLAN.filter(x => loadH2()['wk_' + x.n]).length;
       const prog = $('#h2PlanProgress'); if (prog) prog.textContent = `${done} de ${H2_WEEKPLAN.length} semanas concluídas`;
+      // Semana FECHADA: o Claude escreve a research note da execução (uma vez; ↻ reescreve)
+      if (el.checked && typeof h2GenWeekNote === 'function') h2GenWeekNote(el.dataset.h2check.slice(3), false);
     } else {
       // Item recorrente: risca só o texto dele; reflete no card Tarefas (ponte da semana corrente)
       const span = el.nextElementSibling;
@@ -7425,6 +7642,8 @@ function bindH2Plano(c) {
       if (typeof renderTasks === 'function' && !(typeof isEditingField === 'function' && isEditingField())) renderTasks();
     }
   }));
+  // Nota da semana: gerar/reescrever
+  c.querySelectorAll('[data-wknote]').forEach(el => el.addEventListener('click', () => h2GenWeekNote(el.dataset.wknote, true)));
   // Configuração do plano gerado (início/semanas) → regenera as semanas e re-renderiza
   const ps = c.querySelector('#h2PlanStart');
   if (ps) ps.addEventListener('change', () => {
@@ -8144,6 +8363,7 @@ renderGoals();
 renderBurndown();
 renderAlarms();
 h2ApplyPlanConfig(); // plano gerado (não-dono/config) ou seed do dono
+checkNewRecords(); // semeia a base dos recordes (sem toast na 1ª medição)
 if (!h2IsOwner()) { const st = document.querySelector('[data-panel="semestre"]'); if (st) st.style.display = 'none'; }
 restoreTimerState();
 

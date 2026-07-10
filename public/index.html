@@ -2735,6 +2735,8 @@ window.firebaseConfig = {
   <div class="panel" id="plano-panel">
     <div class="plan-today-card" id="planTodayCard"></div>
 
+    <div class="tasks-card" id="dayPlanCard" style="display:none"></div>
+
     <div class="tasks-card" id="tasksCard"></div>
 
     <!-- Plano semana-a-semana do H2 (morava no Semestre; unificado aqui) -->
@@ -6295,6 +6297,7 @@ function doneTodayMsByCat() {
 function renderPlano() {
   renderPlanGrid();
   renderPlanToday();
+  renderDayPlan();
   renderTasks();
   renderWeekPlan();
   renderWeekReview();
@@ -6554,9 +6557,85 @@ function looseTaskText(t) {
   return (cat ? '[' + cat + '] ' : '') + t.text.trim();
 }
 
+// ===== Plano de hoje: lente diária sobre o plano semanal =====
+// Cada item/tópico da semana tem um "dia resolvido" (override wkday_<n>_<slug> do
+// calendário; padrão = sexta). Hoje = o que está resolvido pra hoje; o pool lista o que
+// ainda não tem dia explícito — "→ hoje" puxa (mesma chave que o arrasto do calendário).
+function h2DayPlanEntries() {
+  const cur = (typeof h2CurrentWeek === 'function') ? h2CurrentWeek() : null;
+  if (!cur) return null;
+  const x = H2_WEEKPLAN.find(w => w.n === cur.n);
+  if (!x) return null;
+  const D = loadH2();
+  const firsts = h2WkFirstWeeks();
+  const def = h2WeekDefaultDay(x);
+  const todayK = dateKey(new Date());
+  const out = { today: [], pool: [], n: x.n, def, todayK, inWindow: todayK >= x.s && todayK <= x.e };
+  const add = (slug, text, done) => {
+    const exp = D[h2PlanCalKey(x.n, slug)];
+    const resolved = exp || def;
+    if (resolved === todayK) out.today.push({ slug, text, done });
+    else if (!exp && def !== todayK) out.pool.push({ slug, text, done });
+    // com dia explícito em OUTRO dia: agendado — não aparece aqui (mora no calendário)
+  };
+  const raw = D['wkw_' + x.n] != null ? D['wkw_' + x.n] : x.w;
+  for (const t of h2WkTopics(raw)) {
+    const kk = h2TopicKey(x.n, t);
+    add('t' + kk.slice(kk.lastIndexOf('_') + 1), t, !!D[kk]);
+  }
+  for (const it of h2WkItemsArr(D)) {
+    if ((it.text || '').trim() && h2ItemAppliesTo(it, x.n, firsts)) add('i' + it.id, it.text, !!D['wkit_' + it.id + '_' + x.n]);
+  }
+  return out;
+}
+function renderDayPlan() {
+  const c = $('#dayPlanCard');
+  if (!c) return;
+  const E = h2DayPlanEntries();
+  if (!E || !E.inWindow) { c.style.display = 'none'; c.innerHTML = ''; return; }
+  const doneN = E.today.filter(e => e.done).length;
+  const row = (e, where) => `
+    <div class="dp-task${e.done ? ' done' : ''}" data-dpslug="${e.slug}">
+      <button class="dp-check" data-dpact="toggle" aria-label="Concluir">${e.done ? '✓' : ''}</button>
+      <span class="dp-text">${escapeHtml(e.text)}</span>
+      ${where === 'today'
+        ? '<button class="dp-toweek" data-dpact="unday" title="Tirar do dia — volta pro dia padrão da semana (sexta)">tirar</button>'
+        : '<button class="dp-toweek" data-dpact="today" title="Trazer esta entrada pra hoje">→ hoje</button>'}
+    </div>`;
+  c.style.display = '';
+  c.innerHTML = `
+    <div class="dp-head">
+      <div class="dp-title">Plano de hoje</div>
+      ${E.today.length ? `<div class="dp-progress${doneN === E.today.length ? ' all' : ''}">${doneN}/${E.today.length} ✓</div>` : ''}
+    </div>
+    <div class="dp-list">${E.today.length ? E.today.map(e => row(e, 'today')).join('') : '<div class="dp-empty">Nada puxado pra hoje ainda — traga do pool abaixo, ou arraste no calendário.</div>'}</div>
+    ${E.pool.length ? `<div class="tasks-sec tasks-sec-gap">
+      <div class="tasks-sec-title">Sem dia nesta semana <span class="tasks-count">${E.pool.length}</span><span class="bk-hint">sem ação, caem na sexta</span></div>
+      <div class="dp-list">${E.pool.map(e => row(e, 'pool')).join('')}</div>
+    </div>` : ''}`;
+  c.querySelectorAll('[data-dpact]').forEach(btn => btn.addEventListener('click', () => {
+    const slug = btn.closest('[data-dpslug]').dataset.dpslug;
+    const act = btn.dataset.dpact;
+    const D = loadH2();
+    if (act === 'toggle') {
+      const k = h2PlanDoneKey(E.n, slug);
+      if (D[k]) delete D[k]; else D[k] = true;
+    } else if (act === 'today') {
+      D[h2PlanCalKey(E.n, slug)] = E.todayK;
+    } else if (act === 'unday') {
+      delete D[h2PlanCalKey(E.n, slug)];
+    }
+    saveH2(D);
+    renderDayPlan();
+    if (typeof refreshWeekPlanSafe === 'function') refreshWeekPlanSafe();
+    if (typeof renderTasks === 'function' && !(typeof isEditingField === 'function' && isEditingField())) renderTasks();
+  }));
+}
+
 function renderTasks() {
   const card = $('#tasksCard');
   if (!card) return;
+  if (typeof renderDayPlan === 'function') renderDayPlan(); // lente diária acompanha o estado
   const today = dateKey(new Date());
 
   // Checklist da semana corrente (mesmo store do plano — wkit_<id>_<n>; marcar aqui reflete lá)

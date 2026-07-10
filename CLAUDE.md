@@ -37,6 +37,11 @@ wrangler deploy -c wrangler.api.jsonc  # API  (só quando mexer no worker.js)
 - Whoop connect: `POST /api/whoop/connect` (Bearer) devolve a URL de autorização — o token **não** vai na URL.
 - Chip de conta no topo (`#accountChip`) mostra quem está logado; clique abre o painel de conta (`#syncModal`) com "Sair da conta" (signOut → volta pro portão). O sync é 100% automático (push debounced a cada save, pull ao abrir/voltar + polling 30s) — não existe mais botão "Sincronizar agora", login dentro do modal nem código manual (jul/2026); conexões legadas por código manual seguem funcionando sem UI.
 
+## Multiusuário (jul/2026)
+- **Gate:** `OWNER_UID` (dono) + `ALLOWED_UIDS` (convidados, uids separados por vírgula; `wrangler secret put ALLOWED_UIDS -c wrangler.api.jsonc`). `/api/whoami` (antes do gate) devolve `{uid, owner}`.
+- **Não-dono** (`timerIsOwner='0'`, setado pelo whoami no `recomputeSyncCode`): H2_WEEKPLAN é MUTADO in place (`h2ApplyPlanConfig`) pra semanas GERADAS em branco — `planStart`/`planWeeks` no doc h2Plan (card "Configuração do plano" na aba Plano); aba Semestre oculta; categorias default genéricas. O plano-seed do dono fica em `H2_WEEKPLAN_SEED`. 1ª-semana-do-mês: plano gerado usa chave ano-mês; o seed mantém o recorte `m>=7` (NÃO mudar — realocaria recorrentes).
+- 403 do gate → painel de conta mostra o uid pro convidado pedir acesso.
+
 ## Convenções e ciladas (não repetir)
 - **Verificar visualmente com Chrome headless**, não com o preview (screenshots do preview travam por causa do Firebase):
   `"/c/Program Files/Google/Chrome/Application/chrome.exe" --headless=new --disable-gpu --force-device-scale-factor=2 --window-size=460,900 --screenshot=OUT.png "file:///.../public/index.html"`

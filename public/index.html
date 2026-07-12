@@ -3738,7 +3738,7 @@ function finishSession(completed, opts = {}) {
   if (!opts.noSave && sid) setStopTombstone(sid);
   // opts.noSave: quem parou foi OUTRO device (a sessão foi salva lá) — aqui só limpa.
   if (elapsedMs >= 1000 && !opts.noSave) {
-    saveSession(state.category, elapsedMs, state.subcategory, (completed && sid) ? sid + state.durationMs : (opts.at || undefined), sid);
+    saveSession(state.category, elapsedMs, state.subcategory, (completed && sid) ? sid + state.durationMs : (opts.at || undefined));
   }
 
   if (completed && !opts.suppressAlert) triggerAlert();
@@ -3816,7 +3816,7 @@ function loadHistory() {
   try { return JSON.parse(localStorage.getItem('timerHistory') || '{}'); }
   catch { return {}; }
 }
-function saveSession(category, elapsedMs, subcategory, at, sid) {
+function saveSession(category, elapsedMs, subcategory, at) {
   const when = at || Date.now();
   // Credita no dia em que a sessão RODOU (derivado do `at`), não no dia do save —
   // sessão que expirou/pausou ontem e foi fechada ao abrir hoje vai pro dia certo
@@ -3832,7 +3832,6 @@ function saveSession(category, elapsedMs, subcategory, at, sid) {
   // at determinístico (sessionId+duração) quando a sessão sincronizada completa: os dois
   // devices gravam a MESMA chave at|categoria|duração e o merge deduplica sozinho
   const rec = { category, durationMs: elapsedMs, at: when };
-  if (sid) rec.sid = sid; // identidade da sessão sincronizada: dedupe de parada dupla no merge
   if (subcategory) rec.subcategory = subcategory;
   sessions[day].push(rec);
   localStorage.setItem('timerSessions', JSON.stringify(sessions));
@@ -4242,9 +4241,11 @@ function blobHasData(name) {
   return false;
 }
 if (!localStorage.getItem('timerStamps')) {
-  const seed = Date.now();
-  ['tasks', 'events', 'weekPlan', 'goals', 'alarms', 'h2Plan', 'target'].forEach(n => { blobStamps[n] = blobHasData(n) ? seed : 0; });
-  bumpClock(seed);
+  // Migração pro sync versionado: semeia TODO blob com 0 → o servidor (autoritativo depois
+  // do 1º device migrado) vence. Semear com Date.now() era um carimbo FALSO-alto: um device
+  // aberto hoje com dado antigo fingia frescor e apagava a edição mais nova de outro device.
+  // (1º migrante p/ servidor vazio: modo legado preserva e empurra o local mesmo com stamp 0.)
+  ['tasks', 'events', 'weekPlan', 'goals', 'alarms', 'h2Plan', 'target'].forEach(n => { blobStamps[n] = 0; });
   try { localStorage.setItem('timerStamps', JSON.stringify(blobStamps)); } catch {}
 }
 function stampBlob(name) {
@@ -4585,9 +4586,10 @@ function mergeSessions(local, cloud) {
   for (const date of dates) {
     const map = new Map();
     for (const s of [...(local?.[date] || []), ...(cloud?.[date] || [])]) {
-      // sid (sessão sincronizada): mesma sessão parada em 2 devices = 1 registro só;
-      // legado sem sid mantém a chave antiga
-      const key = s.sid ? ('s:' + s.sid + '|' + s.category) : `${s.at}|${s.category}|${s.durationMs}`;
+      // Dedupe pelo `at` (o servidor persiste em started_at e ecoa de volta idêntico →
+      // o round-trip é estável). Sessão COMPLETADA tem at determinístico (sid+duração),
+      // então dois devices que completam a mesma sessão colapsam num registro só.
+      const key = `${s.at}|${s.category}|${s.durationMs}`;
       if (!map.has(key)) map.set(key, s);
     }
     merged[date] = [...map.values()].sort((a, b) => a.at - b.at);
@@ -5374,8 +5376,10 @@ function renderAgenda() {
     if (entry.start && entry.end) {
       s = entry.start; e = entry.end;
     } else if (entry.durationMin) {
-      // manual sem horário: estima fim às 07:00 do dia
+      // manual sem horário: a chave = data em que DEITOU (a noite), então o fim (acordar)
+      // é 07:00 do dia SEGUINTE — antes desenhava 07:00 do próprio dia, um dia adiantado
       const endD = new Date(dk + 'T07:00:00');
+      endD.setDate(endD.getDate() + 1);
       e = endD.getTime();
       s = e - entry.durationMin * 60000;
     } else continue;

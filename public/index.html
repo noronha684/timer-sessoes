@@ -2369,6 +2369,8 @@ window.firebaseConfig = {
   .wk-drag { flex-shrink: 0; width: 14px; text-align: center; margin-top: 1px; cursor: grab; color: var(--text-subtle); opacity: 0; font-size: 11px; user-select: none; -webkit-user-select: none; touch-action: none; }
   .wk-topic:hover .wk-drag, [data-h2itemrow]:hover .wk-drag { opacity: 0.7; }
   .wk-drag-spacer { flex-shrink: 0; width: 14px; } /* linha sem alça (recorrente) alinha com as demais */
+  .wk-ins-before { box-shadow: 0 -2px 0 0 var(--accent); border-radius: 2px; }
+  .wk-ins-after { box-shadow: 0 2px 0 0 var(--accent); border-radius: 2px; }
   @media (hover: none) { .wk-drag { opacity: 0.45; } } /* celular: sempre visível */
   tr.wk-drop td { background: rgba(242,242,240,0.10); }
   .wk-ghost { position: fixed; z-index: 999; pointer-events: none; background: #1a1a1b; border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; padding: 6px 10px; font-size: 12.5px; color: var(--text); max-width: 60vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; box-shadow: 0 10px 28px rgba(0,0,0,0.55); }
@@ -7512,6 +7514,36 @@ function h2MoveTopic(n1, text, n2) {
   saveH2(D);
   return true;
 }
+// Reordena um tópico DENTRO da mesma semana (tira de onde está e insere junto ao alvo).
+// O "feito" do tópico é por hash do TEXTO (não muda ao reordenar) → nada a migrar.
+function h2ReorderTopic(nn, fromText, toText, after) {
+  const D = loadH2();
+  const seedW = (n) => { const x = H2_WEEKPLAN.find(w => String(w.n) === String(n)); return x ? x.w : ''; };
+  const tp = h2WkTopics(D['wkw_' + nn] != null ? D['wkw_' + nn] : seedW(nn));
+  const from = tp.indexOf(String(fromText).trim());
+  if (from < 0) return false;
+  tp.splice(from, 1);
+  let to = tp.indexOf(String(toText).trim());
+  if (to < 0) return false;
+  tp.splice(after ? to + 1 : to, 0, String(fromText).trim());
+  D['wkw_' + nn] = tp.join('\n');
+  saveH2(D);
+  return true;
+}
+// Reordena um item na lista h2WkItems (a ordem é global — vale pra todas as semanas)
+function h2ReorderItem(fromId, toId, after) {
+  if (fromId === toId) return false;
+  const D = loadH2();
+  const items = h2WkItemsArr(D);
+  const from = items.findIndex(i => i.id === fromId);
+  if (from < 0 || items.findIndex(i => i.id === toId) < 0) return false;
+  const [moved] = items.splice(from, 1);
+  const to = items.findIndex(i => i.id === toId);
+  items.splice(after ? to + 1 : to, 0, moved);
+  D.h2WkItems = items;
+  saveH2(D);
+  return true;
+}
 // Item de semana única: troca o wk; o check wkit_<id>_<n> migra junto
 function h2MoveItem(id, n1, n2) {
   const D = loadH2();
@@ -7589,7 +7621,7 @@ function h2SecPlano(D) {
     </div>`).join('');
   const itemsCard = `<div class="h2-card" style="margin-top:14px">
     <div class="h2-card-h">Itens do plano</div>
-    <div class="h2-note">Vivem como checklist dentro das semanas — o × em cada um remove (recorrente sai de todas); pra trocar de semana, arraste pelo ⠿ e solte na linha da outra semana (tópicos também). Recorrente novo: adicione abaixo, configure e Enter/✓ — ele desce pras semanas e some daqui.</div>
+    <div class="h2-note">Vivem como checklist dentro das semanas — o × em cada um remove (recorrente sai de todas); pra trocar de semana, arraste pelo ⠿ pra reordenar no bloco ou soltar noutra semana (tópicos também). Recorrente novo: adicione abaixo, configure e Enter/✓ — ele desce pras semanas e some daqui.</div>
     ${itemRows}
     <button type="button" class="h2-add-btn" id="h2WkAddItem" style="margin-top:10px">+ Adicionar item recorrente</button>
   </div>`;
@@ -7822,18 +7854,45 @@ function bindH2Plano(c) {
       const label = sp ? sp.textContent : '';
       const x0 = ev.clientX, y0 = ev.clientY;
       let ghost = null, curTr = null, dragging = false, px = x0, py = y0, raf = 0;
+      let curRow = null, insAfter = false; // linha-alvo do reorder no MESMO bloco
+      const isItem = !!(row.dataset && row.dataset.h2itemrow);
       const setDrop = (tr) => {
         if (tr === curTr) return;
         if (curTr) curTr.classList.remove('wk-drop');
         curTr = tr;
         if (curTr) curTr.classList.add('wk-drop');
       };
+      const clearRowInd = () => { if (curRow) { curRow.classList.remove('wk-ins-before', 'wk-ins-after'); curRow = null; } };
+      // Marca alvo: mesma semana + linha do MESMO tipo → indicação de reorder;
+      // outra semana → pinta a semana inteira (mover)
+      const updateTarget = () => {
+        const under = document.elementFromPoint(px, py);
+        const tr = under && under.closest ? under.closest('tr[data-h2wk]') : null;
+        const dstN = tr && tr.dataset.h2wk;
+        let rowTarget = null;
+        if (dstN === srcN && under && under.closest) {
+          const cand = under.closest('.wk-topic[data-tpk], [data-h2itemrow]');
+          if (cand && cand !== row && !!(cand.dataset && cand.dataset.h2itemrow) === isItem) rowTarget = cand;
+        }
+        if (rowTarget) {
+          setDrop(null);
+          const r = rowTarget.getBoundingClientRect();
+          const after = py > r.top + r.height / 2;
+          if (rowTarget !== curRow || after !== insAfter) {
+            clearRowInd();
+            curRow = rowTarget; insAfter = after;
+            curRow.classList.add(after ? 'wk-ins-after' : 'wk-ins-before');
+          }
+        } else {
+          clearRowInd();
+          setDrop(dstN && dstN !== srcN ? tr : null);
+        }
+        if (ghost) { ghost.style.left = (px + 12) + 'px'; ghost.style.top = (py - 14) + 'px'; }
+      };
       const tick = () => {
         if (py < 90) window.scrollBy(0, -14);
         else if (py > innerHeight - 90) window.scrollBy(0, 14);
-        const under = document.elementFromPoint(px, py);
-        setDrop(under && under.closest ? under.closest('tr[data-h2wk]') : null);
-        if (ghost) { ghost.style.left = (px + 12) + 'px'; ghost.style.top = (py - 14) + 'px'; }
+        updateTarget();
         raf = requestAnimationFrame(tick);
       };
       const onMove = (e) => {
@@ -7848,12 +7907,7 @@ function bindH2Plano(c) {
           row.style.opacity = '0.35';
           raf = requestAnimationFrame(tick); // rAF só pra auto-scroll/fantasma durante rolagem
         }
-        if (dragging) {
-          // alvo marcado AQUI (não depende do rAF): cada movimento reavalia
-          const under = document.elementFromPoint(px, py);
-          setDrop(under && under.closest ? under.closest('tr[data-h2wk]') : null);
-          if (ghost) { ghost.style.left = (px + 12) + 'px'; ghost.style.top = (py - 14) + 'px'; }
-        }
+        if (dragging) updateTarget(); // reavalia alvo (linha do bloco ou outra semana)
       };
       // Limpeza IDEMPOTENTE: roda no pointerup normal, no cancel e no lostpointercapture
       // (se algo remover a alça do DOM no meio do arrasto, o fantasma não fica preso)
@@ -7869,17 +7923,23 @@ function bindH2Plano(c) {
         cancelAnimationFrame(raf);
         if (ghost) ghost.remove();
         row.style.opacity = '';
+        clearRowInd();
         setDrop(null);
       };
       const onLost = () => setTimeout(cleanup, 0); // depois do pointerup (que solta a captura no caminho feliz)
       const onUp = () => {
         const dstN = curTr && curTr.dataset.h2wk;
-        const did = dragging;
+        const rowT = curRow, after = insAfter, did = dragging;
         cleanup();
-        if (!did || !dstN || dstN === srcN) return;
-        const moved = row.dataset && row.dataset.h2itemrow
-          ? h2MoveItem(row.dataset.h2itemrow, srcN, dstN)
-          : h2MoveTopic(srcN, label, dstN);
+        if (!did) return;
+        let moved = false;
+        if (rowT) {
+          // reordenar dentro do mesmo bloco (alvo é linha do mesmo tipo, mesma semana)
+          if (isItem) moved = h2ReorderItem(row.dataset.h2itemrow, rowT.dataset.h2itemrow, after);
+          else { const sp = rowT.querySelector('span:not(.wk-drag)'); moved = h2ReorderTopic(srcN, label, sp ? sp.textContent : '', after); }
+        } else if (dstN && dstN !== srcN) {
+          moved = isItem ? h2MoveItem(row.dataset.h2itemrow, srcN, dstN) : h2MoveTopic(srcN, label, dstN);
+        }
         if (moved) rerender();
       };
       try { h.setPointerCapture(ev.pointerId); } catch {}

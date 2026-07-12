@@ -5012,19 +5012,31 @@ function renderAlarms() {
   }).join('');
 }
 
-$('#alarmsList').addEventListener('click', (e) => {
+// Liga/desliga o alarme via CHANGE (não click): o label do toggle tem
+// onclick=stopPropagation pra o clique não abrir o modal de edição — isso bloqueava
+// TAMBÉM o handler de click do toggle (o enabled nunca era salvo). O change borbulha
+// independente do stopPropagation de click, então captura o toggle de forma confiável.
+$('#alarmsList').addEventListener('change', (e) => {
   const toggle = e.target.closest('input[data-alarm-toggle]');
-  if (toggle) {
-    const id = toggle.dataset.alarmToggle;
-    const alarms = loadAlarms();
-    const a = alarms.find(x => x.id === id);
-    if (a) {
-      a.enabled = toggle.checked;
-      saveAlarms(alarms);
-      renderAlarms();
-    }
-    return;
+  if (!toggle) return;
+  const id = toggle.dataset.alarmToggle;
+  const alarms = loadAlarms();
+  const a = alarms.find(x => x.id === id);
+  if (!a) return;
+  a.enabled = toggle.checked;
+  // Ao RELIGAR, mesmo guard do modal: horário já passado hoje marca lastFired=hoje pra o
+  // catch-up de 30 min não disparar o alarme na hora do religamento.
+  if (toggle.checked && a.time) {
+    const nd = new Date();
+    const passedToday = (parseInt(a.time.slice(0, 2), 10) * 60 + parseInt(a.time.slice(3, 5), 10)) <= (nd.getHours() * 60 + nd.getMinutes());
+    if (passedToday) a.lastFired = dateKey(nd);
   }
+  saveAlarms(alarms);
+  renderAlarms();
+});
+// Clique no corpo do item (fora do toggle) abre a edição
+$('#alarmsList').addEventListener('click', (e) => {
+  if (e.target.closest('label.toggle')) return; // toggle é tratado no change
   const item = e.target.closest('.alarm-item');
   if (item) openAlarmModal(item.dataset.alarmId);
 });
@@ -6266,7 +6278,12 @@ function addManualSession(category, durationMs, subcategory, dateStr, atMs) {
   localStorage.setItem('timerHistory', JSON.stringify(history));
   const sessions = loadSessions();
   if (!sessions[dateStr]) sessions[dateStr] = [];
-  const rec = { category, durationMs, at: atMs };
+  // `at` único: dois blocos manuais idênticos (mesma hora HH:MM, categoria e duração) teriam
+  // a MESMA chave de dedupe e o mergeSessions colapsaria os dois num só (perda de tempo real).
+  // Desloca 1ms até não colidir com um registro já existente no dia.
+  let at = atMs;
+  while (sessions[dateStr].some(s => s.at === at && s.category === category && s.durationMs === durationMs)) at++;
+  const rec = { category, durationMs, at };
   if (subcategory) rec.subcategory = subcategory;
   sessions[dateStr].push(rec);
   localStorage.setItem('timerSessions', JSON.stringify(sessions));
@@ -6617,12 +6634,19 @@ function renderPlanToday() {
     return;
   }
 
-  let plannedMs = 0, doneMsTotal = 0;
-  for (const cat in plan) plannedMs += ((plan[cat] || [])[todayIdx] || 0) * 3600000;
-  for (const cat of cats) doneMsTotal += (doneMs[cat] || 0);
+  // Progresso da meta CAPA por categoria (hora extra numa categoria não cobre outra zerada) —
+  // igual ao índice de execução; antes somava cru e mostrava "100% · meta batida" com uma
+  // categoria inteira em zero. Sem meta hoje, mostra o total cru do dia.
+  let plannedMs = 0, cappedDone = 0, rawDone = 0;
+  for (const cat of cats) rawDone += (doneMs[cat] || 0);
+  for (const cat in plan) {
+    const pMs = ((plan[cat] || [])[todayIdx] || 0) * 3600000;
+    if (pMs > 0) { plannedMs += pMs; cappedDone += Math.min(doneMs[cat] || 0, pMs); }
+  }
   const hasPlan = plannedMs > 0;
-  const pct = hasPlan ? Math.min(100, (doneMsTotal / plannedMs) * 100) : (doneMsTotal > 0 ? 100 : 0);
-  const complete = hasPlan && doneMsTotal >= plannedMs;
+  const doneMsTotal = hasPlan ? cappedDone : rawDone;
+  const pct = hasPlan ? Math.min(100, (cappedDone / plannedMs) * 100) : (rawDone > 0 ? 100 : 0);
+  const complete = hasPlan && cappedDone >= plannedMs;
 
   let rows = '';
   for (const cat of cats) {
@@ -6748,10 +6772,11 @@ function execWeekAvg() {
   for (let d = new Date(cur.s + 'T00:00:00'); ; d.setDate(d.getDate() + 1)) {
     const k = dateKey(d);
     if (k > todayK || k > cur.e) break;
-    let v = null;
-    if (k === todayK) v = execScoreToday();
-    else { const hs = execHoursScore(k); if (hs != null) v = Math.round(hs * 100); }
-    if (v != null) { sum += v; count++; }
+    // Só HORAS pra todos os dias (inclusive hoje): a fração de "itens do dia" só existe
+    // pra semana corrente projetada, então misturá-la só no dia de hoje fazia a contribuição
+    // de um dia FIXO mudar sozinha ao virar passado. O índice com itens fica no badge do dia.
+    const hs = execHoursScore(k);
+    if (hs != null) { sum += Math.round(hs * 100); count++; }
   }
   return count ? Math.round(sum / count) : null;
 }

@@ -594,14 +594,18 @@ async function loadFullSnapshot(env, uid) {
   const [sessions, categories, settings, stamp] = await Promise.all([
     env.DB.prepare('SELECT date, category, duration_ms, started_at FROM sessions WHERE uid = ? ORDER BY started_at ASC').bind(uid).all(),
     env.DB.prepare('SELECT name FROM categories WHERE uid = ? ORDER BY position ASC, name ASC').bind(uid).all(),
-    env.DB.prepare('SELECT key, value FROM settings WHERE uid = ?').bind(uid).all(),
+    env.DB.prepare('SELECT key, value, stamp FROM settings WHERE uid = ?').bind(uid).all(),
     serverStamp(env, uid),
   ]);
   const { sessions: sessionsObj, history } = buildSnapshot(sessions.results || []);
   const settingsObj = {};
+  const derivedStamps = {};
   for (const s of (settings.results || [])) {
+    if (s.key === '_stamps') continue; // legado: o mapa é DERIVADO da coluna stamp abaixo
     try { settingsObj[s.key] = JSON.parse(s.value); } catch { settingsObj[s.key] = s.value; }
+    if (VERSIONED_BLOBS.has(s.key)) derivedStamps[s.key] = Number(s.stamp) || 0;
   }
+  settingsObj._stamps = derivedStamps; // sempre coerente com os valores (mesma linha, mesma escrita)
   return {
     sessions: sessionsObj,
     history,
@@ -708,34 +712,27 @@ async function apiBulkSync(request, env, uid) {
     });
   }
 
-  // Settings: upsert COM gate de carimbo pros blobs versionados. Antes o upsert era cego:
-  // um device desatualizado reenviava TODOS os blobs (buildPushPayload manda todos sempre)
-  // e revertia no servidor o blob que outro device tinha acabado de editar. Agora um blob
-  // versionado só é escrito se o carimbo que chega for >= o guardado, e o mapa _stamps é
-  // mesclado por MAX — o servidor vira a autoridade e o push deixa de ser destrutivo.
-  const upsertSetting = (key, value) => env.DB.prepare(
-    'INSERT INTO settings (uid, key, value, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(uid, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at'
+  // Settings. Blob versionado só é escrito se o carimbo que chega for ESTRITAMENTE maior
+  // que o guardado — e essa decisão é ATÔMICA em SQL (WHERE no DO UPDATE compara a linha
+  // existente), sem read-modify-write. Isso fecha o TOCTOU do gate anterior (que lia _stamps
+  // num SELECT à parte → dois pushes concorrentes revertiam a edição um do outro). O carimbo
+  // mora na coluna `stamp`; o mapa _stamps é DERIVADO dela no snapshot (sempre consistente
+  // com os valores). O empate (inc==cur) não sobrescreve → device vazio não apaga dado real.
+  const upsertBlind = (key, value) => env.DB.prepare(
+    'INSERT INTO settings (uid, key, value, updated_at, stamp) VALUES (?, ?, ?, ?, 0) ON CONFLICT(uid, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at'
   ).bind(uid, key, JSON.stringify(value), Date.now());
+  const upsertVersioned = (key, value, stamp) => env.DB.prepare(
+    'INSERT INTO settings (uid, key, value, updated_at, stamp) VALUES (?, ?, ?, ?, ?) ' +
+    'ON CONFLICT(uid, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, stamp = excluded.stamp ' +
+    'WHERE excluded.stamp > settings.stamp'
+  ).bind(uid, key, JSON.stringify(value), Date.now(), stamp);
   if (settings && typeof settings === 'object') {
-    const incStamps = (settings._stamps && typeof settings._stamps === 'object') ? settings._stamps : null;
-    let mergedStamps = null;
-    if (incStamps) {
-      const row = await env.DB.prepare('SELECT value FROM settings WHERE uid = ? AND key = ?').bind(uid, '_stamps').first();
-      let stored = {};
-      try { stored = JSON.parse((row && row.value) || '{}') || {}; } catch {}
-      mergedStamps = Object.assign({}, stored);
-    }
+    const incStamps = (settings._stamps && typeof settings._stamps === 'object') ? settings._stamps : {};
     for (const key in settings) {
-      if (key === '_stamps') continue; // gravado mesclado no fim
-      if (mergedStamps && VERSIONED_BLOBS.has(key)) {
-        const inc = Number(incStamps[key]) || 0;
-        const cur = Number(mergedStamps[key]) || 0;
-        if (inc < cur) continue;       // device desatualizado: não reverte o mais novo
-        mergedStamps[key] = inc;       // este blob ganhou → o carimbo acompanha o valor
-      }
-      stmts.push(upsertSetting(key, settings[key]));
+      if (key === '_stamps') continue; // não é gravado: derivado da coluna stamp no snapshot
+      if (VERSIONED_BLOBS.has(key)) stmts.push(upsertVersioned(key, settings[key], Number(incStamps[key]) || 0));
+      else stmts.push(upsertBlind(key, settings[key]));
     }
-    if (mergedStamps) stmts.push(upsertSetting('_stamps', mergedStamps));
   }
 
   if (stmts.length > 0) await env.DB.batch(stmts);

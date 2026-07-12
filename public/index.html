@@ -2382,6 +2382,34 @@ window.firebaseConfig = {
   .cal-week-plan { border-left: 2px dotted rgba(242,242,240,0.45); padding-left: 6px; margin-top: 3px; font-size: 12px; color: var(--text-muted); }
   .cal-week-plan.done { text-decoration: line-through; color: var(--text-subtle); }
   .day-plan-note { font-size: 10.5px; color: var(--text-subtle); margin: 10px 0 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  /* Radar de prazos */
+  .dl-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin: 0 0 14px; }
+  .dl-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .dl-title { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-subtle); }
+  .dl-risk { font-size: 12px; color: var(--danger, #e0a19b); }
+  .dl-row { display: flex; gap: 9px; align-items: flex-start; padding: 5px 0; font-size: 12.5px; line-height: 1.4; color: var(--text); }
+  .dl-row.done { opacity: 0.5; }
+  .dl-row.done .dl-text { text-decoration: line-through; color: var(--text-subtle); }
+  .dl-check { width: 15px; height: 15px; flex-shrink: 0; margin-top: 1px; cursor: pointer; border: 1.5px solid var(--border-strong); border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--accent); }
+  .dl-text { flex: 1; min-width: 0; }
+  .dl-when { flex-shrink: 0; font-size: 11px; padding: 1px 7px; border-radius: 20px; white-space: nowrap; }
+  .dl-over { background: rgba(224,161,155,0.18); color: #e0a19b; }
+  .dl-soon { background: rgba(217,197,138,0.16); color: #d9c58a; }
+  .dl-ok { background: rgba(255,255,255,0.06); color: var(--text-subtle); }
+  .dl-src { font-size: 9.5px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.4px; margin-left: 6px; }
+  /* Aguardando (GTD) */
+  .wait-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .wait-title { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-subtle); }
+  .wait-add { display: flex; gap: 8px; margin-bottom: 6px; }
+  .wait-in { flex: 1; min-width: 0; background: var(--card-elev); color: var(--text); border: 1px solid var(--border-strong); border-radius: 9px; padding: 8px 10px; font-size: 12.5px; font-family: inherit; }
+  .wait-in.who { flex: 0 0 34%; }
+  .wait-row { display: flex; gap: 9px; align-items: baseline; padding: 6px 0; font-size: 12.5px; border-top: 1px solid var(--hairline); }
+  .wait-row.done .wait-text { text-decoration: line-through; color: var(--text-subtle); }
+  .wait-text { flex: 1; min-width: 0; color: var(--text); }
+  .wait-who { color: var(--text-muted); }
+  .wait-age { flex-shrink: 0; font-size: 11px; color: var(--text-subtle); white-space: nowrap; }
+  .wait-btn { border: none; background: none; color: var(--text-subtle); cursor: pointer; font-size: 14px; padding: 0 4px; line-height: 1; }
+  .wait-empty { color: var(--text-subtle); font-style: italic; font-size: 12px; padding: 4px 0; }
   /* Recordes: toast sóbrio */
   #recordToast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(8px); background: #1a1a1b; border: 1px solid rgba(242,242,240,0.35); color: var(--accent); border-radius: 10px; padding: 10px 18px; font-size: 12.5px; letter-spacing: 0.4px; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 1000; }
   #recordToast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -2756,11 +2784,15 @@ window.firebaseConfig = {
 
 
   <div class="panel" id="plano-panel">
+    <div class="dl-card" id="deadlineRadar" style="display:none"></div>
+
     <div class="plan-today-card" id="planTodayCard"></div>
 
     <div class="tasks-card" id="dayPlanCard" style="display:none"></div>
 
     <div class="tasks-card" id="tasksCard"></div>
+
+    <div class="waiting-card tasks-card" id="waitingCard"></div>
 
     <!-- Plano semana-a-semana do H2 (morava no Semestre; unificado aqui) -->
     <div class="weekplan-block" id="weekPlanBlock"></div>
@@ -6474,11 +6506,153 @@ function doneTodayMsByCat() {
   return loadHistory()[dateKey(new Date())] || {};
 }
 
+// ===== #5 Radar de prazos: datas dentro dos tópicos/itens do plano + eventos do calendário =====
+// Extrai a 1ª data do texto (dd/mm numérico OU dd/mmm). O ano vem da semana do plano a que
+// o texto pertence. Guarda contra falso-positivo tipo "O3/O6/O7" (dia colado a letra).
+function h2ParseDateInText(txt, year) {
+  const s = String(txt || '').toLowerCase();
+  let m = s.match(/(?:^|[^\w])(\d{1,2})\/(\d{1,2})(?![\w])/); // dd/mm numérico
+  if (m) {
+    const d = +m[1], mo = +m[2];
+    if (d >= 1 && d <= 31 && mo >= 1 && mo <= 12) return year + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+  }
+  m = s.match(/(?:^|[^\w])(\d{1,2})\s*\/?\s*(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)/); // dd/mmm
+  if (m) return year + '-' + H2_MONTH_NUM[m[2]] + '-' + String(+m[1]).padStart(2, '0');
+  return null;
+}
+function h2AddDays(key, days) { const d = new Date(key + 'T00:00:00'); d.setDate(d.getDate() + days); return dateKey(d); }
+// Coleta prazos NÃO concluídos em [hoje-7, hoje+14], ordenados por data
+function h2Deadlines() {
+  const today = dateKey(new Date());
+  const from = h2AddDays(today, -7), to = h2AddDays(today, 14);
+  const D = loadH2();
+  const firsts = h2WkFirstWeeks();
+  const out = [];
+  for (const x of H2_WEEKPLAN) {
+    const year = x.s.slice(0, 4);
+    const raw = D['wkw_' + x.n] != null ? D['wkw_' + x.n] : x.w;
+    for (const t of h2WkTopics(raw)) {
+      const dk = h2ParseDateInText(t, year);
+      if (dk && dk >= from && dk <= to) out.push({ dk, text: t, done: !!D[h2TopicKey(x.n, t)], src: 'plano · sem ' + x.n, key: h2TopicKey(x.n, t) });
+    }
+    for (const it of h2WkItemsArr(D)) {
+      if (!(it.text || '').trim() || !h2ItemAppliesTo(it, x.n, firsts)) continue;
+      const dk = h2ParseDateInText(it.text, year);
+      if (dk && dk >= from && dk <= to) out.push({ dk, text: it.text, done: !!D['wkit_' + it.id + '_' + x.n], src: 'plano · sem ' + x.n, key: 'wkit_' + it.id + '_' + x.n });
+    }
+  }
+  const ev = (typeof loadEvents === 'function') ? loadEvents() : {};
+  for (const dk in ev) {
+    if (dk < from || dk > to) continue;
+    for (const e of (ev[dk] || [])) if ((e.text || '').trim()) out.push({ dk, text: e.text, done: !!e.done, src: 'agenda', evdk: dk, evid: e.id });
+  }
+  out.sort((a, b) => a.dk < b.dk ? -1 : a.dk > b.dk ? 1 : 0);
+  return out;
+}
+function renderDeadlineRadar() {
+  const card = $('#deadlineRadar');
+  if (!card) return;
+  const today = dateKey(new Date());
+  const all = h2Deadlines().filter(d => !d.done || d.dk >= today); // some prazos passados JÁ feitos
+  if (!all.length) { card.style.display = 'none'; card.innerHTML = ''; return; }
+  const dayDiff = (dk) => Math.round((new Date(dk + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000);
+  const atRisk = all.filter(d => !d.done && dayDiff(d.dk) <= 2).length;
+  const rows = all.map(d => {
+    const diff = dayDiff(d.dk);
+    const when = diff < 0 ? { c: 'dl-over', t: 'atrasado ' + (-diff) + 'd' }
+      : diff === 0 ? { c: 'dl-over', t: 'hoje' }
+      : diff <= 2 ? { c: 'dl-soon', t: 'em ' + diff + 'd' }
+      : { c: 'dl-ok', t: 'em ' + diff + 'd' };
+    const attrs = d.key ? `data-dlkey="${d.key}"` : `data-dlevdk="${d.evdk}" data-dlevid="${escapeHtml(d.evid || '')}"`;
+    return `<div class="dl-row${d.done ? ' done' : ''}">
+      <div class="dl-check" role="button" ${attrs}>${d.done ? '✓' : ''}</div>
+      <span class="dl-text">${escapeHtml(d.text)}<span class="dl-src">${escapeHtml(d.src)}</span></span>
+      <span class="dl-when ${when.c}">${when.t}</span>
+    </div>`;
+  }).join('');
+  card.style.display = '';
+  card.innerHTML = `<div class="dl-head"><span class="dl-title">radar de prazos</span>${atRisk ? `<span class="dl-risk">${atRisk} em risco</span>` : ''}</div>${rows}`;
+  card.querySelectorAll('.dl-check').forEach(el => el.addEventListener('click', () => {
+    if (el.dataset.dlkey) {
+      const D = loadH2(); const k = el.dataset.dlkey;
+      if (D[k]) delete D[k]; else D[k] = true;
+      saveH2(D);
+    } else if (el.dataset.dlevdk) {
+      const ev = loadEvents(); const list = ev[el.dataset.dlevdk] || [];
+      const e = list.find(x => x.id === el.dataset.dlevid);
+      if (e) { e.done = !e.done; saveEvents(ev); }
+    }
+    renderDeadlineRadar();
+    if (typeof refreshWeekPlanSafe === 'function') refreshWeekPlanSafe();
+    if (typeof renderDayPlan === 'function') renderDayPlan();
+  }));
+}
+
+// ===== #7 Aguardando (GTD): coisas travadas em terceiros. Guardado em h2Plan.waiting =====
+function loadWaiting() { const w = loadH2().waiting; return Array.isArray(w) ? w : []; }
+function saveWaiting(arr) { const D = loadH2(); D.waiting = arr; saveH2(D); }
+let waitingShowDone = false;
+function renderWaiting() {
+  const card = $('#waitingCard');
+  if (!card) return;
+  const today = dateKey(new Date());
+  const all = loadWaiting();
+  const open = all.filter(w => !w.done);
+  const done = all.filter(w => w.done);
+  const age = (since) => { const d = Math.round((new Date(today + 'T00:00:00') - new Date((since || today) + 'T00:00:00')) / 86400000); return d <= 0 ? 'hoje' : d + 'd'; };
+  const row = (w) => `<div class="wait-row${w.done ? ' done' : ''}" data-wid="${w.id}">
+    <span class="wait-text">${escapeHtml(w.text)}${w.who ? ` <span class="wait-who">— ${escapeHtml(w.who)}</span>` : ''}</span>
+    <span class="wait-age">${w.done ? 'resolvido' : age(w.since)}</span>
+    <button class="wait-btn" data-wact="${w.done ? 'reopen' : 'resolve'}" title="${w.done ? 'Reabrir' : 'Resolvido'}">${w.done ? '↩' : '✓'}</button>
+    <button class="wait-btn" data-wact="del" title="Excluir">×</button>
+  </div>`;
+  card.innerHTML = `
+    <div class="wait-head"><span class="wait-title">aguardando</span>${done.length ? `<button class="wait-btn" id="waitToggleDone" style="font-size:11px">${waitingShowDone ? 'ocultar resolvidos' : done.length + ' resolvidos'}</button>` : ''}</div>
+    <div class="wait-add">
+      <input class="wait-in" id="waitText" placeholder="esperando o quê…" maxlength="160">
+      <input class="wait-in who" id="waitWho" placeholder="de quem" maxlength="60">
+      <button class="dp-add-btn" id="waitAdd" aria-label="Adicionar">+</button>
+    </div>
+    ${open.length ? open.map(row).join('') : '<div class="wait-empty">Nada travado em terceiros. Anote aqui o que depende de resposta/dado alheio.</div>'}
+    ${waitingShowDone ? done.map(row).join('') : ''}`;
+  const txt = card.querySelector('#waitText');
+  const add = () => {
+    const t = (txt.value || '').trim();
+    if (!t) return;
+    const who = (card.querySelector('#waitWho').value || '').trim();
+    const arr = loadWaiting();
+    arr.unshift({ id: genId(), text: t, who, since: dateKey(new Date()), done: false });
+    saveWaiting(arr);
+    renderWaiting();
+    const i = $('#waitingCard #waitText'); if (i) i.focus();
+  };
+  card.querySelector('#waitAdd').addEventListener('click', add);
+  txt.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+  const wc = card.querySelector('#waitWho');
+  if (wc) wc.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+  const tg = card.querySelector('#waitToggleDone');
+  if (tg) tg.addEventListener('click', () => { waitingShowDone = !waitingShowDone; renderWaiting(); });
+  card.querySelectorAll('[data-wact]').forEach(b => b.addEventListener('click', () => {
+    const id = b.closest('[data-wid]').dataset.wid;
+    const act = b.dataset.wact;
+    let arr = loadWaiting();
+    const w = arr.find(x => x.id === id);
+    if (!w) return;
+    if (act === 'resolve') { w.done = true; w.resolvedAt = dateKey(new Date()); }
+    else if (act === 'reopen') { w.done = false; delete w.resolvedAt; }
+    else if (act === 'del') { arr = arr.filter(x => x.id !== id); }
+    saveWaiting(arr);
+    renderWaiting();
+  }));
+}
+
 function renderPlano() {
   renderPlanGrid();
+  renderDeadlineRadar();
   renderPlanToday();
   renderDayPlan();
   renderTasks();
+  renderWaiting();
   renderWeekPlan();
   renderWeekReview();
 }

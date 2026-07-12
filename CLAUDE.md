@@ -10,7 +10,7 @@ App PWA pessoal de foco (CFA/trabalho) com histórico, metas, sono (Whoop), agen
 |---|---|---|
 | **App (frontend)** | Worker **`timer-app`** (static assets) | Serve `./public/`. **NÃO é Pages.** Domínio próprio `timer.gnoronha.app`. |
 | **API** | Worker **`timer-sessoes`** | `worker.js` — REST `/api/*` + OAuth Whoop. Em `timer-sessoes.gabriel-noronha-o-p.workers.dev`. |
-| **Banco** | D1 **`timer-sessoes`** | id `63f9fce0-a3e3-4e68-87ef-3390c40babdc`. Tabelas: `sessions`, `categories`, `settings`, `whoop_tokens`, `oauth_states`. |
+| **Banco** | D1 **`timer-sessoes`** | id `63f9fce0-a3e3-4e68-87ef-3390c40babdc`. Tabelas: `sessions`, `categories`, `settings` (col `stamp` = carimbo lógico do blob versionado), `whoop_tokens`, `oauth_states`. |
 | **Login** | Firebase Auth, projeto `timer-sessoes` | Google + e-mail/senha. `apiKey` pública `AIzaSyBylkeEsWQYwOWMpDxFidBHejuE1PJCMNQ`. UID = chave de dados. |
 
 ## Layout do repositório
@@ -57,6 +57,7 @@ wrangler deploy -c wrangler.api.jsonc  # API  (só quando mexer no worker.js)
 - **Modelo:** cada blob deletável (tasks, events, weekPlan, goals, alarms, h2Plan, target) sincroniza por **last-writer-wins com carimbo LÓGICO (Lamport)** guardado em `timerStamps` + `timerStampClock`. `stampBlob()` gera valor sempre > tudo já visto (robusto a clock skew). No pull, `applyServerSnapshot` só aplica o blob do servidor se `srvStamps[name] > blobStamps[name]`. Exclusão propaga (o blob inteiro do último editor ganha). **Categorias, subcategorias, sono, segmentos, sessões = merge aditivo/união** (não versionados). História preserva dias legacy.
 - **Push:** `sessionsDelta()` (só sessões com `at > lastPushedSessionAt`, não o histórico inteiro) + `settings._stamps`. **Pull:** `?since=lastServerStamp` → worker responde `{unchanged}` quando nada mudou. Flush no fechamento = `beaconPush()` (fetch keepalive síncrono com `_lastIdToken` em cache).
 - **serverStamp** (worker) = `MAX(settings.updated_at)` só (relógio do servidor; NÃO usa `started_at` do cliente, que pode vir do futuro).
+- **Gate de carimbo ATÔMICO no push** (jul/2026): blob versionado é gravado com `INSERT ... ON CONFLICT DO UPDATE ... WHERE excluded.stamp > settings.stamp` (coluna `stamp`) — uma statement, sem SELECT prévio (evita TOCTOU). Empate NÃO sobrescreve (device vazio não apaga dado). O mapa `_stamps` do snapshot é DERIVADO da coluna `stamp` (a chave settings `_stamps` legada é ignorada na leitura e não é mais gravada). Blob só é escrito se o carimbo que chega for estritamente maior → push não-destrutivo mesmo com device desatualizado ou 2 pushes concorrentes.
 - **Timer ao vivo sincroniza** (jul/2026): `activeTimer` na settings — rodando = estado completo (`device`=dono, `by`=escritor, `sessionId` imutável); parado com tombstone = `{stopped, sessionId}`; parado sem = `undefined` (NÃO tocar a chave — era o clobber que matava o espelho). `applyRemoteTimer` adota/reconcilia/limpa; SÓ o dono grava segmentos; quem para salva a sessão (os outros recebem tombstone e não salvam); conclusão automática usa `at` determinístico (sessionId+duração) pra deduplicar no merge.
 - **OWNER_UID já está setado** (jul/2026): a API só responde ao uid do dono; outros uids autenticados levam 403. `/api/whoami` fica antes do gate (serve pra descobrir o uid).
 

@@ -65,7 +65,12 @@ async function getJwksKeys(force) {
   const cache = caches.default;
   const cacheKey = new Request(JWKS_URL);
   try {
-    const res = await fetch(JWKS_URL, { cf: { cacheEverything: true, cacheTtl: 3600 } });
+    // force = rotação de chave detectada (kid novo). O refetch PRECISA furar o edge-cache do
+    // Cloudflare (cache-buster na URL + cacheTtl:0) — senão devolve o MESMO JWKS stale por até
+    // 1h e o token com kid novo falha com unknown_kid até o cache expirar.
+    const res = force
+      ? await fetch(JWKS_URL + '?_=' + now, { cf: { cacheTtl: 0 } })
+      : await fetch(JWKS_URL, { cf: { cacheEverything: true, cacheTtl: 3600 } });
     if (res.ok) {
       const body = await res.json();
       const keys = await importJwkSet(body);

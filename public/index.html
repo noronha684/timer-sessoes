@@ -7989,6 +7989,45 @@ function bindH2Plano(c) {
     bindH2Plano(c);
     if (typeof renderTasks === 'function' && !(typeof isEditingField === 'function' && isEditingField())) renderTasks();
   };
+  // Editar o texto do item clicando nele dentro da semana (o recorrente confirmado não
+  // aparece mais no gerenciador → sem isso não havia como corrigir o texto). Espelha o
+  // editor de tópicos: input inline, Enter/blur salva, Esc cancela. preventDefault impede
+  // o <label> de alternar o checkbox ao clicar no texto.
+  c.querySelectorAll('[data-h2itemrow]').forEach(lb => {
+    const span = lb.querySelector('span:not(.wk-drag)');
+    if (!span) return;
+    span.style.cursor = 'text';
+    span.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const id = lb.dataset.h2itemrow;
+      const it = h2WkItemsArr(loadH2()).find(i => i.id === id);
+      if (!it) return;
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'h2-ta';
+      inp.value = it.text || '';
+      inp.style.cssText = 'font-size:12.5px;padding:2px 6px;min-height:0;flex:1';
+      span.replaceWith(inp);
+      inp.focus();
+      inp.setSelectionRange(inp.value.length, inp.value.length);
+      let done = false;
+      const commit = (keep) => {
+        if (done) return; done = true;
+        const v = inp.value.trim();
+        if (keep && v) {
+          const D = loadH2(); const it2 = h2WkItemsArr(D).find(i => i.id === id);
+          if (it2 && it2.text !== v) { it2.text = v; saveH2(D); }
+        }
+        rerender();
+      };
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); commit(true); }
+        else if (e.key === 'Escape') { e.preventDefault(); commit(false); }
+      });
+      inp.addEventListener('blur', () => commit(true));
+    });
+  });
   // Confirmar rascunho de recorrente (✓ ou Enter): tira o draft — o item some do card
   // e passa a viver só dentro das semanas
   const confirmDraft = (id) => {
@@ -8143,7 +8182,7 @@ function bindH2Plano(c) {
     c.querySelectorAll('[data-h2itemrow="' + it.id + '"]').forEach(lb => {
       const n = +lb.dataset.h2itemwk;
       lb.style.display = ((it.text || '').trim() && h2ItemAppliesTo(it, n, firsts)) ? 'flex' : 'none';
-      const sp = lb.querySelector('span'); if (sp) sp.textContent = it.text;
+      const sp = lb.querySelector('span:not(.wk-drag)'); if (sp) sp.textContent = it.text;
     });
   };
   // Texto do item: salva a cada tecla e replica nas semanas na hora

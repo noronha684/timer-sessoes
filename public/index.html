@@ -6546,8 +6546,18 @@ function h2Deadlines() {
     if (dk < from || dk > to) continue;
     for (const e of (ev[dk] || [])) if ((e.text || '').trim()) out.push({ dk, text: e.text, done: !!e.done, src: 'agenda', evdk: dk, evid: e.id });
   }
-  out.sort((a, b) => a.dk < b.dk ? -1 : a.dk > b.dk ? 1 : 0);
-  return out;
+  // Dedup por (data + texto): um item RECORRENTE com data no texto ("... até 14/07")
+  // aparece em várias semanas e geraria N linhas idênticas no radar — colapsa em uma
+  // (prefere a ocorrência já concluída, pra sair do radar quando qualquer semana marca).
+  const seen = new Map();
+  for (const d of out) {
+    const key = d.dk + '|' + String(d.text).trim().toLowerCase();
+    const prev = seen.get(key);
+    if (!prev || (d.done && !prev.done)) seen.set(key, d);
+  }
+  const uniq = [...seen.values()];
+  uniq.sort((a, b) => a.dk < b.dk ? -1 : a.dk > b.dk ? 1 : 0);
+  return uniq;
 }
 function renderDeadlineRadar() {
   const card = $('#deadlineRadar');

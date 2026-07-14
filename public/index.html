@@ -2370,6 +2370,18 @@ window.firebaseConfig = {
   .wk-topic:hover .wk-drag, [data-h2itemrow]:hover .wk-drag { opacity: 0.7; }
   .wk-drag-spacer { flex-shrink: 0; width: 14px; } /* linha sem alça (recorrente) alinha com as demais */
   .wk-ins-before { box-shadow: 0 -2px 0 0 var(--accent); border-radius: 2px; }
+  /* Subtarefas dentro de um item do plano */
+  .wk-sub-open { flex-shrink: 0; border: none; background: none; color: var(--text-subtle); cursor: pointer; font-size: 10px; padding: 2px 3px; line-height: 1.45; opacity: 0.55; }
+  .wk-sub-open:hover { opacity: 1; }
+  .wk-sub-count { flex-shrink: 0; font-size: 10.5px; color: var(--text-subtle); background: rgba(255,255,255,0.06); border-radius: 20px; padding: 0 7px; line-height: 1.7; }
+  .wk-sub-count.all { color: #9ad0a5; background: rgba(154,208,165,0.12); }
+  .wk-subs { margin: 2px 0 4px 36px; padding-left: 10px; border-left: 1px solid var(--hairline); }
+  .wk-sub { display: flex; gap: 7px; align-items: flex-start; margin-top: 4px; font-size: 12px; line-height: 1.4; color: var(--text); }
+  .wk-sub.done .wk-sub-text { text-decoration: line-through; color: var(--text-subtle); }
+  .wk-sub-check { width: 13px; height: 13px; flex-shrink: 0; margin-top: 2px; }
+  .wk-sub-text { flex: 1; min-width: 0; cursor: text; }
+  .wk-sub-add { display: block; width: 60%; min-width: 180px; margin-top: 6px; background: none; border: none; border-bottom: 1px dashed var(--hairline); color: var(--text); font: inherit; font-size: 11.5px; padding: 3px 2px; outline: none; }
+  .wk-sub-add::placeholder { color: var(--text-subtle); }
   .wk-ins-after { box-shadow: 0 2px 0 0 var(--accent); border-radius: 2px; }
   @media (hover: none) { .wk-drag { opacity: 0.45; } } /* celular: sempre visível */
   tr.wk-drop td { background: rgba(242,242,240,0.10); }
@@ -7607,6 +7619,12 @@ function h2ApplyPlanConfig() {
 }
 
 const H2_PLAN_TYPES = ['Empresa nova', 'Balanços', 'Análise', 'Deep work', 'Cadência'];
+// Subtarefas: quais itens estão expandidos (persiste; vale pra todas as ocorrências do item)
+let _h2SubsOpen = (() => { try { return new Set(JSON.parse(localStorage.getItem('timerSubsOpen') || '[]')); } catch { return new Set(); } })();
+function h2SubsToggle(id) {
+  if (_h2SubsOpen.has(id)) _h2SubsOpen.delete(id); else _h2SubsOpen.add(id);
+  try { localStorage.setItem('timerSubsOpen', JSON.stringify([..._h2SubsOpen])); } catch {}
+}
 // Itens recorrentes do plano (criados no app; vivem no store e sincronizam)
 function h2WkItemsArr(D) { return Array.isArray(D.h2WkItems) ? D.h2WkItems : []; }
 // 1ª semana de cada mês do semestre = primeira semana cujo início cai naquele mês (jul–dez)
@@ -7749,6 +7767,15 @@ function h2MoveItem(id, n1, n2) {
   const k1 = 'wkit_' + id + '_' + n1;
   if (D[k1]) D['wkit_' + id + '_' + n2] = true;
   delete D[k1];
+  // subtarefas: done por semana migra junto (wkst_<item>_<sub>_<n1> → _<n2>)
+  const pfx = 'wkst_' + id + '_';
+  Object.keys(D).forEach(k => {
+    if (k.startsWith(pfx) && k.endsWith('_' + n1)) {
+      const k2 = k.slice(0, k.length - String(n1).length) + n2;
+      if (D[k]) D[k2] = true;
+      delete D[k];
+    }
+  });
   saveH2(D);
   return true;
 }
@@ -7774,7 +7801,20 @@ function h2SecPlano(D) {
       const show = (it.text || '').trim() && h2ItemAppliesTo(it, x.n, firsts);
       // mesma tipografia dos tópicos da semana (12.5px, cor cheia) — item e tópico são
       // visualmente a mesma coisa na lista; só o mecanismo de dado difere
-      return `<label data-h2itemrow="${it.id}" data-h2itemwk="${x.n}" style="display:${show ? 'flex' : 'none'};gap:7px;align-items:flex-start;margin-top:5px;font-size:12.5px;line-height:1.45;cursor:pointer;color:var(--text)"><span class="wk-drag" title="${it.rec === 'one' ? 'Arrastar pra outra semana' : 'Arrastar SÓ esta ocorrência pra outra semana (a recorrência continua nas demais)'}">⠿</span><input type="checkbox" class="h2-check" style="width:15px;height:15px;flex-shrink:0;margin-top:1px" data-h2check="${k}"${D[k] ? ' checked' : ''}><span${D[k] ? ' style="text-decoration:line-through;color:var(--text-subtle)"' : ''}>${escapeHtml(it.text)}</span><button type="button" class="wk-item-del" data-wkdel="${it.id}" title="Remover este item do plano">×</button></label>`;
+      const subs = Array.isArray(it.subs) ? it.subs : [];
+      const subsDone = subs.filter(s => D['wkst_' + it.id + '_' + s.id + '_' + x.n]).length;
+      const isOpen = _h2SubsOpen.has(it.id);
+      const subsHtml = isOpen ? `
+        <div class="wk-subs" data-h2subs="${it.id}" data-h2subswk="${x.n}" style="display:${show ? 'block' : 'none'}">
+          ${subs.map(s => { const sk = 'wkst_' + it.id + '_' + s.id + '_' + x.n; const sd = !!D[sk]; return `
+          <div class="wk-sub${sd ? ' done' : ''}" data-h2subrow="${s.id}">
+            <input type="checkbox" class="h2-check wk-sub-check" data-h2subck="${it.id}|${s.id}|${x.n}"${sd ? ' checked' : ''}>
+            <span class="wk-sub-text">${escapeHtml(s.text)}</span>
+            <button type="button" class="wk-item-del" data-h2subdel="${it.id}|${s.id}" title="Remover subtarefa">×</button>
+          </div>`; }).join('')}
+          <input class="wk-sub-add" data-h2subadd="${it.id}" data-h2subaddwk="${x.n}" placeholder="+ passo…" maxlength="120">
+        </div>` : '';
+      return `<label data-h2itemrow="${it.id}" data-h2itemwk="${x.n}" style="display:${show ? 'flex' : 'none'};gap:7px;align-items:flex-start;margin-top:5px;font-size:12.5px;line-height:1.45;cursor:pointer;color:var(--text)"><span class="wk-drag" title="${it.rec === 'one' ? 'Arrastar pra outra semana' : 'Arrastar SÓ esta ocorrência pra outra semana (a recorrência continua nas demais)'}">⠿</span><input type="checkbox" class="h2-check" style="width:15px;height:15px;flex-shrink:0;margin-top:1px" data-h2check="${k}"${D[k] ? ' checked' : ''}><span${D[k] ? ' style="text-decoration:line-through;color:var(--text-subtle)"' : ''}>${escapeHtml(it.text)}</span>${subs.length ? `<span class="wk-sub-count${subsDone === subs.length ? ' all' : ''}">${subsDone}/${subs.length}</span>` : ''}<button type="button" class="wk-sub-open" data-h2subtoggle="${it.id}" title="Subtarefas (passos dentro deste item)">${isOpen ? '▾' : '▸'}</button><button type="button" class="wk-item-del" data-wkdel="${it.id}" title="Remover este item do plano">×</button></label>${subsHtml}`;
     }).join('');
     return `<tr data-h2wk="${x.n}" style="${rowStyle}">
       <td class="mono" style="text-align:center;color:var(--text);font-weight:600">${x.n}</td>
@@ -8059,8 +8099,87 @@ function bindH2Plano(c) {
     const it = h2WkItemsArr(D).find(i => i.id === id);
     if (it && !confirm('Remover "' + (it.text || '') + '" do plano?')) return;
     D.h2WkItems = h2WkItemsArr(D).filter(i => i.id !== id);
-    Object.keys(D).forEach(k => { if (k.startsWith('wkit_' + id + '_')) delete D[k]; });
+    Object.keys(D).forEach(k => { if (k.startsWith('wkit_' + id + '_') || k.startsWith('wkst_' + id + '_')) delete D[k]; });
     saveH2(D); rerender();
+  }));
+  // Subtarefas: expandir/recolher, marcar, adicionar, remover, editar texto
+  c.querySelectorAll('[data-h2subtoggle]').forEach(el => el.addEventListener('click', (ev) => {
+    ev.preventDefault(); // vive dentro do <label>: sem isso o clique alternaria o checkbox do item
+    ev.stopPropagation();
+    h2SubsToggle(el.dataset.h2subtoggle);
+    rerender();
+  }));
+  c.querySelectorAll('[data-h2subck]').forEach(el => el.addEventListener('change', () => {
+    const [itemId, subId, wk] = el.dataset.h2subck.split('|');
+    const D = loadH2();
+    const k = 'wkst_' + itemId + '_' + subId + '_' + wk;
+    if (el.checked) D[k] = true; else delete D[k];
+    saveH2(D);
+    rerender(); // atualiza risco + contador N/M do pai
+  }));
+  c.querySelectorAll('[data-h2subadd]').forEach(el => el.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    const t = (el.value || '').trim();
+    if (!t) return;
+    const D = loadH2();
+    const it = h2WkItemsArr(D).find(i => i.id === el.dataset.h2subadd);
+    if (!it) return;
+    it.subs = Array.isArray(it.subs) ? it.subs : [];
+    it.subs.push({ id: genId(), text: t });
+    saveH2(D);
+    rerender();
+    // re-foca o "+ passo…" do MESMO item na MESMA semana pra digitar o próximo
+    const again = c.querySelector('[data-h2subadd="' + el.dataset.h2subadd + '"][data-h2subaddwk="' + el.dataset.h2subaddwk + '"]');
+    if (again) again.focus();
+  }));
+  c.querySelectorAll('[data-h2subdel]').forEach(el => el.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const [itemId, subId] = el.dataset.h2subdel.split('|');
+    const D = loadH2();
+    const it = h2WkItemsArr(D).find(i => i.id === itemId);
+    if (!it) return;
+    it.subs = (it.subs || []).filter(s => s.id !== subId);
+    Object.keys(D).forEach(k => { if (k.startsWith('wkst_' + itemId + '_' + subId + '_')) delete D[k]; });
+    saveH2(D);
+    rerender();
+  }));
+  c.querySelectorAll('.wk-sub-text').forEach(sp => sp.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const row = sp.closest('[data-h2subrow]');
+    const wrap = sp.closest('[data-h2subs]');
+    if (!row || !wrap) return;
+    const itemId = wrap.dataset.h2subs, subId = row.dataset.h2subrow;
+    const it0 = h2WkItemsArr(loadH2()).find(i => i.id === itemId);
+    const s0 = it0 && (it0.subs || []).find(s => s.id === subId);
+    if (!s0) return;
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.className = 'h2-ta';
+    inp.value = s0.text || '';
+    inp.style.cssText = 'font-size:12px;padding:2px 6px;min-height:0;flex:1';
+    sp.replaceWith(inp);
+    inp.focus();
+    inp.setSelectionRange(inp.value.length, inp.value.length);
+    let done = false;
+    const commit = (keep) => {
+      if (done) return; done = true;
+      const v = inp.value.trim();
+      if (keep && v) {
+        const D = loadH2();
+        const it = h2WkItemsArr(D).find(i => i.id === itemId);
+        const s = it && (it.subs || []).find(x => x.id === subId);
+        if (s && s.text !== v) { s.text = v; saveH2(D); }
+      }
+      rerender();
+    };
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(true); }
+      else if (e.key === 'Escape') { e.preventDefault(); commit(false); }
+    });
+    inp.addEventListener('blur', () => commit(true));
   }));
   // Arrastar tópicos/itens entre semanas (pointer events: funciona com mouse E toque;
   // touch-action:none só na alça — o resto da página continua rolando normal). Soltar
@@ -8191,8 +8310,11 @@ function bindH2Plano(c) {
     const firsts = h2WkFirstWeeks();
     c.querySelectorAll('[data-h2itemrow="' + it.id + '"]').forEach(lb => {
       const n = +lb.dataset.h2itemwk;
-      lb.style.display = ((it.text || '').trim() && h2ItemAppliesTo(it, n, firsts)) ? 'flex' : 'none';
+      const show = (it.text || '').trim() && h2ItemAppliesTo(it, n, firsts);
+      lb.style.display = show ? 'flex' : 'none';
       const sp = lb.querySelector('span:not(.wk-drag)'); if (sp) sp.textContent = it.text;
+      const sb = c.querySelector('.wk-subs[data-h2subs="' + it.id + '"][data-h2subswk="' + n + '"]');
+      if (sb) sb.style.display = show ? 'block' : 'none';
     });
   };
   // Texto do item: salva a cada tecla e replica nas semanas na hora

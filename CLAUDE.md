@@ -61,6 +61,15 @@ wrangler deploy -c wrangler.api.jsonc  # API  (só quando mexer no worker.js)
 - **Timer ao vivo sincroniza** (jul/2026): `activeTimer` na settings — rodando = estado completo (`device`=dono, `by`=escritor, `sessionId` imutável); parado com tombstone = `{stopped, sessionId}`; parado sem = `undefined` (NÃO tocar a chave — era o clobber que matava o espelho). `applyRemoteTimer` adota/reconcilia/limpa; SÓ o dono grava segmentos; quem para salva a sessão (os outros recebem tombstone e não salvam); conclusão automática usa `at` determinístico (sessionId+duração) pra deduplicar no merge.
 - **OWNER_UID já está setado** (jul/2026): a API só responde ao uid do dono; outros uids autenticados levam 403. `/api/whoami` fica antes do gate (serve pra descobrir o uid).
 
+## App desktop Windows (`desktop/`, jul/2026)
+- **Casca Electron** que carrega `https://timer.gnoronha.app` ao vivo (atualizações do web chegam sozinhas; NÃO empacota o `public/`). Código = só `desktop/main.js` + `make-icon.js` + `package.json`.
+- Poderes de desktop: bandeja (tempo restante + iniciar 25/50/60 + pausar/parar), atalho global `Ctrl+Alt+T` (inicia/pausa), fechar→bandeja, modo mini always-on-top 400×640, "Abrir com o Windows", instância única. Integração lê o `state` global e clica `#startBtn/#pauseBtn/#stopBtn` via `executeJavaScript` — **sem tocar no site**.
+- Sessão `persist:timer` (login Firebase sobrevive); popups de login (Google/Firebase/Whoop) permitidos em janela filha na MESMA partition; resto → navegador do sistema.
+- **UA limpo** (sem `Electron/x` nem `TimerdeSessões/x` — o Electron injeta o productName SEM espaços) pro Google OAuth não recusar.
+- **Service worker BLOQUEADO no Electron** (`onBeforeRequest` cancela `/service-worker.js` + `clearStorageData` de serviceworkers/cachestorage no boot): o SW do PWA derruba o renderer no Electron 43 ("bad IPC message, reason 123" / `blink.mojom.CacheStorage`) e não faz falta na casca.
+- Build: `npm run dist` em `desktop/` → `desktop/dist/Timer de Sessões Setup <ver>.exe` (NSIS one-click). `png-to-ico` exporta em `.default`. Smoke test: `npx electron . --smoke` (imprime linha `SMOKE {json}` + `smoke.png`; janela precisa `show: true` — `capturePage` trava em janela nunca mostrada no Windows).
+- `desktop/node_modules|dist|build` e logs no .gitignore; **keystore do Android (`android-twa/`) também está ignorado — NUNCA commitar.**
+
 ## Pendências conhecidas
 - Ativar **Email/Password** no console do Firebase (Google já funciona).
 - Confirmar o caminho positivo do token (login real → sync funciona); só o dono consegue testar (não dá pra emitir token sem provider habilitado).

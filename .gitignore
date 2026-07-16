@@ -3,3 +3,15 @@
 
 # Cache/estado local do wrangler
 .wrangler/
+
+# App desktop (Electron) — só o código-fonte vai pro git
+desktop/node_modules/
+desktop/dist/
+desktop/build/
+desktop/smoke.png
+desktop/*.log
+
+# App Android (TWA) — keystore e senhas NUNCA no git
+android-twa/*.keystore
+android-twa/.keystore-pass
+android-twa/keystore-info.txt

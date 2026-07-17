@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Timer flutuante</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Hanken Grotesk', 'Segoe UI', -apple-system, sans-serif;
+    background: #0d0d0e; color: #f2ede4;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px;
+    padding: 14px; overflow: hidden;
+    -webkit-app-region: drag; /* janela sem moldura: o corpo inteiro arrasta */
+    user-select: none; cursor: default;
+  }
+  .close {
+    position: fixed; top: 6px; right: 8px;
+    -webkit-app-region: no-drag;
+    background: none; border: none; color: #5b5b62;
+    font-size: 14px; cursor: pointer; padding: 4px 6px;
+  }
+  .close:hover { color: #f2ede4; }
+  .ring-wrap { position: relative; width: 150px; height: 150px; }
+  .ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 9; }
+  .ring-fill {
+    fill: none; stroke: #f2f2f0; stroke-width: 9; stroke-linecap: round;
+    stroke-dasharray: 408.4; stroke-dashoffset: 0;
+    transition: stroke-dashoffset 0.5s linear, stroke 0.2s ease;
+  }
+  .ring-fill.paused { stroke: #d9c58a; }
+  .center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  .time { font-size: 38px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+  .time.paused { color: #d9c58a; }
+  .controls { display: flex; gap: 10px; align-items: center; -webkit-app-region: no-drag; }
+  .fbtn {
+    width: 46px; height: 46px; border: none; border-radius: 50%;
+    cursor: pointer; font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .fbtn-pause { background: #f2f2f0; color: #1e1a12; }
+  .fbtn-stop { background: rgba(255,255,255,0.08); color: #e0a19b; }
+  .fbtn-start { background: #9ad0a5; color: #0a2818; }
+</style>
+</head>
+<body>
+  <button class="close" id="closeBtn" title="Fechar flutuante">✕</button>
+  <div class="ring-wrap">
+    <svg class="ring" viewBox="0 0 150 150">
+      <circle class="ring-bg" cx="75" cy="75" r="65"/>
+      <circle class="ring-fill" id="ring" cx="75" cy="75" r="65"/>
+    </svg>
+    <div class="center"><span class="time" id="time">--:--</span></div>
+  </div>
+  <!-- todos escondidos até o 1º estado chegar (senão ⏸/⏹ aparecem sem sessão) -->
+  <div class="controls">
+    <button class="fbtn fbtn-start" id="startBtn" title="Iniciar" style="display:none">▶</button>
+    <button class="fbtn fbtn-pause" id="pauseBtn" title="Pausar" style="display:none">⏸</button>
+    <button class="fbtn fbtn-stop" id="stopBtn" title="Parar" style="display:none">⏹</button>
+  </div>
+<script>
+  const CIRC = 2 * Math.PI * 65;
+  const $ = (id) => document.getElementById(id);
+  let st = null, recebidoEm = 0;
+
+  function fmt(ms) {
+    // ceil, igual ao display do site — round divergia 1s metade do tempo
+    const s = Math.max(0, Math.ceil(ms / 1000));
+    return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  function render() {
+    if (!st) return;
+    // interpola entre os pushes de 1s do main pra contagem não engasgar
+    let rem = st.remainingMs;
+    if (st.running && !st.paused) rem = Math.max(0, st.remainingMs - (Date.now() - recebidoEm));
+    $('time').textContent = fmt(rem);
+    $('time').classList.toggle('paused', !!st.paused);
+    const ratio = st.durationMs > 0 ? Math.max(0, Math.min(1, rem / st.durationMs)) : 0;
+    $('ring').style.strokeDashoffset = String(CIRC * (1 - ratio));
+    $('ring').classList.toggle('paused', !!st.paused);
+    $('startBtn').style.display = st.running ? 'none' : '';
+    $('pauseBtn').style.display = st.running ? '' : 'none';
+    $('stopBtn').style.display = st.running ? '' : 'none';
+    $('pauseBtn').textContent = st.paused ? '▶' : '⏸';
+    $('pauseBtn').title = st.paused ? 'Retomar' : 'Pausar';
+  }
+
+  timerFloat.onState((s) => { st = s; recebidoEm = Date.now(); render(); });
+  setInterval(render, 250);
+
+  $('startBtn').addEventListener('click', () => timerFloat.action('start'));
+  $('pauseBtn').addEventListener('click', () => timerFloat.action('pause'));
+  $('stopBtn').addEventListener('click', () => timerFloat.action('stop'));
+  $('closeBtn').addEventListener('click', () => timerFloat.action('close'));
+</script>
+</body>
+</html>

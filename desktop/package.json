@@ -2,7 +2,7 @@
   "name": "timer-sessoes-desktop",
   "productName": "Timer de Sessões",
   "description": "Timer de Sessões para Windows — bandeja, atalho global e modo mini sobre timer.gnoronha.app",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "author": "Gabriel Noronha",
   "main": "main.js",
@@ -20,6 +20,9 @@
     },
     "files": [
       "main.js",
+      "preload.js",
+      "float-preload.js",
+      "float.html",
       "icon.png"
     ],
     "win": {

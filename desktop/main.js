@@ -12,6 +12,7 @@ const SMOKE = process.argv.includes('--smoke');
 let win = null;
 let tray = null;
 let floatWin = null;
+let floatAuto = false; // flutuante aberto AUTOMATICAMENTE ao minimizar (fecha sozinho ao restaurar)
 let quitting = false;
 let miniMode = false;
 let savedBounds = null;
@@ -164,8 +165,20 @@ function createFloat() {
   rebuildTray();
 }
 function toggleFloat() {
+  floatAuto = false; // gesto manual: o flutuante passa a ser do usuário (não some ao restaurar)
   if (floatOpen()) floatWin.close();
   else createFloat();
+}
+
+// Auto-PiP: minimizou/escondeu o app com sessão rodando → flutuante aparece sozinho;
+// restaurou → o que abriu sozinho fecha sozinho (o aberto manualmente fica).
+function autoShowFloat() {
+  if (quitting || floatOpen()) return;
+  if (lastState && lastState.running) { floatAuto = true; createFloat(); }
+}
+function autoHideFloat() {
+  if (floatAuto && floatOpen()) floatWin.close();
+  floatAuto = false;
 }
 
 ipcMain.on('float-action', (_e, a) => {
@@ -345,6 +358,12 @@ function createWindow() {
     if (!quitting) { e.preventDefault(); win.hide(); }
   });
 
+  // Auto-PiP: sair de vista com sessão rodando mostra o flutuante; voltar, esconde
+  win.on('minimize', autoShowFloat);
+  win.on('hide', autoShowFloat);
+  win.on('restore', autoHideFloat);
+  win.on('show', autoHideFloat);
+
   win.loadURL(APP_URL, { userAgent: ua });
 
   if (SMOKE) {
@@ -403,6 +422,24 @@ function createWindow() {
       await clicaReal('#pipBtn');
       await new Promise((r) => setTimeout(r, 800));
       info.floatFechouNoToggle = !floatOpen();
+      // auto-PiP: minimizar com sessão rodando abre o flutuante sozinho; restaurar fecha
+      lastState = await readTimerState();
+      win.minimize();
+      await new Promise((r) => setTimeout(r, 800));
+      info.autoAbriuAoMinimizar = floatOpen() && floatWin.isVisible();
+      win.restore();
+      await new Promise((r) => setTimeout(r, 800));
+      info.autoFechouAoRestaurar = !floatOpen();
+      // flutuante MANUAL sobrevive ao minimizar (só o automático fecha ao restaurar)
+      toggleFloat();
+      await new Promise((r) => setTimeout(r, 600));
+      win.minimize();
+      await new Promise((r) => setTimeout(r, 400));
+      const sobreviveuMin = floatOpen() && floatWin.isVisible();
+      win.restore();
+      await new Promise((r) => setTimeout(r, 600));
+      info.manualSobrevive = sobreviveuMin && floatOpen();
+      if (floatOpen()) floatWin.close();
       try {
         const img = await win.webContents.capturePage();
         const out = path.join(app.getPath('temp'), 'timer-smoke.png');

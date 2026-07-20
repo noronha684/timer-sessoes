@@ -8,6 +8,7 @@ const fs = require('fs');
 
 const APP_URL = 'https://timer.gnoronha.app';
 const SMOKE = process.argv.includes('--smoke');
+const smokeTrace = []; // rastro de diagnóstico impresso no fim do smoke
 
 let win = null;
 let tray = null;
@@ -145,10 +146,12 @@ function pushFloatState() {
 }
 function createFloat() {
   floatWin = new BrowserWindow({
-    width: 240, height: 260, useContentSize: true,
+    // barra horizontal (anel + categoria/tempo/status + controles), janela
+    // TRANSPARENTE pros cantos arredondados do cartão aparecerem de verdade
+    width: 372, height: 92, useContentSize: true,
     frame: false, resizable: false, alwaysOnTop: true, skipTaskbar: true,
     minimizable: false, maximizable: false, fullscreenable: false,
-    backgroundColor: '#0d0d0e',
+    transparent: true,
     webPreferences: {
       preload: path.join(__dirname, 'float-preload.js'),
       contextIsolation: true,
@@ -173,10 +176,12 @@ function toggleFloat() {
 // Auto-PiP: minimizou/escondeu o app com sessão rodando → flutuante aparece sozinho;
 // restaurou → o que abriu sozinho fecha sozinho (o aberto manualmente fica).
 function autoShowFloat() {
+  if (SMOKE) smokeTrace.push('autoShow open=' + floatOpen() + ' running=' + !!(lastState && lastState.running) + ' quitting=' + quitting);
   if (quitting || floatOpen()) return;
   if (lastState && lastState.running) { floatAuto = true; createFloat(); }
 }
 function autoHideFloat() {
+  if (SMOKE) smokeTrace.push('autoHide auto=' + floatAuto + ' open=' + floatOpen());
   if (floatAuto && floatOpen()) floatWin.close();
   floatAuto = false;
 }
@@ -407,6 +412,14 @@ function createWindow() {
             tempo: await floatWin.webContents.executeJavaScript(
               'document.getElementById("time").textContent', true
             ).catch((e) => 'erro: ' + String(e)),
+            categoria: await floatWin.webContents.executeJavaScript(
+              'document.getElementById("cat").textContent', true
+            ).catch(() => null),
+            print: await floatWin.webContents.capturePage().then((img) => {
+              const p = path.join(app.getPath('temp'), 'timer-float-smoke.png');
+              fs.writeFileSync(p, img.toPNG());
+              return p;
+            }).catch((e) => 'falhou: ' + e.message),
             rotuloBtnSite: await win.webContents.executeJavaScript(
               '(document.getElementById("pipBtn")||{}).textContent || null', true
             ).catch(() => null),
@@ -425,10 +438,10 @@ function createWindow() {
       // auto-PiP: minimizar com sessão rodando abre o flutuante sozinho; restaurar fecha
       lastState = await readTimerState();
       win.minimize();
-      await new Promise((r) => setTimeout(r, 800));
-      info.autoAbriuAoMinimizar = floatOpen() && floatWin.isVisible();
+      await new Promise((r) => setTimeout(r, 1500)); // 1ª janela transparente compila shader — 800ms flakeava
+      info.autoAbriuAoMinimizar = { open: floatOpen(), visivel: floatOpen() && floatWin.isVisible(), minimizada: win.isMinimized() };
       win.restore();
-      await new Promise((r) => setTimeout(r, 800));
+      await new Promise((r) => setTimeout(r, 1000));
       info.autoFechouAoRestaurar = !floatOpen();
       // flutuante MANUAL sobrevive ao minimizar (só o automático fecha ao restaurar)
       toggleFloat();
@@ -440,6 +453,7 @@ function createWindow() {
       await new Promise((r) => setTimeout(r, 600));
       info.manualSobrevive = sobreviveuMin && floatOpen();
       if (floatOpen()) floatWin.close();
+      info.trace = smokeTrace.slice(-12);
       try {
         const img = await win.webContents.capturePage();
         const out = path.join(app.getPath('temp'), 'timer-smoke.png');

@@ -5,86 +5,114 @@
 <title>Timer flutuante</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
+  html, body { height: 100%; background: transparent; }
   body {
     font-family: 'Hanken Grotesk', 'Segoe UI', -apple-system, sans-serif;
-    background: #0d0d0e; color: #f2ede4;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 12px;
-    padding: 14px; overflow: hidden;
-    -webkit-app-region: drag; /* janela sem moldura: o corpo inteiro arrasta */
+    padding: 8px; /* respiro pra sombra do cartão (janela é transparente) */
+    -webkit-app-region: drag; /* barra inteira arrasta */
     user-select: none; cursor: default;
   }
-  .close {
-    position: fixed; top: 6px; right: 8px;
-    -webkit-app-region: no-drag;
-    background: none; border: none; color: #5b5b62;
-    font-size: 14px; cursor: pointer; padding: 4px 6px;
+  .card {
+    height: 100%;
+    background: #141416;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.55);
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 14px 0 16px;
+    color: #f2ede4;
   }
-  .close:hover { color: #f2ede4; }
-  .ring-wrap { position: relative; width: 150px; height: 150px; }
+  .ring-wrap { position: relative; width: 40px; height: 40px; flex: none; }
   .ring { width: 100%; height: 100%; transform: rotate(-90deg); }
-  .ring-bg { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 9; }
+  .ring-bg { fill: none; stroke: rgba(255,255,255,0.10); stroke-width: 3.5; }
   .ring-fill {
-    fill: none; stroke: #f2f2f0; stroke-width: 9; stroke-linecap: round;
-    stroke-dasharray: 408.4; stroke-dashoffset: 0;
+    fill: none; stroke: #f2f2f0; stroke-width: 3.5; stroke-linecap: round;
+    stroke-dasharray: 100.5; stroke-dashoffset: 0;
     transition: stroke-dashoffset 0.5s linear, stroke 0.2s ease;
   }
   .ring-fill.paused { stroke: #d9c58a; }
-  .center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
-  .time { font-size: 38px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
-  .time.paused { color: #d9c58a; }
-  .controls { display: flex; gap: 10px; align-items: center; -webkit-app-region: no-drag; }
-  .fbtn {
-    width: 46px; height: 46px; border: none; border-radius: 50%;
-    cursor: pointer; font-size: 18px;
-    display: flex; align-items: center; justify-content: center;
+  .info { flex: 1; min-width: 0; line-height: 1.15; }
+  .cat {
+    font-size: 9px; font-weight: 600; letter-spacing: 1.4px;
+    color: #8a8a90; text-transform: uppercase;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .fbtn-pause { background: #f2f2f0; color: #1e1a12; }
-  .fbtn-stop { background: rgba(255,255,255,0.08); color: #e0a19b; }
-  .fbtn-start { background: #9ad0a5; color: #0a2818; }
+  .time {
+    font-size: 26px; font-weight: 600;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.5px;
+  }
+  .time.paused { color: #d9c58a; }
+  .status { font-size: 9px; font-weight: 600; letter-spacing: 1.2px; color: #5b5b62; }
+  .controls { display: flex; gap: 8px; align-items: center; -webkit-app-region: no-drag; flex: none; }
+  .fbtn {
+    width: 32px; height: 32px; border: none; border-radius: 50%;
+    background: rgba(255,255,255,0.07); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #f2ede4;
+  }
+  .fbtn:hover { background: rgba(255,255,255,0.14); }
+  /* glifos em CSS puro (unicode varia de fonte) */
+  .ic-pause { display: flex; gap: 3px; }
+  .ic-pause i { display: block; width: 3px; height: 11px; background: #f2ede4; border-radius: 1px; }
+  .ic-play {
+    display: block; width: 0; height: 0; margin-left: 2px;
+    border-top: 6px solid transparent; border-bottom: 6px solid transparent;
+    border-left: 10px solid #9ad0a5;
+  }
+  .ic-stop { display: block; width: 11px; height: 11px; border-radius: 3px; background: #e0a19b; }
+  .fbtn-x { background: none; color: #5b5b62; font-size: 13px; }
+  .fbtn-x:hover { color: #f2ede4; background: rgba(255,255,255,0.07); }
 </style>
 </head>
 <body>
-  <button class="close" id="closeBtn" title="Fechar flutuante">✕</button>
-  <div class="ring-wrap">
-    <svg class="ring" viewBox="0 0 150 150">
-      <circle class="ring-bg" cx="75" cy="75" r="65"/>
-      <circle class="ring-fill" id="ring" cx="75" cy="75" r="65"/>
-    </svg>
-    <div class="center"><span class="time" id="time">--:--</span></div>
-  </div>
-  <!-- todos escondidos até o 1º estado chegar (senão ⏸/⏹ aparecem sem sessão) -->
-  <div class="controls">
-    <button class="fbtn fbtn-start" id="startBtn" title="Iniciar" style="display:none">▶</button>
-    <button class="fbtn fbtn-pause" id="pauseBtn" title="Pausar" style="display:none">⏸</button>
-    <button class="fbtn fbtn-stop" id="stopBtn" title="Parar" style="display:none">⏹</button>
+  <div class="card">
+    <div class="ring-wrap">
+      <svg class="ring" viewBox="0 0 40 40">
+        <circle class="ring-bg" cx="20" cy="20" r="16"/>
+        <circle class="ring-fill" id="ring" cx="20" cy="20" r="16"/>
+      </svg>
+    </div>
+    <div class="info">
+      <div class="cat" id="cat">&nbsp;</div>
+      <div class="time" id="time">--:--</div>
+      <div class="status" id="status">&nbsp;</div>
+    </div>
+    <!-- todos escondidos até o 1º estado chegar -->
+    <div class="controls">
+      <button class="fbtn" id="startBtn" title="Iniciar" style="display:none"><span class="ic-play"></span></button>
+      <button class="fbtn" id="pauseBtn" title="Pausar" style="display:none"><span class="ic-pause"><i></i><i></i></span><span class="ic-play" style="display:none"></span></button>
+      <button class="fbtn" id="stopBtn" title="Parar" style="display:none"><span class="ic-stop"></span></button>
+      <button class="fbtn fbtn-x" id="closeBtn" title="Fechar flutuante">✕</button>
+    </div>
   </div>
 <script>
-  const CIRC = 2 * Math.PI * 65;
+  const CIRC = 2 * Math.PI * 16;
   const $ = (id) => document.getElementById(id);
   let st = null, recebidoEm = 0;
 
   function fmt(ms) {
-    // ceil, igual ao display do site — round divergia 1s metade do tempo
+    // ceil, igual ao display do site
     const s = Math.max(0, Math.ceil(ms / 1000));
     return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
   }
 
   function render() {
     if (!st) return;
-    // interpola entre os pushes de 1s do main pra contagem não engasgar
     let rem = st.remainingMs;
     if (st.running && !st.paused) rem = Math.max(0, st.remainingMs - (Date.now() - recebidoEm));
     $('time').textContent = fmt(rem);
     $('time').classList.toggle('paused', !!st.paused);
+    $('cat').textContent = st.category ? st.category.toUpperCase() : '—';
+    $('status').textContent = !st.running ? 'PRONTO' : (st.paused ? 'PAUSADO' : 'EM ANDAMENTO');
     const ratio = st.durationMs > 0 ? Math.max(0, Math.min(1, rem / st.durationMs)) : 0;
     $('ring').style.strokeDashoffset = String(CIRC * (1 - ratio));
     $('ring').classList.toggle('paused', !!st.paused);
     $('startBtn').style.display = st.running ? 'none' : '';
     $('pauseBtn').style.display = st.running ? '' : 'none';
     $('stopBtn').style.display = st.running ? '' : 'none';
-    $('pauseBtn').textContent = st.paused ? '▶' : '⏸';
+    // ícone do pause alterna barras ⇄ play (retomar)
+    $('pauseBtn').querySelector('.ic-pause').style.display = st.paused ? 'none' : 'flex';
+    $('pauseBtn').querySelector('.ic-play').style.display = st.paused ? 'block' : 'none';
     $('pauseBtn').title = st.paused ? 'Retomar' : 'Pausar';
   }
 

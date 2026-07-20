@@ -1,4 +1,4 @@
-const CACHE_NAME = 'timer-sessoes-v138';
+const CACHE_NAME = 'timer-sessoes-v143';
 // Cache PERMANENTE pra CDNs imutáveis (fontes + Firebase SDK, URLs versionadas).
 // Sobrevive a bumps de versão — sem ele, cada update jogava fora fontes+Firebase e a
 // primeira abertura re-baixava tudo de 3 hostnames (minutos, com DNS de roteador ruim).
@@ -9,7 +9,9 @@ const ASSETS = [
   './manifest.json',
   './icon.svg',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './vendor/firebase-app.js',
+  './vendor/firebase-auth.js'
 ];
 
 self.addEventListener('install', (event) => {

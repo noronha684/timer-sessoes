@@ -46,8 +46,8 @@ window.firebaseConfig = {
 };
 </script>
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, browserLocalPersistence, setPersistence } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+  import { initializeApp } from "./vendor/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, browserLocalPersistence, setPersistence } from "./vendor/firebase-auth.js";
   if (window.firebaseConfig && window.firebaseConfig.apiKey) {
     try {
       const app = initializeApp(window.firebaseConfig);
@@ -2004,6 +2004,62 @@ window.firebaseConfig = {
   }
   .btn-pip:hover { color: var(--text); }
 
+  /* Mini timer integrado ao app */
+  .in-app-mini-timer {
+    position: fixed; right: 16px; bottom: 16px; z-index: 3000;
+    width: min(340px, calc(100vw - 24px)); min-height: 76px;
+    display: flex; align-items: center; gap: 8px; padding: 10px;
+    background: rgba(24,24,26,0.97); color: var(--text);
+    border: 1px solid var(--border-strong); border-radius: 8px;
+    box-shadow: 0 14px 36px rgba(0,0,0,0.42);
+    backdrop-filter: blur(14px);
+  }
+  .in-app-mini-timer[hidden] { display: none; }
+  .mini-timer-drag {
+    min-width: 0; flex: 1; display: grid; grid-template-columns: 54px minmax(0,1fr);
+    align-items: center; gap: 10px; cursor: grab; touch-action: none; user-select: none;
+  }
+  .mini-timer-drag:active { cursor: grabbing; }
+  .mini-timer-ring { position: relative; width: 52px; height: 52px; flex: none; }
+  .mini-timer-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .mini-ring-track, .mini-ring-progress { fill: none; stroke-width: 5; }
+  .mini-ring-track { stroke: rgba(255,255,255,0.1); }
+  .mini-ring-progress {
+    stroke: #f2f2f0; stroke-linecap: round; stroke-dasharray: 138.23;
+    transition: stroke-dashoffset 0.8s linear, stroke 0.2s ease;
+  }
+  .in-app-mini-timer.paused .mini-ring-progress { stroke: #d9c58a; }
+  .mini-timer-info { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .mini-timer-category {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--text-muted); font-size: 10px; font-weight: 600; letter-spacing: 0; text-transform: uppercase;
+  }
+  .mini-timer-time {
+    color: var(--text); font-size: 25px; font-weight: 600; line-height: 1.05;
+    font-variant-numeric: tabular-nums; letter-spacing: 0;
+  }
+  .in-app-mini-timer.paused .mini-timer-time { color: #d9c58a; }
+  .mini-timer-status { color: var(--text-subtle); font-size: 10px; font-weight: 600; letter-spacing: 0; text-transform: uppercase; }
+  .mini-timer-actions { display: flex; align-items: center; gap: 4px; flex: none; }
+  .mini-timer-action {
+    position: relative; width: 34px; height: 34px; display: grid; place-items: center;
+    padding: 0; border: 1px solid var(--border); border-radius: 50%;
+    background: rgba(255,255,255,0.05); color: var(--text); cursor: pointer;
+  }
+  .mini-timer-action:hover { background: rgba(255,255,255,0.1); }
+  .mini-icon-pause { width: 12px; height: 14px; border-left: 4px solid currentColor; border-right: 4px solid currentColor; }
+  .mini-icon-play { display: none; width: 0; height: 0; margin-left: 2px; border-top: 7px solid transparent; border-bottom: 7px solid transparent; border-left: 11px solid currentColor; }
+  .mini-action-toggle[data-state="paused"] .mini-icon-pause { display: none; }
+  .mini-action-toggle[data-state="paused"] .mini-icon-play { display: block; }
+  .mini-icon-stop { width: 11px; height: 11px; background: currentColor; border-radius: 2px; }
+  .mini-action-stop { color: #e0a19b; }
+  .mini-action-close { color: var(--text-muted); font-size: 23px; line-height: 1; }
+  @media (max-width: 520px) {
+    .in-app-mini-timer { right: 12px; bottom: 12px; width: calc(100vw - 24px); }
+    .mini-timer-actions { gap: 3px; }
+    .mini-timer-action { width: 32px; height: 32px; }
+  }
+
   /* Cards do painel Timer no idioma do design */
   .today-card, .goals-card, .burndown-card { border-radius: 26px; padding: clamp(22px, 5vw, 30px); }
   .today-title > span:first-child, .goals-title {
@@ -2647,7 +2703,7 @@ window.firebaseConfig = {
         <button class="btn btn-pause" id="pauseBtn">Pausar</button>
         <button class="btn btn-stop" id="stopBtn">Parar</button>
       </div>
-      <button class="btn btn-pip" id="pipBtn" style="display:none">◈ Modo flutuante</button>
+      <button class="btn btn-pip" id="pipBtn" style="display:none">Modo flutuante</button>
     </div>
 
     <div class="today-card">
@@ -3066,6 +3122,32 @@ window.firebaseConfig = {
   </div>
 </div>
 
+<div class="in-app-mini-timer" id="miniTimer" hidden aria-live="polite">
+  <div class="mini-timer-drag" id="miniTimerDrag" title="Arraste para mover">
+    <div class="mini-timer-ring" aria-hidden="true">
+      <svg viewBox="0 0 56 56">
+        <circle class="mini-ring-track" cx="28" cy="28" r="22"/>
+        <circle class="mini-ring-progress" id="miniRingProgress" cx="28" cy="28" r="22"/>
+      </svg>
+    </div>
+    <div class="mini-timer-info">
+      <span class="mini-timer-category" id="miniTimerCategory">Trabalho</span>
+      <strong class="mini-timer-time" id="miniTimerTime">00:00</strong>
+      <span class="mini-timer-status" id="miniTimerStatus">Em andamento</span>
+    </div>
+  </div>
+  <div class="mini-timer-actions">
+    <button class="mini-timer-action mini-action-toggle" id="miniTimerToggle" type="button" data-state="running" aria-label="Pausar" title="Pausar">
+      <span class="mini-icon-pause" aria-hidden="true"></span>
+      <span class="mini-icon-play" aria-hidden="true"></span>
+    </button>
+    <button class="mini-timer-action mini-action-stop" id="miniTimerStop" type="button" aria-label="Parar sessao" title="Parar sessao">
+      <span class="mini-icon-stop" aria-hidden="true"></span>
+    </button>
+    <button class="mini-timer-action mini-action-close" id="miniTimerClose" type="button" aria-label="Fechar mini timer" title="Fechar mini timer">&times;</button>
+  </div>
+</div>
+
 <script>
 if ('serviceWorker' in navigator) {
   // Recarrega automaticamente quando uma versão nova do app fica ativa
@@ -3147,218 +3229,107 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-// Document Picture-in-Picture — janela flutuante sobre outros apps
-let pipWindow = null;
+// Mini timer flutuante dentro do proprio app.
 const pipBtn = $('#pipBtn');
-const supportsDocPiP = 'documentPictureInPicture' in window;
-const supportsVideoPiP = !!document.pictureInPictureEnabled;
-if (supportsDocPiP || supportsVideoPiP) pipBtn.style.display = 'block';
-
-// --- Video PiP (canvas → video) — funciona no Chrome Android ---
-let pipCanvas = null, pipCanvasCtx = null, pipVideo = null, pipDrawInterval = null;
-
-function setupVideoPipNodes() {
-  if (pipCanvas) return;
-  pipCanvas = document.createElement('canvas');
-  pipCanvas.width = 360; pipCanvas.height = 360; // quadrado: anel preenche bem
-  pipCanvasCtx = pipCanvas.getContext('2d');
-  pipVideo = document.createElement('video');
-  pipVideo.muted = true;
-  pipVideo.playsInline = true;
-  pipVideo.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;';
-  document.body.appendChild(pipVideo);
-}
-
-function drawPipFrame() {
-  if (!pipCanvasCtx) return;
-  const ctx = pipCanvasCtx;
-  const W = pipCanvas.width, H = pipCanvas.height;
-  const cx = W / 2, cy = H / 2, r = 138;
-  const lw = 22;
-  ctx.fillStyle = '#0d0d0e';
-  ctx.fillRect(0, 0, W, H);
-
-  // Anel de fundo
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(255,255,255,0.09)';
-  ctx.lineWidth = lw;
-  ctx.stroke();
-
-  // Anel de progresso
-  const ratio = state.durationMs > 0 ? Math.max(0, Math.min(1, state.remainingMs / state.durationMs)) : 0;
-  if (ratio > 0) {
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + ratio * Math.PI * 2);
-    ctx.strokeStyle = state.paused ? '#d9c58a' : '#f2f2f0';
-    ctx.lineWidth = lw;
-    ctx.lineCap = 'round';
-    ctx.stroke();
-  }
-
-  // Tempo no centro
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = state.paused ? '#d9c58a' : '#fff';
-  ctx.font = '600 84px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-  ctx.fillText(display.textContent, cx, cy + 2);
-
-  // Status pequeno embaixo do tempo
-  if (state.paused) {
-    ctx.fillStyle = '#d9c58a';
-    ctx.font = '600 22px -apple-system, sans-serif';
-    ctx.fillText('PAUSADO', cx, cy + 64);
-  }
-}
+const miniTimer = $('#miniTimer');
+const miniTimerDrag = $('#miniTimerDrag');
+const miniTimerTime = $('#miniTimerTime');
+const miniTimerCategory = $('#miniTimerCategory');
+const miniTimerStatus = $('#miniTimerStatus');
+const miniRingProgress = $('#miniRingProgress');
+const miniTimerToggle = $('#miniTimerToggle');
+const miniTimerStop = $('#miniTimerStop');
+const miniTimerClose = $('#miniTimerClose');
+const MINI_RING_CIRC = 138.23;
+let miniTimerOpen = false;
+pipBtn.style.display = 'block';
 
 function updatePipMediaState() {
-  if (!pipVideo) return;
-  if (state.running && !state.paused) {
-    if (pipVideo.paused) pipVideo.play().catch(() => {});
-    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
-  } else {
-    if (!pipVideo.paused) pipVideo.pause();
-    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
-  }
-}
-
-async function openVideoPiP() {
-  setupVideoPipNodes();
-  drawPipFrame();
-  if (!pipVideo.srcObject) {
-    pipVideo.srcObject = pipCanvas.captureStream(2);
-  }
-  await pipVideo.play();
-  if ('mediaSession' in navigator) {
-    try {
-      navigator.mediaSession.setActionHandler('pause', () => { if (state.running && !state.paused) pauseBtn.click(); });
-      navigator.mediaSession.setActionHandler('play', () => { if (state.paused) pauseBtn.click(); });
-      navigator.mediaSession.setActionHandler('stop', () => { if (state.running) stopBtn.click(); });
-    } catch {}
-  }
-  await pipVideo.requestPictureInPicture();
-  pipDrawInterval = setInterval(drawPipFrame, 1000);
-  updatePipMediaState();
-  pipVideo.addEventListener('leavepictureinpicture', () => {
-    if (pipDrawInterval) { clearInterval(pipDrawInterval); pipDrawInterval = null; }
-    pipBtn.textContent = 'Modo flutuante';
-  }, { once: true });
-  pipBtn.textContent = '✕ Fechar flutuante';
-}
-
-// --- Document PiP — janela com botões reais (Chrome/Edge desktop) ---
-async function openDocPiP() {
-  pipWindow = await documentPictureInPicture.requestWindow({ width: 240, height: 250 });
-  pipWindow.document.head.innerHTML = `
-    <meta charset="UTF-8">
-    <style>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body {
-        font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        background: #0d0d0e; color: #f2ede4;
-        height: 100vh; padding: 14px;
-        display: flex; flex-direction: column;
-        align-items: center; justify-content: center; gap: 12px;
-      }
-      .pip-ring-wrap { position: relative; width: 150px; height: 150px; }
-      .pip-ring { width: 100%; height: 100%; transform: rotate(-90deg); }
-      .pip-ring-bg { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 9; }
-      .pip-ring-fill {
-        fill: none; stroke: #f2f2f0; stroke-width: 9; stroke-linecap: round;
-        stroke-dasharray: 408.4; stroke-dashoffset: 0;
-        transition: stroke-dashoffset 0.5s linear, stroke 0.2s ease;
-      }
-      .pip-ring-fill.paused { stroke: #d9c58a; }
-      .pip-center {
-        position: absolute; inset: 0;
-        display: flex; align-items: center; justify-content: center;
-      }
-      .pip-time { font-size: 40px; font-weight: 600; color: #f2ede4; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
-      .pip-time.paused { color: #d9c58a; }
-      .pip-controls { display: flex; gap: 10px; align-items: center; }
-      .pip-btn {
-        width: 46px; height: 46px; border: none; border-radius: 50%;
-        cursor: pointer; font-size: 18px;
-        display: flex; align-items: center; justify-content: center;
-      }
-      .pip-pause { background: #f2f2f0; color: #1e1a12; }
-      .pip-stop { background: rgba(255,255,255,0.08); color: #e0a19b; }
-      .pip-start { background: #9ad0a5; color: #0a2818; }
-    </style>`;
-  pipWindow.document.body.innerHTML = `
-    <div class="pip-ring-wrap">
-      <svg class="pip-ring" viewBox="0 0 150 150">
-        <circle class="pip-ring-bg" cx="75" cy="75" r="65"/>
-        <circle class="pip-ring-fill" id="pipRing" cx="75" cy="75" r="65"/>
-      </svg>
-      <div class="pip-center"><span class="pip-time" id="pipTime">00:00</span></div>
-    </div>
-    <div class="pip-controls">
-      <button class="pip-btn pip-start" id="pipStartBtn" title="Iniciar" style="display:none">▶</button>
-      <button class="pip-btn pip-pause" id="pipPauseBtn" title="Pausar">⏸</button>
-      <button class="pip-btn pip-stop" id="pipStopBtn" title="Parar">⏹</button>
-    </div>`;
-  pipWindow.document.getElementById('pipStartBtn').addEventListener('click', () => {
-    if (!state.running) startBtn.click(); // inicia nova sessão com a mesma duração
-  });
-  pipWindow.document.getElementById('pipPauseBtn').addEventListener('click', () => {
-    if (!state.running) return;
-    pauseBtn.click(); // pauseBtn já alterna pausar ↔ retomar (sem reiniciar)
-  });
-  pipWindow.document.getElementById('pipStopBtn').addEventListener('click', () => {
-    if (state.running) stopBtn.click();
-  });
-  pipWindow.addEventListener('pagehide', () => {
-    pipWindow = null;
-    pipBtn.textContent = 'Modo flutuante';
-  });
-  pipBtn.textContent = '✕ Fechar flutuante';
   syncPip();
 }
 
-const PIP_RING_CIRC = 2 * Math.PI * 65; // ≈ 408.4
+function applyStoredMiniTimerPosition() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem('timerMiniPosition') || 'null'); } catch { return; }
+  if (!saved || !Number.isFinite(saved.left) || !Number.isFinite(saved.top)) return;
+  placeMiniTimer(saved.left, saved.top);
+}
 
-pipBtn.addEventListener('click', async () => {
-  try {
-    if (supportsDocPiP) {
-      if (pipWindow) { pipWindow.close(); return; }
-      await openDocPiP();
-    } else if (supportsVideoPiP) {
-      if (document.pictureInPictureElement) {
-        await document.exitPictureInPicture();
-      } else {
-        await openVideoPiP();
-      }
-    }
-  } catch (e) { console.warn('PiP error:', e); }
+function placeMiniTimer(left, top) {
+  const margin = 12;
+  const rect = miniTimer.getBoundingClientRect();
+  const maxLeft = Math.max(margin, window.innerWidth - rect.width - margin);
+  const maxTop = Math.max(margin, window.innerHeight - rect.height - margin);
+  miniTimer.style.left = `${Math.max(margin, Math.min(maxLeft, left))}px`;
+  miniTimer.style.top = `${Math.max(margin, Math.min(maxTop, top))}px`;
+  miniTimer.style.right = 'auto';
+  miniTimer.style.bottom = 'auto';
+}
+
+function setMiniTimerOpen(open) {
+  miniTimerOpen = !!open && state.running;
+  miniTimer.hidden = !miniTimerOpen;
+  pipBtn.textContent = miniTimerOpen ? 'Fechar mini timer' : 'Modo flutuante';
+  if (miniTimerOpen) {
+    syncPip();
+    requestAnimationFrame(applyStoredMiniTimerPosition);
+  }
+}
+
+pipBtn.addEventListener('click', () => setMiniTimerOpen(!miniTimerOpen));
+miniTimerClose.addEventListener('click', () => setMiniTimerOpen(false));
+miniTimerToggle.addEventListener('click', () => {
+  if (state.running) pauseBtn.click();
+});
+miniTimerStop.addEventListener('click', () => {
+  if (state.running) stopBtn.click();
+  setMiniTimerOpen(false);
+});
+
+let miniDragState = null;
+miniTimerDrag.addEventListener('pointerdown', (event) => {
+  const rect = miniTimer.getBoundingClientRect();
+  miniDragState = {
+    pointerId: event.pointerId,
+    offsetX: event.clientX - rect.left,
+    offsetY: event.clientY - rect.top,
+  };
+  miniTimerDrag.setPointerCapture(event.pointerId);
+});
+miniTimerDrag.addEventListener('pointermove', (event) => {
+  if (!miniDragState || miniDragState.pointerId !== event.pointerId) return;
+  placeMiniTimer(event.clientX - miniDragState.offsetX, event.clientY - miniDragState.offsetY);
+});
+function finishMiniTimerDrag(event) {
+  if (!miniDragState || miniDragState.pointerId !== event.pointerId) return;
+  miniDragState = null;
+  const rect = miniTimer.getBoundingClientRect();
+  localStorage.setItem('timerMiniPosition', JSON.stringify({ left: rect.left, top: rect.top }));
+}
+miniTimerDrag.addEventListener('pointerup', finishMiniTimerDrag);
+miniTimerDrag.addEventListener('pointercancel', finishMiniTimerDrag);
+window.addEventListener('resize', () => {
+  if (!miniTimerOpen) return;
+  const rect = miniTimer.getBoundingClientRect();
+  placeMiniTimer(rect.left, rect.top);
 });
 
 function syncPip() {
-  if (pipWindow) {
-    const t = pipWindow.document.getElementById('pipTime');
-    const pb = pipWindow.document.getElementById('pipPauseBtn');
-    const sb = pipWindow.document.getElementById('pipStopBtn');
-    const startB = pipWindow.document.getElementById('pipStartBtn');
-    const ring = pipWindow.document.getElementById('pipRing');
-    if (t) { t.textContent = display.textContent; t.classList.toggle('paused', state.paused); }
-    if (pb) pb.textContent = state.paused ? '▶' : '⏸';
-    // Rodando → pausar + parar; parado/terminado → botão iniciar
-    if (startB && pb && sb) {
-      if (state.running) {
-        startB.style.display = 'none';
-        pb.style.display = ''; sb.style.display = '';
-      } else {
-        startB.style.display = '';
-        pb.style.display = 'none'; sb.style.display = 'none';
-      }
-    }
-    if (ring && state.durationMs > 0) {
-      const ratio = Math.max(0, Math.min(1, state.remainingMs / state.durationMs));
-      ring.style.strokeDashoffset = (PIP_RING_CIRC * (1 - ratio)).toFixed(1);
-      ring.classList.toggle('paused', state.paused);
-    }
+  if (!miniTimerOpen) return;
+  if (!state.running) {
+    setMiniTimerOpen(false);
+    return;
   }
-  drawPipFrame();
+  const category = state.subcategory ? `${state.category} · ${state.subcategory}` : state.category;
+  const ratio = state.durationMs > 0 ? Math.max(0, Math.min(1, state.remainingMs / state.durationMs)) : 0;
+  miniTimerTime.textContent = display.textContent;
+  miniTimerCategory.textContent = category;
+  miniTimerStatus.textContent = state.paused ? 'Pausado' : 'Em andamento';
+  miniTimer.classList.toggle('paused', state.paused);
+  miniTimerToggle.dataset.state = state.paused ? 'paused' : 'running';
+  miniTimerToggle.setAttribute('aria-label', state.paused ? 'Retomar' : 'Pausar');
+  miniTimerToggle.title = state.paused ? 'Retomar' : 'Pausar';
+  miniRingProgress.style.strokeDashoffset = (MINI_RING_CIRC * (1 - ratio)).toFixed(2);
 }
 
 document.querySelectorAll('.tab').forEach(tab => {

@@ -1,11 +1,13 @@
-const CACHE_NAME = 'timer-sessoes-v144';
+const CACHE_NAME = 'timer-sessoes-v145';
 // Cache PERMANENTE pra CDNs imutáveis (fontes + Firebase SDK, URLs versionadas).
 // Sobrevive a bumps de versão — sem ele, cada update jogava fora fontes+Firebase e a
 // primeira abertura re-baixava tudo de 3 hostnames (minutos, com DNS de roteador ruim).
 const CDN_CACHE = 'timer-sessoes-cdn-v1';
+// SEM './index.html' na lista: o Worker de assets responde /index.html com 307 → '/'
+// (auto-trailing-slash) e o addAll do install guardava a resposta REDIRECIONADA —
+// navegação servida de resposta redirected lança no Chrome. './' basta.
 const ASSETS = [
   './',
-  './index.html',
   './manifest.json',
   './icon.svg',
   './icon-192.png',
@@ -40,12 +42,12 @@ self.addEventListener('activate', (event) => {
         }
       } catch {}
     }
-    // Poda o CDN_CACHE: versões do SDK que o index.html não usa mais (senão acumulam
-    // ~200KB+ por upgrade do Firebase, pra sempre)
+    // Poda o CDN_CACHE: o Firebase agora é VENDORIZADO (/vendor no app cache) — toda
+    // entrada gstatic /firebasejs/ é lixo permanente de clientes pré-v143
     try {
       for (const req of await cdn.keys()) {
         const p = new URL(req.url).pathname;
-        if (p.startsWith('/firebasejs/') && !p.startsWith(FIREBASEJS_VER)) await cdn.delete(req);
+        if (p.startsWith('/firebasejs/')) await cdn.delete(req);
       }
     } catch {}
     // Apaga caches de versões antigas (o CDN_CACHE fica — é permanente)
@@ -64,7 +66,6 @@ self.addEventListener('activate', (event) => {
 //   reescreve o conteúdo) → stale-while-revalidate. Refetch sempre em modo CORS pra
 //   resposta ter status legível — lixo "opaque" (ex.: portal cativo de Wi-Fi) NUNCA
 //   entra no cache permanente.
-const FIREBASEJS_VER = '/firebasejs/10.13.1/'; // manter igual ao index.html (poda no activate)
 function isFontCss(url) { return url.hostname === 'fonts.googleapis.com'; }
 function isImmutableCdn(url) {
   return url.hostname === 'fonts.gstatic.com'
@@ -75,6 +76,10 @@ function isCacheFirstCdn(url) { return isFontCss(url) || isImmutableCdn(url); }
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
+
+  // O painel de conta consulta ./service-worker.js (no-store) pra exibir a versão —
+  // interceptar isso servia/enchia o cache com o PRÓPRIO SW e mostrava versão velha
+  if (url.pathname.endsWith('/service-worker.js')) return;
 
   if (isCacheFirstCdn(url)) {
     event.respondWith(
@@ -105,7 +110,7 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         }
         return response;
-      }).catch(() => cached || caches.match('./index.html'));
+      }).catch(() => cached || caches.match('./')); // fallback pro shell ('./index.html' saiu do precache)
       // Cache primeiro (instantâneo); rede em background. Sem cache → espera a rede.
       return cached || fetchPromise;
     })

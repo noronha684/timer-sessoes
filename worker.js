@@ -599,7 +599,7 @@ async function loadFullSnapshot(env, uid) {
   const [sessions, categories, settings, stamp] = await Promise.all([
     env.DB.prepare('SELECT date, category, duration_ms, started_at FROM sessions WHERE uid = ? ORDER BY started_at ASC').bind(uid).all(),
     env.DB.prepare('SELECT name FROM categories WHERE uid = ? ORDER BY position ASC, name ASC').bind(uid).all(),
-    env.DB.prepare('SELECT key, value, stamp FROM settings WHERE uid = ?').bind(uid).all(),
+    env.DB.prepare('SELECT key, value, stamp, updated_at FROM settings WHERE uid = ?').bind(uid).all(),
     serverStamp(env, uid),
   ]);
   const { sessions: sessionsObj, history } = buildSnapshot(sessions.results || []);
@@ -607,6 +607,9 @@ async function loadFullSnapshot(env, uid) {
   const derivedStamps = {};
   for (const s of (settings.results || [])) {
     if (s.key === '_stamps') continue; // legado: o mapa é DERIVADO da coluna stamp abaixo
+    // activeTimer fóssil (>24h sem escrita — beacon de "parei" perdido no fechamento)
+    // não entra no snapshot: sem isto, devices novos adotavam uma sessão fantasma eterna
+    if (s.key === 'activeTimer' && Date.now() - Number(s.updated_at || 0) > 24 * 3600 * 1000) continue;
     try { settingsObj[s.key] = JSON.parse(s.value); } catch { settingsObj[s.key] = s.value; }
     if (VERSIONED_BLOBS.has(s.key)) derivedStamps[s.key] = Number(s.stamp) || 0;
   }
@@ -723,9 +726,18 @@ async function apiBulkSync(request, env, uid) {
   // num SELECT à parte → dois pushes concorrentes revertiam a edição um do outro). O carimbo
   // mora na coluna `stamp`; o mapa _stamps é DERIVADO dela no snapshot (sempre consistente
   // com os valores). O empate (inc==cur) não sobrescreve → device vazio não apaga dado real.
+  // Valor idêntico não rebumpa updated_at (senão todo push acordava o pull de todos
+  // os devices via serverStamp = MAX(updated_at) sem nada ter mudado)
   const upsertBlind = (key, value) => env.DB.prepare(
-    'INSERT INTO settings (uid, key, value, updated_at, stamp) VALUES (?, ?, ?, ?, 0) ON CONFLICT(uid, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at'
+    'INSERT INTO settings (uid, key, value, updated_at, stamp) VALUES (?, ?, ?, ?, 0) ON CONFLICT(uid, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at ' +
+    'WHERE settings.value IS NOT excluded.value'
   ).bind(uid, key, JSON.stringify(value), Date.now());
+  // activeTimer: LWW pelo updatedAt DO ESTADO (não pela ordem de chegada) — push atrasado
+  // de estado velho não pode calar uma pausa/parada mais nova. COALESCE cobre legado sem campo.
+  const upsertActiveTimer = (value) => env.DB.prepare(
+    'INSERT INTO settings (uid, key, value, updated_at, stamp) VALUES (?, ?, ?, ?, 0) ON CONFLICT(uid, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at ' +
+    "WHERE COALESCE(json_extract(excluded.value, '$.updatedAt'), 0) >= COALESCE(json_extract(settings.value, '$.updatedAt'), 0)"
+  ).bind(uid, 'activeTimer', JSON.stringify(value), Date.now());
   const upsertVersioned = (key, value, stamp) => env.DB.prepare(
     'INSERT INTO settings (uid, key, value, updated_at, stamp) VALUES (?, ?, ?, ?, ?) ' +
     'ON CONFLICT(uid, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, stamp = excluded.stamp ' +
@@ -736,6 +748,7 @@ async function apiBulkSync(request, env, uid) {
     for (const key in settings) {
       if (key === '_stamps') continue; // não é gravado: derivado da coluna stamp no snapshot
       if (VERSIONED_BLOBS.has(key)) stmts.push(upsertVersioned(key, settings[key], Number(incStamps[key]) || 0));
+      else if (key === 'activeTimer') stmts.push(upsertActiveTimer(settings[key]));
       else stmts.push(upsertBlind(key, settings[key]));
     }
   }

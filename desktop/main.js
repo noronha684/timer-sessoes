@@ -186,10 +186,14 @@ function toggleFloat() {
 
 // Auto-PiP: minimizou/escondeu o app com sessão rodando → flutuante aparece sozinho;
 // restaurou → o que abriu sozinho fecha sozinho (o aberto manualmente fica).
-function autoShowFloat() {
-  if (SMOKE) smokeTrace.push('autoShow open=' + floatOpen() + ' running=' + !!(lastState && lastState.running) + ' quitting=' + quitting);
+async function autoShowFloat() {
   if (quitting || floatOpen()) return;
-  if (lastState && lastState.running) { floatAuto = true; createFloat(); }
+  // lê o estado FRESCO: lastState (poll 3s) perdia sessão iniciada há <3s e o
+  // auto-PiP não abria (ou abria com sessão recém-parada)
+  const st = (await readTimerState()) || lastState;
+  if (SMOKE) smokeTrace.push('autoShow open=' + floatOpen() + ' running=' + !!(st && st.running) + ' quitting=' + quitting);
+  if (quitting || floatOpen()) return; // re-checa: houve await no meio
+  if (st && st.running) { lastState = st; floatAuto = true; createFloat(); }
 }
 function autoHideFloat() {
   if (SMOKE) smokeTrace.push('autoHide auto=' + floatAuto + ' open=' + floatOpen());
@@ -370,17 +374,27 @@ function createWindow() {
   win.webContents.on('dom-ready', injectPipIntercept);
   win.webContents.on('did-finish-load', injectPipIntercept);
 
-  // Falha de load (DNS do roteador de casa é instável): re-tenta a cada 5s.
-  // -3 = ABORTED (navegação substituída), não é falha real.
-  win.webContents.on('did-fail-load', (_e, code, _desc, _url, isMainFrame) => {
+  // Falha de load (DNS do roteador de casa é instável): re-tenta a cada 5s a
+  // PRÓPRIA URL confiável que falhou (ex.: OAuth do Whoop no meio do fluxo);
+  // URL não-confiável volta pro app. -3 = ABORTED (navegação substituída).
+  win.webContents.on('did-fail-load', (_e, code, _desc, failedUrl, isMainFrame) => {
     if (!isMainFrame || code === -3) return;
-    setTimeout(() => { if (mainAlive()) win.loadURL(APP_URL, { userAgent: ua }); }, 5000);
+    const retryUrl = isTrustedUrl(failedUrl) ? failedUrl : APP_URL;
+    setTimeout(() => { if (mainAlive()) win.loadURL(retryUrl, { userAgent: ua }); }, 5000);
   });
 
-  // Renderer morto (já aconteceu neste projeto) não pode deixar a casca zumbi
+  // Renderer morto não pode deixar a casca zumbi — mas reload sem freio viraria
+  // loop de crash (site quebrado = crash a cada 1s pra sempre): backoff + teto.
+  let crashCount = 0;
+  let crashResetTimer = null;
   win.webContents.on('render-process-gone', (_e, details) => {
     if (details.reason === 'clean-exit') return;
-    setTimeout(() => { if (mainAlive()) win.webContents.reload(); }, 1000);
+    crashCount++;
+    if (crashCount > 5) return; // desiste: usuário recupera pela bandeja (Mostrar/Sair)
+    clearTimeout(crashResetTimer);
+    crashResetTimer = setTimeout(() => { crashCount = 0; }, 120000); // 2min estável zera
+    const delay = Math.min(1000 * Math.pow(2, crashCount - 1), 30000); // 1s→2s→4s→8s→16s
+    setTimeout(() => { if (mainAlive()) win.webContents.reload(); }, delay);
   });
 
   // Fechar esconde (timer segue na bandeja); sair de verdade só pelo menu da bandeja

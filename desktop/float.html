@@ -116,7 +116,11 @@
     $('pauseBtn').title = st.paused ? 'Retomar' : 'Pausar';
   }
 
-  timerFloat.onState((s) => { st = s; recebidoEm = Date.now(); render(); });
+  let lockUntilState = 0; // durante o lockout da pausa otimista, o push velho não desfaz o visual
+  timerFloat.onState((s) => {
+    if (s && Date.now() < lockUntilState && st) s.paused = st.paused; // segura o paused otimista
+    st = s; recebidoEm = Date.now(); render();
+  });
   setInterval(render, 250);
 
   $('startBtn').addEventListener('click', () => timerFloat.action('start'));
@@ -127,6 +131,7 @@
     const t = Date.now();
     if (t < lockUntil) return;
     lockUntil = t + 600;
+    lockUntilState = t + 900; // um pouco além: cobre o push que estava em voo no clique
     const querPausar = !(st && st.paused);
     if (st) { st.paused = querPausar; recebidoEm = t; render(); }
     timerFloat.action(querPausar ? 'pause' : 'resume');

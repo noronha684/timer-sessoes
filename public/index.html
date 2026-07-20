@@ -103,6 +103,9 @@ window.firebaseConfig = {
     pointer-events: none;
     user-select: none;
   }
+  /* O mini timer é IRMÃO do container (z-index 3000 > portão 1000): sem esta regra
+     ele ficava visível e OPERÁVEL por cima da tela de login (pausar/parar deslogado) */
+  body:not(.authed) .in-app-mini-timer { display: none !important; }
   .container { width: 100%; max-width: 640px; margin: 0 auto; }
   /* Escala com a tela: aproveita telas largas (tablet deitado, PC) */
   @media (min-width: 800px) {
@@ -3122,7 +3125,8 @@ window.firebaseConfig = {
   </div>
 </div>
 
-<div class="in-app-mini-timer" id="miniTimer" hidden aria-live="polite">
+<!-- aria-live SÓ no status: no container inteiro, o leitor de tela anunciava o relógio a cada segundo -->
+<div class="in-app-mini-timer" id="miniTimer" hidden>
   <div class="mini-timer-drag" id="miniTimerDrag" title="Arraste para mover">
     <div class="mini-timer-ring" aria-hidden="true">
       <svg viewBox="0 0 56 56">
@@ -3133,7 +3137,7 @@ window.firebaseConfig = {
     <div class="mini-timer-info">
       <span class="mini-timer-category" id="miniTimerCategory">Trabalho</span>
       <strong class="mini-timer-time" id="miniTimerTime">00:00</strong>
-      <span class="mini-timer-status" id="miniTimerStatus">Em andamento</span>
+      <span class="mini-timer-status" id="miniTimerStatus" aria-live="polite">Em andamento</span>
     </div>
   </div>
   <div class="mini-timer-actions">
@@ -3298,11 +3302,15 @@ miniTimerDrag.addEventListener('pointerdown', (event) => {
 });
 miniTimerDrag.addEventListener('pointermove', (event) => {
   if (!miniDragState || miniDragState.pointerId !== event.pointerId) return;
+  if (miniTimer.hidden) return; // sessão acabou no meio do drag: rect é 0,0 — não mover
   placeMiniTimer(event.clientX - miniDragState.offsetX, event.clientY - miniDragState.offsetY);
 });
 function finishMiniTimerDrag(event) {
   if (!miniDragState || miniDragState.pointerId !== event.pointerId) return;
   miniDragState = null;
+  // Mini escondido durante o drag (fim de sessão): getBoundingClientRect de
+  // display:none = {0,0} — salvar isso teleportava o mini pro canto na próxima abertura
+  if (miniTimer.hidden) return;
   const rect = miniTimer.getBoundingClientRect();
   localStorage.setItem('timerMiniPosition', JSON.stringify({ left: rect.left, top: rect.top }));
 }
@@ -3324,7 +3332,9 @@ function syncPip() {
   const ratio = state.durationMs > 0 ? Math.max(0, Math.min(1, state.remainingMs / state.durationMs)) : 0;
   miniTimerTime.textContent = display.textContent;
   miniTimerCategory.textContent = category;
-  miniTimerStatus.textContent = state.paused ? 'Pausado' : 'Em andamento';
+  // só escreve quando MUDA: aria-live re-anunciava a cada tick mesmo com texto igual
+  const miniStatusTxt = state.paused ? 'Pausado' : 'Em andamento';
+  if (miniTimerStatus.textContent !== miniStatusTxt) miniTimerStatus.textContent = miniStatusTxt;
   miniTimer.classList.toggle('paused', state.paused);
   miniTimerToggle.dataset.state = state.paused ? 'paused' : 'running';
   miniTimerToggle.setAttribute('aria-label', state.paused ? 'Retomar' : 'Pausar');
@@ -3734,6 +3744,7 @@ function persistTimerState() {
       currentSegStart: currentSegStart,
       sessionId: state.sessionId,
       owner: state.owner,
+      dirty: timerDirty, // push não confirmado sobrevive a reload (restore re-arma)
     }));
   }
   // Propaga o estado do timer pros outros dispositivos (espelho) + atualiza banner local
@@ -4387,8 +4398,8 @@ async function refreshWhoami() {
   try {
     const r = await fetch(`${window.API_BASE}/api/whoami`, { headers: await authHeaders() });
     if (!r.ok) return;
-    _whoamiDone = true;
     const j = await r.json();
+    _whoamiDone = true; // só DEPOIS do body: 200 com corpo truncado deixava o done travado sem aplicar nada
     const now = j.owner ? '1' : '0';
     if (localStorage.getItem('timerIsOwner') !== now) {
       try { localStorage.setItem('timerIsOwner', now); } catch {}
@@ -4487,6 +4498,9 @@ function buildPushPayload() {
         by: DEVICE_ID,
         updatedAt: Date.now(),
       } : (() => {
+        // tombstone SÓ com o device parado: rodando uma sessão ADOTADA com tombstone
+        // velho no bolso, emitir {stopped} da sessão antiga clobberava o slot do servidor
+        if (state.running) return undefined;
         const t = loadStopTombstone();
         return t ? { stopped: true, sessionId: t.sessionId, device: DEVICE_ID, by: DEVICE_ID, updatedAt: t.at } : undefined;
       })(),
@@ -4505,10 +4519,23 @@ function clearStopTombstone() { try { localStorage.removeItem('timerStopTombston
 function beaconPush() {
   if (!window.API_BASE || !syncCode || !_lastIdToken) return false;
   try {
+    const payload = buildPushPayload();
+    const genAtBuild = timerDirtyGen;
     fetch(`${window.API_BASE}/api/sync`, {
       method: 'POST', keepalive: true,
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _lastIdToken },
-      body: JSON.stringify(buildPushPayload()),
+      body: JSON.stringify(payload),
+    }).then((r) => {
+      // Se a página seguir viva (tela desligada ≠ fechada), confirma como o pushToCloud:
+      // sem isso, pausa+background deixava dirty=true e o reabrir re-publicava estado
+      // velho com carimbo novo (mesma família do bug de reversão de pausa)
+      if (!r.ok || !payload.settings || payload.settings.activeTimer === undefined) return;
+      const embarcou = payload.settings.activeTimer;
+      if (embarcou.stopped) {
+        const t = loadStopTombstone();
+        if (t && t.sessionId === embarcou.sessionId) clearStopTombstone();
+      }
+      if (timerDirtyGen === genAtBuild) timerDirty = false;
     }).catch(() => {});
     return true;
   } catch { return false; }
@@ -4534,13 +4561,18 @@ async function pushToCloud() {
     lastPushedSessionAt = beforeMax;
     try { localStorage.setItem('timerLastPushedSessionAt', String(beforeMax)); } catch {}
     const merged = await res.json();
-    // Só limpa o tombstone se ele EMBARCOU neste push (payload montado antes do tombstone
-    // existir não conta — limpar cegamente matava o "parei" sem nunca enviá-lo)
+    // Só limpa o tombstone se o TOMBSTONE embarcou neste push — payload "rodando"
+    // montado antes de um stop em voo também passava no teste antigo (!== undefined)
+    // e apagava o "parei" sem nunca enviá-lo
     if (payload.settings && payload.settings.activeTimer !== undefined) {
-      clearStopTombstone();
-      // timer embarcado e aceito → não precisa reenviar até o próximo gesto local
-      // (só se NENHUM gesto novo aconteceu enquanto o push estava em voo)
-      if (!payload.settings.activeTimer.stopped && timerDirtyGen === timerGenAtBuild) timerDirty = false;
+      const embarcou = payload.settings.activeTimer;
+      if (embarcou.stopped) {
+        const t = loadStopTombstone();
+        if (t && t.sessionId === embarcou.sessionId) clearStopTombstone();
+      }
+      // timer embarcado e aceito (rodando OU tombstone) → não reenvia até o próximo
+      // gesto local; gen protege gesto feito com o push em voo
+      if (timerDirtyGen === timerGenAtBuild) timerDirty = false;
     }
     // O servidor já mesclou — aplica de volta como remoto (mas sem device check pois é nossa resposta)
     applyServerSnapshot(merged);
@@ -4980,6 +5012,8 @@ function restoreTimerState() {
   state.subcategory = saved.subcategory || null;
   state.sessionId = saved.sessionId || saved.startedAt;
   state.owner = saved.owner || null;
+  // Push do timer não confirmado antes do reload → re-arma a publicação
+  if (saved.dirty) { timerDirty = true; timerDirtyGen++; }
   // Restaura o segmento de foco aberto (se estava rodando E a sessão é minha — espelho não grava)
   currentSegStart = (saved.paused || saved.owner) ? null : (saved.currentSegStart || saved.startedAt);
 
@@ -9085,6 +9119,9 @@ restoreTimerState();
     var locked = !document.body.classList.contains('authed');
     app.toggleAttribute('inert', locked);
     app.setAttribute('aria-hidden', locked ? 'true' : 'false');
+    // o mini timer vive FORA do container — fecha ao deslogar (o CSS já esconde;
+    // isto zera o estado aberto/rótulo do botão pra não vazar entre contas)
+    if (locked) { try { if (typeof setMiniTimerOpen === 'function') setMiniTimerOpen(false); } catch (e) {} }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', syncAuthIsolation);
   else syncAuthIsolation();

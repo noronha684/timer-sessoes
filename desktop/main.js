@@ -240,6 +240,7 @@ function rebuildTray() {
     } },
     { type: 'separator' },
     { label: 'Atalho: Ctrl+Alt+T inicia/pausa', enabled: false },
+    { label: 'Versão ' + app.getVersion(), enabled: false },
     { label: 'Sair', click: () => { quitting = true; app.quit(); } },
   ]);
   tray.setContextMenu(menu);
@@ -381,6 +382,7 @@ function createWindow() {
         true
       ).catch((e) => ({ erro: String(e) }));
       info.hotkeyRegistrado = globalShortcut.isRegistered('Control+Alt+T');
+      info.versao = app.getVersion();
       // Clique REAL (sendInputEvent; dispatchEvent sintético não carrega user
       // activation e não representa o gesto do usuário). O portão de login é
       // escondido só nesta sessão de smoke (userData isolado) pro clique chegar,

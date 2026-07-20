@@ -94,9 +94,20 @@ function pageClick(sel) {
     true
   ).catch(() => {});
 }
+// Pausar/retomar por INTENÇÃO (não toggle cego): rótulo velho de bandeja/float com
+// o #pauseBtn alternante fazia "Pausar" RETOMAR quando o estado já tinha mudado.
+function pagePauseIntent(wantPause) {
+  if (!mainAlive()) return;
+  win.webContents.executeJavaScript(
+    '(() => { try { if (!state.running) return "parado";' +
+    ' if (!!state.paused !== ' + (wantPause ? 'true' : 'false') + ') { const b = document.getElementById("pauseBtn"); if (b) b.click(); return "ok"; }' +
+    ' return "ja-estava"; } catch (e) { return String(e); } })()',
+    true
+  ).catch(() => {});
+}
 // Iniciar SEMPRE guardado por state.running: o handler de start do site não tem
-// guarda própria e um segundo click vaza um setInterval que entra em loop de
-// finishSession no fim da sessão.
+// guarda própria (agora tem no v144, mas cinto e suspensório) e um segundo click
+// vazava um setInterval que entrava em loop de finishSession no fim da sessão.
 function pageStartGuarded(presetMin) {
   if (!mainAlive()) return;
   win.webContents.executeJavaScript(
@@ -189,7 +200,8 @@ function autoHideFloat() {
 ipcMain.on('float-action', (_e, a) => {
   if (a === 'toggle') { toggleFloat(); return; }
   if (a === 'close') { if (floatOpen()) floatWin.close(); return; }
-  if (a === 'pause') pageClick('#pauseBtn');
+  if (a === 'pause') pagePauseIntent(true);
+  else if (a === 'resume') pagePauseIntent(false);
   else if (a === 'start') pageStartGuarded();
   else if (a === 'stop') pageClick('#stopBtn');
   else return;
@@ -219,7 +231,8 @@ function rebuildTray() {
     { type: 'separator' },
     ...(st && st.running
       ? [
-          { label: st.paused ? 'Retomar' : 'Pausar', click: () => pageClick('#pauseBtn') },
+          // intenção capturada do rótulo EXIBIDO: menu velho não vira toggle às avessas
+          { label: st.paused ? 'Retomar' : 'Pausar', click: () => pagePauseIntent(!st.paused) },
           { label: 'Parar sessão', click: () => pageClick('#stopBtn') },
         ]
       : [
@@ -263,6 +276,7 @@ function toggleMini() {
 }
 
 // ---- polling do estado (3s; 1s com o flutuante aberto; só re-monta a bandeja quando muda) ----
+let lastHiddenPull = 0;
 function startPolling() {
   const tick = async () => {
     try {
@@ -272,6 +286,16 @@ function startPolling() {
       if (changed) rebuildTray();
       else if (st && st.running && !st.paused) rebuildTray(); // contagem viva no tooltip
       pushFloatState();
+      // Janela escondida/minimizada: visibilityState='hidden' → o poll de sync do
+      // SITE (30s, gateado em visible) nunca roda e a casca não ficava sabendo de
+      // pausas feitas noutro device. Cutucamos o pull por fora a cada 30s.
+      if (mainAlive() && (!win.isVisible() || win.isMinimized()) && Date.now() - lastHiddenPull > 30000) {
+        lastHiddenPull = Date.now();
+        win.webContents.executeJavaScript(
+          '(() => { try { if (document.body.classList.contains("authed") && typeof pullFromCloud === "function") pullFromCloud(); } catch (e) {} })()',
+          true
+        ).catch(() => {});
+      }
     } catch { /* nunca matar a cadeia do poll */ }
     setTimeout(tick, floatOpen() ? 1000 : 3000);
   };
@@ -480,7 +504,14 @@ app.whenReady().then(async () => {
   tray = new Tray(trayIcon());
   tray.on('click', () => (win.isVisible() ? win.hide() : (win.show(), win.focus())));
   rebuildTray();
-  globalShortcut.register('Control+Alt+T', toggleStartPause);
+  // debounce: apertar 2x rápido "pra garantir" alternava pausa→retomada
+  let lastHotkey = 0;
+  globalShortcut.register('Control+Alt+T', () => {
+    const t = Date.now();
+    if (t - lastHotkey < 400) return;
+    lastHotkey = t;
+    toggleStartPause();
+  });
   startPolling();
 });
 

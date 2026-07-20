@@ -3669,6 +3669,10 @@ function updateDisplay() {
 }
 
 function tick() {
+  // Guarda anti-órfão: um interval vazado (start duplicado) continuava movendo o
+  // display PAUSADO e até disparava finishSession(true) com a sessão pausada,
+  // creditando a duração cheia — reproduzido em headless (cross-check 20/jul).
+  if (!state.running || state.paused) return;
   const delta = Date.now() - state.startedAt;
   state.remainingMs = state.durationMs - state.totalElapsedMs - delta;
   if (state.remainingMs <= 0) {
@@ -3707,7 +3711,16 @@ function closeSegment(endOverride) {
   saveSegments(segs);
 }
 
+// Só embarca activeTimer no push se ESTE device mudou o timer (gesto local).
+// Sem isso, QUALQUER save (ex.: editar tarefa) re-publicava o estado local com
+// updatedAt fresco — um device desatualizado revertia a pausa feita no outro.
+let timerDirty = false;
+let timerDirtyGen = 0; // geração: gesto durante push em voo não pode ser "limpado" pela resposta
+
 function persistTimerState() {
+  // Mudança vinda do sync (adoção/reconcílio) NÃO suja: re-publicar estado alheio
+  // como meu, com carimbo novo, é exatamente o eco que revertia pausas.
+  if (typeof isApplyingRemote === 'undefined' || !isApplyingRemote) { timerDirty = true; timerDirtyGen++; }
   if (!state.running) { localStorage.removeItem('timerActiveState'); }
   else {
     localStorage.setItem('timerActiveState', JSON.stringify({
@@ -3729,6 +3742,9 @@ function persistTimerState() {
 }
 
 startBtn.addEventListener('click', () => {
+  // Sem guarda, um 2º clique (duplo tap) sobrescrevia intervalId sem clearInterval
+  // → interval órfão que ignorava a pausa (raiz do "não pausa")
+  if (state.running) return;
   ensureAudio();
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission();
@@ -3740,6 +3756,7 @@ startBtn.addEventListener('click', () => {
   state.owner = null;                // começou aqui: eu sou o dono
   state.totalElapsedMs = 0;
   state.remainingMs = state.durationMs;
+  clearInterval(state.intervalId);
   state.intervalId = setInterval(tick, 250);
   // Troca pra view de sessão em andamento
   $('#focusIdle').style.display = 'none';
@@ -3763,6 +3780,7 @@ pauseBtn.addEventListener('click', () => {
     // Retomar
     state.paused = false;
     state.startedAt = Date.now();
+    clearInterval(state.intervalId);
     state.intervalId = setInterval(tick, 250);
     display.classList.remove('paused');
     pauseBtn.textContent = 'Pausar';
@@ -4451,11 +4469,13 @@ function buildPushPayload() {
       h2Plan: loadH2(),
       events: loadEvents(),
       target: loadTarget(),
-      // Rodando: estado completo (device = DONO, preservado na adoção; by = quem escreveu).
+      // Rodando E SUJO (gesto local — ver timerDirty): estado completo (device = DONO,
+      // preservado na adoção; by = quem escreveu). Rodando limpo: undefined — não re-publica
+      // estado possivelmente velho com carimbo fresco (revertia pausa feita noutro device).
       // Parado COM tombstone: {stopped} — sinal de "sessão encerrada" pros outros limparem.
       // Parado SEM tombstone: undefined — a chave nem vai no JSON e o servidor NÃO é tocado
       // (antes, todo push de device parado clobberava o espelho com null).
-      activeTimer: state.running ? {
+      activeTimer: (state.running && timerDirty) ? {
         paused: state.paused,
         startedAt: state.startedAt,
         totalElapsedMs: state.totalElapsedMs,
@@ -4499,6 +4519,7 @@ async function pushToCloud() {
   try {
     const beforeMax = maxSessionAt();
     const payload = buildPushPayload();
+    const timerGenAtBuild = timerDirtyGen;
     const bodyStr = JSON.stringify(payload);
     let res = await fetch(`${window.API_BASE}/api/sync`, {
       method: 'POST', headers: await authHeaders({ 'Content-Type': 'application/json' }), body: bodyStr,
@@ -4515,7 +4536,12 @@ async function pushToCloud() {
     const merged = await res.json();
     // Só limpa o tombstone se ele EMBARCOU neste push (payload montado antes do tombstone
     // existir não conta — limpar cegamente matava o "parei" sem nunca enviá-lo)
-    if (payload.settings && payload.settings.activeTimer !== undefined) clearStopTombstone();
+    if (payload.settings && payload.settings.activeTimer !== undefined) {
+      clearStopTombstone();
+      // timer embarcado e aceito → não precisa reenviar até o próximo gesto local
+      // (só se NENHUM gesto novo aconteceu enquanto o push estava em voo)
+      if (!payload.settings.activeTimer.stopped && timerDirtyGen === timerGenAtBuild) timerDirty = false;
+    }
     // O servidor já mesclou — aplica de volta como remoto (mas sem device check pois é nossa resposta)
     applyServerSnapshot(merged);
     lastSyncedAt = new Date();
@@ -4990,6 +5016,7 @@ function restoreTimerState() {
     pauseBtn.classList.remove('btn-pause');
     pauseBtn.classList.add('btn-resume');
   } else {
+    clearInterval(state.intervalId);
     state.intervalId = setInterval(tick, 250);
     pauseBtn.textContent = 'Pausar';
     pauseBtn.classList.remove('btn-resume');

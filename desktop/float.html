@@ -120,7 +120,17 @@
   setInterval(render, 250);
 
   $('startBtn').addEventListener('click', () => timerFloat.action('start'));
-  $('pauseBtn').addEventListener('click', () => timerFloat.action('pause'));
+  // Pausa OTIMISTA com trava: o visual muda na hora (a verdade chega no próximo push)
+  // e 600ms de lockout evitam que o clique-duplo ansioso vire pausa+retomada.
+  let lockUntil = 0;
+  $('pauseBtn').addEventListener('click', () => {
+    const t = Date.now();
+    if (t < lockUntil) return;
+    lockUntil = t + 600;
+    const querPausar = !(st && st.paused);
+    if (st) { st.paused = querPausar; recebidoEm = t; render(); }
+    timerFloat.action(querPausar ? 'pause' : 'resume');
+  });
   $('stopBtn').addEventListener('click', () => timerFloat.action('stop'));
   $('closeBtn').addEventListener('click', () => timerFloat.action('close'));
 </script>

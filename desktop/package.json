@@ -2,14 +2,15 @@
   "name": "timer-sessoes-desktop",
   "productName": "Timer de Sessões",
   "description": "Timer de Sessões para Windows — bandeja, atalho global e modo mini sobre timer.gnoronha.app",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "private": true,
   "author": "Gabriel Noronha",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "icon": "node make-icon.js",
-    "dist": "node make-icon.js && electron-builder --win nsis"
+    "dist": "node make-icon.js && electron-builder --win nsis",
+    "dist:store": "node make-icon.js && node make-appx-assets.js && electron-builder --win appx --x64"
   },
   "build": {
     "appId": "app.gnoronha.timer",
@@ -35,6 +36,19 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Timer de Sessões"
+    },
+    "appx": {
+      "applicationId": "TimerSessoes",
+      "identityName": "XPAsset.productivyislife",
+      "publisher": "CN=7D2A6A52-0E8D-4771-AFE4-424AB6A0597F",
+      "publisherDisplayName": "GabrielNoronha",
+      "displayName": "Timer de Sessões",
+      "languages": [
+        "pt-BR"
+      ],
+      "backgroundColor": "#141416",
+      "showNameOnTiles": true,
+      "artifactName": "Timer-de-Sessoes-${version}-${arch}.${ext}"
     }
   },
   "devDependencies": {

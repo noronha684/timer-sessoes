@@ -14,6 +14,33 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 };
 
+const MAX_REQUEST_BYTES = 2 * 1024 * 1024;
+const MAX_CATEGORIES = 100;
+const MAX_SESSIONS_PER_SYNC = 10000;
+const MAX_SETTINGS = 100;
+const MAX_SETTING_BYTES = 512 * 1024;
+const MAX_BATCH_SIZE = 100;
+
+function requestTooLarge(request) {
+  const length = Number(request.headers.get('content-length') || 0);
+  return Number.isFinite(length) && length > MAX_REQUEST_BYTES;
+}
+
+function jsonSize(value) {
+  try { return new TextEncoder().encode(JSON.stringify(value)).byteLength; }
+  catch { return Infinity; }
+}
+
+function validSettingKey(key) {
+  return typeof key === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(key);
+}
+
+async function runBatches(env, statements) {
+  for (let i = 0; i < statements.length; i += MAX_BATCH_SIZE) {
+    await env.DB.batch(statements.slice(i, i + MAX_BATCH_SIZE));
+  }
+}
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -148,6 +175,7 @@ export default {
     }
     const url = new URL(request.url);
     const path = url.pathname;
+    if (requestTooLarge(request)) return json({ error: 'payload too large' }, 413);
     try {
       // Aberto (healthcheck)
       if (path === '/api/ping' && request.method === 'GET') return json({ ok: true, now: Date.now() });
@@ -443,8 +471,8 @@ async function whoopCallback(request, env) {
     }),
   });
   if (!tokenRes.ok) {
-    const txt = await tokenRes.text();
-    return htmlResult('Erro', 'Falha ao trocar token: ' + txt);
+    console.error('Whoop token exchange failed:', tokenRes.status);
+    return htmlResult('Erro', 'Falha ao conectar com o Whoop. Tente novamente.');
   }
   const tok = await tokenRes.json();
   const expiresAt = Date.now() + (tok.expires_in || 3600) * 1000;
@@ -456,13 +484,26 @@ async function whoopCallback(request, env) {
 }
 
 function htmlResult(title, msg, success = false) {
+  const escapeHtml = (value) => String(value).replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
+  const safeTitle = escapeHtml(title);
+  const safeMsg = escapeHtml(msg);
   return new Response(
     `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
     <style>body{font-family:-apple-system,sans-serif;background:#0f0f17;color:#ededf0;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;text-align:center}
     .box{max-width:340px}.icon{font-size:48px;margin-bottom:16px}h1{font-size:20px;margin:0 0 12px}p{color:#9d9db0;line-height:1.5;font-size:14px}</style></head>
-    <body><div class="box"><div class="icon">${success ? '✓' : '⚠️'}</div><h1>${title}</h1><p>${msg}</p></div>
+    <body><div class="box"><div class="icon">${success ? '✓' : '⚠️'}</div><h1>${safeTitle}</h1><p>${safeMsg}</p></div>
     <script>${success ? 'setTimeout(()=>{try{window.close()}catch(e){}},3000);' : ''}</script></body></html>`,
-    { headers: { 'Content-Type': 'text/html; charset=utf-8', ...corsHeaders } }
+    { headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'Referrer-Policy': 'no-referrer',
+      ...corsHeaders,
+    } }
   );
 }
 
@@ -580,7 +621,9 @@ function buildSnapshot(rows) {
   for (const s of rows) {
     if (!sessions[s.date]) sessions[s.date] = [];
     if (!history[s.date]) history[s.date] = {};
-    sessions[s.date].push({ category: s.category, durationMs: s.duration_ms, at: s.started_at });
+    const session = { category: s.category, durationMs: s.duration_ms, at: s.started_at };
+    if (s.subcategory) session.subcategory = s.subcategory;
+    sessions[s.date].push(session);
     history[s.date][s.category] = (history[s.date][s.category] || 0) + s.duration_ms;
   }
   return { sessions, history };
@@ -597,7 +640,7 @@ async function serverStamp(env, uid) {
 
 async function loadFullSnapshot(env, uid) {
   const [sessions, categories, settings, stamp] = await Promise.all([
-    env.DB.prepare('SELECT date, category, duration_ms, started_at FROM sessions WHERE uid = ? ORDER BY started_at ASC').bind(uid).all(),
+    env.DB.prepare('SELECT date, category, subcategory, duration_ms, started_at FROM sessions WHERE uid = ? ORDER BY started_at ASC').bind(uid).all(),
     env.DB.prepare('SELECT name FROM categories WHERE uid = ? ORDER BY position ASC, name ASC').bind(uid).all(),
     env.DB.prepare('SELECT key, value, stamp, updated_at FROM settings WHERE uid = ?').bind(uid).all(),
     serverStamp(env, uid),
@@ -638,45 +681,46 @@ async function apiSnapshot(request, env, uid) {
 
 // Sessão válida? date=YYYY-MM-DD, durationMs finito e >0, category string curta.
 // Devolve {date, category, durationMs} saneados ou null.
-function validSession(date, category, durationMs) {
+function validSession(date, category, durationMs, subcategory) {
   if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
   const d = Number(durationMs);
   if (!Number.isFinite(d) || d <= 0 || d > 24 * 3600 * 1000) return null;
   const cat = String(category == null ? '' : category).trim().slice(0, 80);
   if (!cat) return null;
-  return { date, category: cat, durationMs: Math.round(d) };
+  const sub = typeof subcategory === 'string' ? subcategory.trim().slice(0, 80) : '';
+  return { date, category: cat, subcategory: sub || null, durationMs: Math.round(d) };
 }
 
 async function apiAddSession(request, env, uid) {
   const body = await request.json().catch(() => null);
-  const { date, category, durationMs, startedAt } = body || {};
-  const v = validSession(date, category, durationMs);
+  const { date, category, subcategory, durationMs, startedAt } = body || {};
+  const v = validSession(date, category, durationMs, subcategory);
   if (!v) return json({ error: 'invalid session' }, 400);
   const at = Number.isFinite(Number(startedAt)) ? Number(startedAt) : Date.now();
   await env.DB.prepare(
-    'INSERT OR IGNORE INTO sessions (uid, date, category, duration_ms, started_at) VALUES (?, ?, ?, ?, ?)'
-  ).bind(uid, v.date, v.category, v.durationMs, at).run();
+    'INSERT INTO sessions (uid, date, category, subcategory, duration_ms, started_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(uid, started_at, category) DO UPDATE SET subcategory = COALESCE(excluded.subcategory, sessions.subcategory)'
+  ).bind(uid, v.date, v.category, v.subcategory, v.durationMs, at).run();
   return json({ ok: true });
 }
 
 async function apiPutCategories(request, env, uid) {
   const body = await request.json().catch(() => null);
   const { categories } = body || {};
-  if (!Array.isArray(categories)) return json({ error: 'invalid body' }, 400);
+  if (!Array.isArray(categories) || categories.length > MAX_CATEGORIES) return json({ error: 'invalid body' }, 400);
   const stmts = [env.DB.prepare('DELETE FROM categories WHERE uid = ?').bind(uid)];
   categories.forEach((name, idx) => {
     if (typeof name === 'string' && name.trim()) {
       stmts.push(env.DB.prepare('INSERT INTO categories (uid, name, position) VALUES (?, ?, ?)').bind(uid, name.trim(), idx));
     }
   });
-  await env.DB.batch(stmts);
+  await runBatches(env, stmts);
   return json({ ok: true });
 }
 
 async function apiPutSetting(request, env, uid) {
   const body = await request.json().catch(() => null);
   const { key, value } = body || {};
-  if (!key) return json({ error: 'invalid body' }, 400);
+  if (!validSettingKey(key) || jsonSize(value) > MAX_SETTING_BYTES) return json({ error: 'invalid body' }, 400);
   await env.DB.prepare(
     'INSERT INTO settings (uid, key, value, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(uid, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at'
   ).bind(uid, key, JSON.stringify(value), Date.now()).run();
@@ -691,20 +735,37 @@ async function apiBulkSync(request, env, uid) {
   if (!body) return json({ error: 'invalid json' }, 400);
   const { sessions, categories, settings } = body || {};
 
+  if (categories !== undefined && (!Array.isArray(categories) || categories.length > MAX_CATEGORIES)) {
+    return json({ error: 'too many categories' }, 400);
+  }
+  if (settings !== undefined && (!settings || typeof settings !== 'object' || Array.isArray(settings))) {
+    return json({ error: 'invalid settings' }, 400);
+  }
+  const settingKeys = settings ? Object.keys(settings).filter(key => key !== '_stamps') : [];
+  if (settingKeys.length > MAX_SETTINGS || settingKeys.some(key => !validSettingKey(key))) {
+    return json({ error: 'invalid settings' }, 400);
+  }
+  if (settingKeys.some(key => jsonSize(settings[key]) > MAX_SETTING_BYTES)) {
+    return json({ error: 'setting too large' }, 413);
+  }
+
   const stmts = [];
 
-  // Sessions: INSERT OR IGNORE (dedupe via UNIQUE index uid+started_at+category)
-  if (sessions && typeof sessions === 'object') {
+  // Sessions: upsert por uid+started_at+category; tambem recupera subcategoria de dados locais antigos
+  let sessionCount = 0;
+  if (sessions && typeof sessions === 'object' && !Array.isArray(sessions)) {
     for (const date in sessions) {
       const list = sessions[date];
       if (!Array.isArray(list)) continue;
       for (const s of list) {
-        const v = s && validSession(date, s.category, s.durationMs);
+        sessionCount++;
+        if (sessionCount > MAX_SESSIONS_PER_SYNC) return json({ error: 'too many sessions' }, 413);
+        const v = s && validSession(date, s.category, s.durationMs, s.subcategory);
         const at = s && Number.isFinite(Number(s.at)) ? Number(s.at) : null;
         if (v && at) {
           stmts.push(env.DB.prepare(
-            'INSERT OR IGNORE INTO sessions (uid, date, category, duration_ms, started_at) VALUES (?, ?, ?, ?, ?)'
-          ).bind(uid, v.date, v.category, v.durationMs, at));
+            'INSERT INTO sessions (uid, date, category, subcategory, duration_ms, started_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(uid, started_at, category) DO UPDATE SET subcategory = COALESCE(excluded.subcategory, sessions.subcategory)'
+          ).bind(uid, v.date, v.category, v.subcategory, v.durationMs, at));
         }
       }
     }
@@ -734,10 +795,16 @@ async function apiBulkSync(request, env, uid) {
   ).bind(uid, key, JSON.stringify(value), Date.now());
   // activeTimer: LWW pelo updatedAt DO ESTADO (não pela ordem de chegada) — push atrasado
   // de estado velho não pode calar uma pausa/parada mais nova. COALESCE cobre legado sem campo.
+  const normalizeActiveTimer = (value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+    const now = Date.now();
+    const incoming = Number(value.updatedAt);
+    return { ...value, updatedAt: Number.isFinite(incoming) ? Math.min(incoming, now + 60000) : now };
+  };
   const upsertActiveTimer = (value) => env.DB.prepare(
     'INSERT INTO settings (uid, key, value, updated_at, stamp) VALUES (?, ?, ?, ?, 0) ON CONFLICT(uid, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at ' +
-    "WHERE COALESCE(json_extract(excluded.value, '$.updatedAt'), 0) >= COALESCE(json_extract(settings.value, '$.updatedAt'), 0)"
-  ).bind(uid, 'activeTimer', JSON.stringify(value), Date.now());
+    "WHERE COALESCE(json_extract(excluded.value, '$.updatedAt'), 0) >= MIN(COALESCE(json_extract(settings.value, '$.updatedAt'), 0), unixepoch() * 1000)"
+  ).bind(uid, 'activeTimer', JSON.stringify(normalizeActiveTimer(value)), Date.now());
   const upsertVersioned = (key, value, stamp) => env.DB.prepare(
     'INSERT INTO settings (uid, key, value, updated_at, stamp) VALUES (?, ?, ?, ?, ?) ' +
     'ON CONFLICT(uid, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at, stamp = excluded.stamp ' +
@@ -753,7 +820,7 @@ async function apiBulkSync(request, env, uid) {
     }
   }
 
-  if (stmts.length > 0) await env.DB.batch(stmts);
+  if (stmts.length > 0) await runBatches(env, stmts);
 
   const snap = await loadFullSnapshot(env, uid);
   return json(snap);

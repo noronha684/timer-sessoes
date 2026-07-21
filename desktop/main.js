@@ -66,7 +66,7 @@ function isTrustedUrl(url) {
       || h === 'timer.gnoronha.app'
       || h === 'api.prod.whoop.com'
       || h === 'timer-sessoes.gabriel-noronha-o-p.workers.dev'
-      || h.endsWith('.firebaseapp.com');
+      || h === 'timer-sessoes.firebaseapp.com';
   } catch { return false; }
 }
 
@@ -188,11 +188,12 @@ function toggleFloat() {
 // restaurou → o que abriu sozinho fecha sozinho (o aberto manualmente fica).
 async function autoShowFloat() {
   if (quitting || floatOpen()) return;
+  if (miniMode) return; // modo mini já é a presença flutuante — não empilhar os dois
   // lê o estado FRESCO: lastState (poll 3s) perdia sessão iniciada há <3s e o
   // auto-PiP não abria (ou abria com sessão recém-parada)
   const st = (await readTimerState()) || lastState;
   if (SMOKE) smokeTrace.push('autoShow open=' + floatOpen() + ' running=' + !!(st && st.running) + ' quitting=' + quitting);
-  if (quitting || floatOpen()) return; // re-checa: houve await no meio
+  if (quitting || floatOpen() || miniMode) return; // re-checa: houve await no meio
   if (st && st.running) { lastState = st; floatAuto = true; createFloat(); }
 }
 function autoHideFloat() {
@@ -402,11 +403,23 @@ function createWindow() {
     if (!quitting) { e.preventDefault(); win.hide(); }
   });
 
-  // Auto-PiP: sair de vista com sessão rodando mostra o flutuante; voltar, esconde
+  // Auto-PiP: sair de vista com sessão rodando mostra o flutuante; voltar, esconde.
+  // Vale pra minimizar/esconder E pra simplesmente PERDER O FOCO (Excel maximizado
+  // por cima, alt-tab) — com 400ms de respiro pra não piscar em trocas rápidas
+  // (menu da bandeja, diálogo) e sem contar o foco indo pro PRÓPRIO flutuante.
+  let blurTimer = null;
   win.on('minimize', autoShowFloat);
   win.on('hide', autoShowFloat);
+  win.on('blur', () => {
+    clearTimeout(blurTimer);
+    blurTimer = setTimeout(() => {
+      const floatFocado = floatOpen() && floatWin.isFocused();
+      if (!win.isDestroyed() && !win.isFocused() && !floatFocado) autoShowFloat();
+    }, 400);
+  });
   win.on('restore', autoHideFloat);
   win.on('show', autoHideFloat);
+  win.on('focus', () => { clearTimeout(blurTimer); autoHideFloat(); });
 
   win.loadURL(APP_URL, { userAgent: ua });
 
@@ -493,6 +506,19 @@ function createWindow() {
       await new Promise((r) => setTimeout(r, 600));
       info.manualSobrevive = sobreviveuMin && floatOpen();
       if (floatOpen()) floatWin.close();
+      await new Promise((r) => setTimeout(r, 400));
+      // auto-PiP por PERDA DE FOCO (sem minimizar): outra janela rouba o foco (cenário
+      // Excel-por-cima real — win.blur() sem destino é no-op, o SO devolve o foco)
+      win.focus();
+      await new Promise((r) => setTimeout(r, 400));
+      const isca = new BrowserWindow({ width: 200, height: 120, show: true });
+      isca.focus();
+      await new Promise((r) => setTimeout(r, 1100)); // 400ms de respiro + criação da janela
+      info.autoAbriuNoBlur = floatOpen() && floatWin.isVisible();
+      isca.destroy();
+      win.focus();
+      await new Promise((r) => setTimeout(r, 800));
+      info.autoFechouNoFocus = !floatOpen();
       info.trace = smokeTrace.slice(-12);
       try {
         const img = await win.webContents.capturePage();

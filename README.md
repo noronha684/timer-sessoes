@@ -49,7 +49,7 @@ O GitHub **não deploya** (Workers Builds desconectado) — é só backup. Servi
 - **Publicar só a pasta `public/`** — `worker.js`, `.git`, configs ficam na raiz e **não** vão pro ar (o `wrangler.jsonc` aponta assets pra `./public`). Isso corrigiu o `.git` que já vazou público. (`.assetsignore` não resolve quando o dir de assets é a raiz — por isso `public/`.) O `worker.js` agora é **rastreado** no git.
 - **Domínio novo no Firebase:** ao usar um endereço novo (ex: workers.dev), adicionar em Firebase → Authentication → Settings → Authorized domains, senão login dá `auth/unauthorized-domain`.
 - **"App não abre" / timeout:** geralmente cache de DNS do roteador local (funciona no 4G). Reiniciar roteador ou usar DNS `1.1.1.1`. Não é o Cloudflare.
-- **Subcategorias** ainda não vão pro D1 (tabela `sessions` não tem a coluna). Salvam local; corrigir no worker depois (ALTER TABLE + INSERT).
+- **Subcategorias** sincronizam pelo D1 desde a migração 0001_add_session_subcategory.sql; sessões antigas são preenchidas no próximo push de um dispositivo que ainda tenha esse detalhe local.
 - **Não misturar** login Google + código manual de sync (cria "contas" paralelas no D1).
 
 ## Queries D1 úteis (via painel)

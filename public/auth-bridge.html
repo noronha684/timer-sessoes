@@ -81,7 +81,9 @@ if (!port || !/^\d{2,5}$/.test(port)) {
     el('spin').style.display = '';
     el('go').disabled = true;
     try {
-      const result = await signInWithPopup(auth, new GoogleAuthProvider());
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' }); // sempre perguntar a conta (não entrar direto na logada)
+      const result = await signInWithPopup(auth, provider);
       const cred = GoogleAuthProvider.credentialFromResult(result);
       if (!cred || !cred.idToken) throw new Error('Google não devolveu a credencial.');
       // text/plain = requisição simples (sem preflight); loopback é isento de mixed content

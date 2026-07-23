@@ -54,7 +54,8 @@ window.firebaseConfig = {
       const auth = getAuth(app);
       await setPersistence(auth, browserLocalPersistence).catch(() => {});
       // Captura resultado de redirect (caso popup não tenha funcionado e usamos redirect)
-      try { await getRedirectResult(auth); } catch {}
+      try { await getRedirectResult(auth); }
+      catch (e) { window._fbRedirectError = e; }
       window._fb = { auth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail };
       window.dispatchEvent(new Event('firebase-ready'));
     } catch (e) { console.warn('Firebase init falhou:', e); }
@@ -1397,7 +1398,9 @@ window.firebaseConfig = {
     color: #1e1a12; font-weight: 700; font-size: 17px;
     flex-shrink: 0;
     object-fit: cover;
+    overflow: hidden;
   }
+  .user-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .user-details { flex: 1; min-width: 0; overflow: hidden; }
   .user-name { font-weight: 600; font-size: 14px; color: var(--text); }
   .user-email {
@@ -4811,6 +4814,17 @@ function triggerSync(delay) {
 // dezenas de pushes full-snapshot; agora colapsam num só (flush em pagehide/visibility cobre o fechamento).
 function triggerSyncSlow() { triggerSync(1500); }
 
+function setAvatarImage(container, photo, initial) {
+  if (!container) return;
+  container.textContent = initial;
+  if (!photo) return;
+  const img = document.createElement('img');
+  img.alt = '';
+  img.referrerPolicy = 'no-referrer';
+  img.addEventListener('error', () => img.remove(), { once: true });
+  img.src = photo;
+  container.appendChild(img);
+}
 function updateAccountChip() {
   const chip = $('#accountChip');
   if (!chip) return;
@@ -4820,7 +4834,7 @@ function updateAccountChip() {
     const photo = currentUser.photoURL;
     const initial = (name[0] || email[0] || '?').toUpperCase();
     const av = $('#accountAvatar');
-    if (av) av.innerHTML = photo ? `<img src="${photo}" alt="" referrerpolicy="no-referrer">` : escapeHtml(initial);
+    setAvatarImage(av, photo, initial);
     const nm = $('#accountName'); if (nm) nm.textContent = name;
     chip.title = email ? `${name} · ${email}` : name;
     chip.style.display = 'inline-flex';
@@ -4861,17 +4875,15 @@ function updateSyncUI() {
         const email = currentUser.email || '';
         const photo = currentUser.photoURL;
         const initial = (name[0] || email[0] || '?').toUpperCase();
-        const avatar = photo
-          ? `<img src="${photo}" class="user-avatar" alt="" referrerpolicy="no-referrer">`
-          : `<div class="user-avatar">${initial}</div>`;
         const isGoogle = (currentUser.providerData || []).some(p => p && p.providerId === 'google.com');
         userInfo.innerHTML = `
-          ${avatar}
+          <div class="user-avatar">${escapeHtml(initial)}</div>
           <div class="user-details">
             <div class="user-name">${escapeHtml(name)}</div>
             <div class="user-email">${escapeHtml(email)}</div>
             <div class="user-badge">● ${isGoogle ? 'Conectado com Google' : 'Conectado por e-mail'}</div>
           </div>`;
+        setAvatarImage(userInfo.querySelector('.user-avatar'), photo, initial);
         userInfo.style.display = 'flex';
       } else {
         // Conexão legada por código manual (sem login) — sem UI própria; o sync segue funcionando
@@ -9026,6 +9038,9 @@ restoreTimerState();
       'auth/too-many-requests': 'Muitas tentativas. Espere um pouco e tente de novo.',
       'auth/network-request-failed': 'Sem conexão. Verifique a internet.',
       'auth/popup-blocked': 'O popup foi bloqueado — tente de novo.',
+      'auth/unauthorized-domain': 'Este endereço ainda não foi autorizado no Firebase.',
+      'auth/web-storage-unsupported': 'Este ambiente bloqueou o armazenamento necessário para entrar.',
+      'auth/operation-not-supported-in-this-environment': 'Este ambiente não permite abrir o login do Google.',
     };
     return m[c] || (e && e.message) || 'Não foi possível autenticar.';
   }
@@ -9065,14 +9080,29 @@ restoreTimerState();
   async function doGoogle() {
     if (!window._fb) { setMsg('Autenticação ainda carregando…'); return; }
     if (!navigator.onLine) { setMsg('Conexão necessária para entrar com Google.', 'error'); return; }
+    googleBtn.disabled = true;
+    setMsg('Abrindo o Google…');
+    const provider = new window._fb.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    const installed = window.matchMedia('(display-mode: standalone)').matches
+      || window.matchMedia('(display-mode: minimal-ui)').matches
+      || navigator.standalone === true;
     try {
-      await window._fb.signInWithPopup(window._fb.auth, new window._fb.GoogleAuthProvider());
+      // Pop-ups sao inconsistentes em PWAs instalados e pacotes das lojas.
+      // Nesses ambientes, redirect e o fluxo mais previsivel.
+      if (installed) {
+        await window._fb.signInWithRedirect(window._fb.auth, provider);
+        return;
+      }
+      await window._fb.signInWithPopup(window._fb.auth, provider);
     } catch (e) {
       const c = e && e.code;
       if (c === 'auth/popup-blocked' || c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request') {
-        try { await window._fb.signInWithRedirect(window._fb.auth, new window._fb.GoogleAuthProvider()); }
+        try { await window._fb.signInWithRedirect(window._fb.auth, provider); }
         catch (err) { setMsg(mapErr(err), 'error'); }
       } else setMsg(mapErr(e), 'error');
+    } finally {
+      googleBtn.disabled = false;
     }
   }
 
@@ -9100,6 +9130,14 @@ restoreTimerState();
   }
   if (window._fb) wire();
   else window.addEventListener('firebase-ready', wire);
+  const showRedirectError = () => {
+    if (window._fbRedirectError) {
+      setMsg(mapErr(window._fbRedirectError), 'error');
+      window._fbRedirectError = null;
+    }
+  };
+  if (window._fb) showRedirectError();
+  else window.addEventListener('firebase-ready', showRedirectError, { once: true });
   // Segurança: se o Firebase não carregar em 3s, mostra o formulário (não trava no "Carregando…")
   setTimeout(() => {
     if (document.body.classList.contains('authed')) return;

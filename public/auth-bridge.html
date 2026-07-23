@@ -28,9 +28,10 @@
 </head>
 <body>
 <div class="card" id="card">
-  <div class="spin" id="spin"></div>
-  <h1 id="title">Conectando com o Google…</h1>
-  <p id="msg">Você será redirecionado pro login do Google.</p>
+  <div class="spin" id="spin" style="display:none"></div>
+  <h1 id="title">Entrar no Timer de Sessões</h1>
+  <p id="msg">Confirme pra abrir o login do Google.</p>
+  <button id="go" style="margin-top:18px;padding:12px 22px;border:none;border-radius:10px;background:#f2f2f0;color:#1e1a12;font-size:15px;font-weight:600;cursor:pointer">Continuar com Google</button>
 </div>
 <script>
 window.firebaseConfig = {
@@ -46,53 +47,57 @@ window.firebaseConfig = {
 // Ponte de login da CASCA DESKTOP: roda no navegador REAL do usuário (o Google
 // bloqueia browsers embutidos), faz o login por redirect e devolve o ID token
 // do Google pro app via loopback local (porta passada na URL pela casca).
+// POPUP com clique do usuário (não redirect): o fluxo por redirect quebra com o
+// particionamento de storage do Chrome quando o authDomain (firebaseapp.com) é
+// diferente do domínio da página — dava auth/internal-error. O popup é o mesmo
+// caminho que o site principal usa no navegador, comprovadamente funcional.
 import { initializeApp } from "./vendor/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, setPersistence, inMemoryPersistence } from "./vendor/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, setPersistence, inMemoryPersistence } from "./vendor/firebase-auth.js";
 
 const el = (id) => document.getElementById(id);
 const done = (ok, title, msg) => {
   el('spin').style.display = 'none';
+  el('go').style.display = 'none';
   el('title').textContent = title;
   el('msg').textContent = msg;
   if (ok) { const s = document.createElement('div'); s.className = 'ok'; s.textContent = '✓'; el('card').prepend(s); }
-  else el('title').classList.add('err');
+  else { el('title').classList.add('err'); el('go').style.display = ''; el('go').textContent = 'Tentar de novo'; }
 };
 
-try {
-  // porta/state vêm da casca na 1ª carga; sobrevivem ao redirect via sessionStorage
-  const q = new URLSearchParams(location.search);
-  if (q.get('port')) sessionStorage.setItem('bridgePort', q.get('port'));
-  if (q.get('state')) sessionStorage.setItem('bridgeState', q.get('state'));
-  const port = sessionStorage.getItem('bridgePort');
-  const state = sessionStorage.getItem('bridgeState');
-  if (!port || !/^\d{2,5}$/.test(port)) throw new Error('Abra esta página pelo app do Windows (porta ausente).');
+const q = new URLSearchParams(location.search);
+const port = q.get('port');
+const state = q.get('state');
 
+if (!port || !/^\d{2,5}$/.test(port)) {
+  el('go').style.display = 'none';
+  done(false, 'Abra pelo app', 'Esta página só funciona aberta pelo Timer de Sessões do Windows.');
+  el('go').style.display = 'none';
+} else {
   const app = initializeApp(window.firebaseConfig);
   const auth = getAuth(app);
-  // o login "de verdade" fica no APP; aqui a sessão é descartável
-  await setPersistence(auth, inMemoryPersistence).catch(() => {});
+  await setPersistence(auth, inMemoryPersistence).catch(() => {}); // sessão descartável: o login "de verdade" fica no app
 
-  const result = await getRedirectResult(auth).catch((e) => { throw e; });
-  if (!result) {
-    // 1ª carga: manda pro Google (redirect não depende de popup/gesto)
-    const provider = new GoogleAuthProvider();
-    await signInWithRedirect(auth, provider);
-  } else {
-    const cred = GoogleAuthProvider.credentialFromResult(result);
-    if (!cred || !cred.idToken) throw new Error('Google não devolveu a credencial.');
-    // text/plain = requisição simples (sem preflight); loopback é isento de mixed content
-    const r = await fetch('http://127.0.0.1:' + port + '/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ state, idToken: cred.idToken }),
-    });
-    if (!r.ok) throw new Error('O app não recebeu o login (código ' + r.status + '). Ele ainda está aberto?');
-    sessionStorage.removeItem('bridgePort');
-    sessionStorage.removeItem('bridgeState');
-    done(true, 'Login concluído!', 'Pode fechar esta aba e voltar pro Timer de Sessões.');
-  }
-} catch (e) {
-  done(false, 'Não deu certo', (e && e.message) || String(e));
+  el('go').addEventListener('click', async () => {
+    el('spin').style.display = '';
+    el('go').disabled = true;
+    try {
+      const result = await signInWithPopup(auth, new GoogleAuthProvider());
+      const cred = GoogleAuthProvider.credentialFromResult(result);
+      if (!cred || !cred.idToken) throw new Error('Google não devolveu a credencial.');
+      // text/plain = requisição simples (sem preflight); loopback é isento de mixed content
+      const r = await fetch('http://127.0.0.1:' + port + '/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify({ state, idToken: cred.idToken }),
+      });
+      if (!r.ok) throw new Error('O app não recebeu o login (código ' + r.status + '). Ele ainda está aberto?');
+      done(true, 'Login concluído!', 'Pode fechar esta aba e voltar pro Timer de Sessões.');
+    } catch (e) {
+      done(false, 'Não deu certo', ((e && e.code) ? e.code + ' — ' : '') + ((e && e.message) || String(e)));
+    } finally {
+      el('go').disabled = false;
+    }
+  });
 }
 </script>
 </body>

@@ -5,6 +5,8 @@
 const { app, BrowserWindow, Tray, Menu, globalShortcut, shell, nativeImage, session, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+const crypto = require('crypto');
 
 const APP_URL = 'https://timer.gnoronha.app';
 const SMOKE = process.argv.includes('--smoke');
@@ -218,6 +220,54 @@ ipcMain.on('float-action', (_e, a) => {
   }, 250);
 });
 
+// ---- login Google via navegador do sistema ----
+// O Google bloqueia browsers embutidos por heurística (reprovou a certificação da
+// Store: "sign in with Google does not work"). Fluxo: intercepta o clique no
+// #agGoogle → sobe servidor loopback de uso único → abre auth-bridge.html no
+// navegador REAL → a ponte devolve o ID token do Google → signInWithCredential
+// dentro do app via window.__timerGoogleCredential.
+let authServer = null;
+function startGoogleAuth() {
+  if (authServer) { try { authServer.close(); } catch {} authServer = null; }
+  const nonce = crypto.randomBytes(16).toString('hex');
+  const server = http.createServer((req, res) => {
+    if (req.method !== 'POST' || req.url !== '/token') { res.writeHead(404); res.end(); return; }
+    let body = '';
+    req.on('data', (c) => { body += c; if (body.length > 65536) req.destroy(); });
+    req.on('end', () => {
+      res.setHeader('Access-Control-Allow-Origin', 'https://timer.gnoronha.app');
+      let ok = false;
+      try {
+        const j = JSON.parse(body);
+        if (j && j.state === nonce && typeof j.idToken === 'string' && j.idToken.length < 8192) {
+          ok = true;
+          if (mainAlive()) {
+            win.webContents.executeJavaScript(
+              'window.__timerGoogleCredential ? window.__timerGoogleCredential(' + JSON.stringify(j.idToken) + ') : Promise.resolve("sem-handler")',
+              true
+            ).then((r) => {
+              if (SMOKE) smokeTrace.push('googleCredential:' + r);
+              if (r === 'ok') { win.show(); win.focus(); }
+            }).catch(() => {});
+          }
+        }
+      } catch {}
+      res.writeHead(ok ? 200 : 400); res.end(ok ? 'ok' : 'bad');
+      if (ok) { try { server.close(); } catch {} if (authServer === server) authServer = null; }
+    });
+  });
+  server.listen(0, '127.0.0.1', () => {
+    const port = server.address().port;
+    const url = APP_URL + '/auth-bridge?port=' + port + '&state=' + nonce; // sem .html: o Worker de assets 307-redireciona o sufixo
+    if (SMOKE) { smokeTrace.push('googleAuthUrl:' + url); }
+    else shell.openExternal(url);
+  });
+  // uso único, com validade: 5 min sem retorno → fecha
+  setTimeout(() => { try { server.close(); } catch {} if (authServer === server) authServer = null; }, 300000);
+  authServer = server;
+}
+ipcMain.on('google-auth', () => startGoogleAuth());
+
 // ---- bandeja ----
 function trayIcon() {
   const img = nativeImage.createFromPath(path.join(__dirname, 'icon.png'));
@@ -364,8 +414,13 @@ function createWindow() {
     win.webContents.executeJavaScript(
       '(() => { if (window.__timerDesktopPip) return; window.__timerDesktopPip = true;' +
       ' document.addEventListener("click", (e) => {' +
-      '   const b = e.target && e.target.closest && e.target.closest("#pipBtn");' +
-      '   if (b && window.timerDesktop) { e.stopPropagation(); e.preventDefault(); window.timerDesktop.toggleFloat(); }' +
+      '   if (!e.target || !e.target.closest || !window.timerDesktop) return;' +
+      '   const b = e.target.closest("#pipBtn");' +
+      '   if (b) { e.stopPropagation(); e.preventDefault(); window.timerDesktop.toggleFloat(); return; }' +
+      '   const g = e.target.closest("#agGoogle");' +
+      '   if (g) { e.stopPropagation(); e.preventDefault(); window.timerDesktop.googleAuth();' +
+      '     g.disabled = true; setTimeout(() => { g.disabled = false; }, 4000);' +
+      '     const m = document.getElementById("agMsg"); if (m) m.textContent = "Conclua o login no navegador que abriu…"; }' +
       ' }, true); })()',
       true
     ).catch(() => {});
@@ -433,6 +488,35 @@ function createWindow() {
         true
       ).catch((e) => ({ erro: String(e) }));
       info.hotkeyRegistrado = globalShortcut.isRegistered('Control+Alt+T');
+      // Login Google via navegador do sistema: clica o botão REAL do portão (ainda
+      // visível), pega a URL/porta do trace, entrega um token FAKE no loopback e
+      // confere que a página recebeu (erro de auth esperado — o cano é o que importa)
+      const gRect = await win.webContents.executeJavaScript(
+        '(() => { const b = document.getElementById("agGoogle"); if (!b) return null;' +
+        ' b.scrollIntoView({ block: "center" }); const r = b.getBoundingClientRect();' +
+        ' if (!r.width) return null; return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }; })()',
+        true
+      ).catch(() => null);
+      if (gRect) {
+        win.webContents.sendInputEvent({ type: 'mouseDown', x: gRect.x, y: gRect.y, button: 'left', clickCount: 1 });
+        win.webContents.sendInputEvent({ type: 'mouseUp', x: gRect.x, y: gRect.y, button: 'left', clickCount: 1 });
+        await new Promise((r) => setTimeout(r, 1200));
+        const urlLine = smokeTrace.filter((t) => t.startsWith('googleAuthUrl:')).pop();
+        info.googleAuthUrl = urlLine ? urlLine.slice(14, 90) + '…' : null;
+        if (urlLine) {
+          const u = new URL(urlLine.slice(14));
+          const port = u.searchParams.get('port'), st = u.searchParams.get('state');
+          const resp = await new Promise((resolve) => {
+            const rq = http.request({ host: '127.0.0.1', port, path: '/token', method: 'POST', headers: { 'Content-Type': 'text/plain' } },
+              (rs) => resolve(rs.statusCode));
+            rq.on('error', () => resolve('erro'));
+            rq.end(JSON.stringify({ state: st, idToken: 'token-fake-do-smoke' }));
+          });
+          info.loopbackStatus = resp;
+          await new Promise((r) => setTimeout(r, 1500));
+          info.googleCredential = (smokeTrace.filter((t) => t.startsWith('googleCredential:')).pop() || 'sem-retorno').slice(0, 80);
+        }
+      } else info.googleAuthUrl = 'botao-nao-encontrado';
       info.versao = app.getVersion();
       // Clique REAL (sendInputEvent; dispatchEvent sintético não carrega user
       // activation e não representa o gesto do usuário). O portão de login é

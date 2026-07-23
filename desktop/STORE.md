@@ -44,6 +44,17 @@ Preencher os blocos, em qualquer ordem:
 - O app aparece na Store em algumas horas; instalação/updates viram responsabilidade da Store (usuário atualiza pela Store, mas o SITE dentro do app continua se atualizando sozinho a cada deploy — só mudanças na CASCA exigem nova submissão).
 - Link direto pra divulgar: `https://apps.microsoft.com/detail/<ProductId>` (o ProductId aparece no Partner Center).
 
+## Reprovação de 23/jul/26 e o fix (1.0.8)
+Relatório: "Unusable Feature: The sign in with Google option does not work". Causa: o Google bloqueia
+browsers embutidos por heurística — UA disfarçado passou na máquina do dono e falhou no laboratório.
+Fix definitivo (1.0.8 + site v149): o clique em "Entrar com Google" na casca abre o **navegador do
+sistema** em `https://timer.gnoronha.app/auth-bridge?port=<loopback>&state=<nonce>`; a ponte faz
+signInWithRedirect com o Google no browser real, devolve o ID token via POST pro loopback
+(127.0.0.1, uso único, nonce, 5 min), e a casca finaliza com `window.__timerGoogleCredential`
+(signInWithCredential) dentro do app. CSP do `_headers` precisou de `http://127.0.0.1:*` no
+connect-src. Na resubmissão, escrever em Notes for certification: o Google agora abre o navegador
+padrão (comportamento esperado) E fornecer a conta de teste e-mail/senha.
+
 ## Ciladas conhecidas
 - **Identidade divergente** = erro no upload (ver passo 2.3).
 - **"Abrir com o Windows"** roda diferente sob MSIX (registro virtualizado) — se falhar na versão da Store, é limitação conhecida do empacotamento, não regressão da casca.

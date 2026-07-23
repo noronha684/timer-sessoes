@@ -1,4 +1,4 @@
-const CACHE_NAME = 'timer-sessoes-v148';
+const CACHE_NAME = 'timer-sessoes-v149';
 // Cache PERMANENTE pra CDNs imutáveis (fontes + Firebase SDK, URLs versionadas).
 // Sobrevive a bumps de versão — sem ele, cada update jogava fora fontes+Firebase e a
 // primeira abertura re-baixava tudo de 3 hostnames (minutos, com DNS de roteador ruim).

@@ -47,7 +47,7 @@ window.firebaseConfig = {
 </script>
 <script type="module">
   import { initializeApp } from "./vendor/firebase-app.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, browserLocalPersistence, setPersistence } from "./vendor/firebase-auth.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, browserLocalPersistence, setPersistence } from "./vendor/firebase-auth.js";
   if (window.firebaseConfig && window.firebaseConfig.apiKey) {
     try {
       const app = initializeApp(window.firebaseConfig);
@@ -57,6 +57,16 @@ window.firebaseConfig = {
       try { await getRedirectResult(auth); }
       catch (e) { window._fbRedirectError = e; }
       window._fb = { auth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail };
+      // Casca desktop: login Google feito no NAVEGADOR do sistema (auth-bridge.html)
+      // devolve o ID token do Google e a casca finaliza aqui via signInWithCredential —
+      // o Google bloqueia browsers embutidos por heurística (reprovou na certificação
+      // da Store), então o popup embutido não é confiável.
+      window.__timerGoogleCredential = async (idToken) => {
+        try {
+          await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
+          return 'ok';
+        } catch (e) { return 'erro: ' + (e && e.code || e); }
+      };
       window.dispatchEvent(new Event('firebase-ready'));
     } catch (e) { console.warn('Firebase init falhou:', e); }
   }

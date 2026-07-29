@@ -191,22 +191,31 @@ function toggleFloat() {
 async function autoShowFloat() {
   if (quitting || floatOpen()) return;
   if (miniMode) return; // modo mini já é a presença flutuante — não empilhar os dois
-  // lê o estado FRESCO: lastState (poll 3s) perdia sessão iniciada há <3s e o
-  // auto-PiP não abria (ou abria com sessão recém-parada)
-  const st = (await readTimerState()) || lastState;
+  // Se o poll ja sabe que ha sessao rodando, abra sem esperar uma ida ao renderer
+  // (que pode atrasar quando a janela acabou de minimizar). Para sessoes iniciadas
+  // ha menos de um ciclo do poll, consulte o estado fresco como fallback.
+  let st = lastState;
+  if (!st || !st.running) st = (await readTimerState()) || lastState;
   if (SMOKE) smokeTrace.push('autoShow open=' + floatOpen() + ' running=' + !!(st && st.running) + ' quitting=' + quitting);
   if (quitting || floatOpen() || miniMode) return; // re-checa: houve await no meio
   if (st && st.running) { lastState = st; floatAuto = true; createFloat(); }
 }
 function autoHideFloat() {
   if (SMOKE) smokeTrace.push('autoHide auto=' + floatAuto + ' open=' + floatOpen());
+  // show/restore podem disparar enquanto a janela ainda esta minimizada ou
+  // atras de outro app. So retire o flutuante quando a principal ganhou foco.
+  if (!mainAlive() || !win.isVisible() || win.isMinimized() || !win.isFocused()) return;
   if (floatAuto && floatOpen()) floatWin.close();
   floatAuto = false;
 }
 
 ipcMain.on('float-action', (_e, a) => {
   if (a === 'toggle') { toggleFloat(); return; }
-  if (a === 'close') { if (floatOpen()) floatWin.close(); return; }
+  if (a === 'close') {
+    floatAuto = false; // fechamento pelo X e intencional; nao reabrir automaticamente
+    if (floatOpen()) floatWin.close();
+    return;
+  }
   if (a === 'pause') pagePauseIntent(true);
   else if (a === 'resume') pagePauseIntent(false);
   else if (a === 'start') pageStartGuarded();
@@ -341,6 +350,12 @@ function startPolling() {
       if (changed) rebuildTray();
       else if (st && st.running && !st.paused) rebuildTray(); // contagem viva no tooltip
       pushFloatState();
+      // Se a janela flutuante cair sem comando do usuario enquanto a principal
+      // continua fora de foco, recrie-a. O X desliga floatAuto no handler acima.
+      if (floatAuto && !floatOpen() && st && st.running && mainAlive()
+          && (!win.isVisible() || win.isMinimized() || !win.isFocused())) {
+        createFloat();
+      }
       // Janela escondida/minimizada: visibilityState='hidden' → o poll de sync do
       // SITE (30s, gateado em visible) nunca roda e a casca não ficava sabendo de
       // pausas feitas noutro device. Cutucamos o pull por fora a cada 30s.
@@ -472,8 +487,14 @@ function createWindow() {
       if (!win.isDestroyed() && !win.isFocused() && !floatFocado) autoShowFloat();
     }, 400);
   });
-  win.on('restore', autoHideFloat);
-  win.on('show', autoHideFloat);
+  // show/restore chegam antes de isFocused() estabilizar em alguns caminhos do
+  // Windows. Revalidar depois evita tanto o sumico precoce quanto o flutuante orfao.
+  const hideFloatWhenForeground = () => {
+    autoHideFloat();
+    setTimeout(autoHideFloat, 180);
+  };
+  win.on('restore', hideFloatWhenForeground);
+  win.on('show', hideFloatWhenForeground);
   win.on('focus', () => { clearTimeout(blurTimer); autoHideFloat(); });
 
   win.loadURL(APP_URL, { userAgent: ua });
@@ -577,6 +598,11 @@ function createWindow() {
       win.minimize();
       await new Promise((r) => setTimeout(r, 1500)); // 1ª janela transparente compila shader — 800ms flakeava
       info.autoAbriuAoMinimizar = { open: floatOpen(), visivel: floatOpen() && floatWin.isVisible(), minimizada: win.isMinimized() };
+      // Regressao: show pode disparar sem restaurar de fato (bandeja/Windows).
+      // O flutuante nao pode sumir enquanto a principal segue minimizada.
+      win.emit('show');
+      await new Promise((r) => setTimeout(r, 250));
+      info.autoSobreviveShowMinimizado = floatOpen() && floatWin.isVisible() && win.isMinimized();
       win.restore();
       await new Promise((r) => setTimeout(r, 1000));
       info.autoFechouAoRestaurar = !floatOpen();

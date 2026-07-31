@@ -658,6 +658,9 @@ window.firebaseConfig = {
     margin-bottom: 22px;
   }
   .chart-title { font-size: 11px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.28em; font-weight: 500; }
+  /* Modo Mês: título com setas ‹ › (reusa .wr-nav da revisão semanal) */
+  .chart-title-wrap { display: flex; align-items: center; gap: 8px; }
+  .chart-title-wrap .wr-nav[disabled] { opacity: 0.35; pointer-events: none; }
   .chart-total {
     font-size: 34px; font-weight: 600; line-height: 1;
     letter-spacing: -0.01em; color: var(--text);
@@ -698,7 +701,7 @@ window.firebaseConfig = {
     margin-bottom: 16px;
     font-weight: 500;
   }
-  .chart-label { flex: 1; min-width: 0; overflow: hidden; }
+  .chart-label { flex: 1; min-width: 0; overflow: visible; white-space: nowrap; }
   .chart-label.muted { visibility: hidden; }
 
   .chart-detail {
@@ -2819,15 +2822,18 @@ window.firebaseConfig = {
   <div class="panel" id="history-panel">
     <div class="range-tabs">
       <button class="range-tab active" data-range="7">7 dias</button>
-      <button class="range-tab" data-range="30">30 dias</button>
-      <button class="range-tab" data-range="60">2 meses</button>
+      <button class="range-tab" data-range="month">Mês</button>
     </div>
 
     <div class="hm-card" id="heatmapCard"></div>
 
     <div class="chart-card">
       <div class="chart-header">
-        <div class="chart-title" id="chartTitle">Últimos 7 dias</div>
+        <div class="chart-title-wrap">
+          <button class="wr-nav" id="histPrev" style="display:none" aria-label="Mês anterior">‹</button>
+          <div class="chart-title" id="chartTitle">Últimos 7 dias</div>
+          <button class="wr-nav" id="histNext" style="display:none" aria-label="Próximo mês">›</button>
+        </div>
         <div class="chart-total" id="chartTotal">0min</div>
       </div>
       <div class="chart" id="chart"></div>
@@ -4169,6 +4175,8 @@ function getCategoryColor(category) {
 }
 
 let currentRange = 7;
+let histMode = 'days';      // 'days' (últimos 7) | 'month' (mês-calendário navegável)
+let histMonthOffset = 0;    // 0 = mês atual, -1 = anterior...
 let selectedDate = null;
 
 function dateKey(date) {
@@ -4186,6 +4194,27 @@ function getRangeData(rangeDays) {
   for (let i = rangeDays - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
+    const key = dateKey(d);
+    const data = history[key] || {};
+    days.push({
+      date: d, key, data,
+      total: Object.values(data).reduce((a, b) => a + b, 0)
+    });
+  }
+  return days;
+}
+
+// Mês-calendário (1º ao último dia) pro modo "Mês" do Histórico
+function getMonthData(offset) {
+  const history = loadHistory();
+  const base = new Date();
+  base.setDate(1);
+  base.setMonth(base.getMonth() + offset);
+  const y = base.getFullYear(), m = base.getMonth();
+  const lastDay = new Date(y, m + 1, 0).getDate();
+  const days = [];
+  for (let i = 1; i <= lastDay; i++) {
+    const d = new Date(y, m, i);
     const key = dateKey(d);
     const data = history[key] || {};
     days.push({
@@ -4276,7 +4305,9 @@ function renderHeatmap() {
 }
 function renderHistory() {
   renderHeatmap();
-  const days = getRangeData(currentRange);
+  const monthMode = histMode === 'month';
+  const days = monthMode ? getMonthData(histMonthOffset) : getRangeData(currentRange);
+  const today0 = new Date(); today0.setHours(0, 0, 0, 0);
   const total = days.reduce((s, d) => s + d.total, 0);
   const activeDays = days.filter(d => d.total > 0).length;
   // Média por dia útil: total (inclui fds) ÷ dias úteis (seg–sex) com atividade
@@ -4285,16 +4316,24 @@ function renderHistory() {
   const avg = avgDenom > 0 ? total / avgDenom : 0;
   const max = Math.max(0, ...days.map(d => d.total));
 
-  // Streak: dias consecutivos terminando no último dia ativo
+  // Streak: dias consecutivos terminando no último dia ativo (dias futuros do
+  // mês corrente não zeram a sequência no modo Mês)
   let streak = 0;
   let i = days.length - 1;
-  if (days[i].total === 0) i--; // hoje sem atividade não quebra streak
+  while (i >= 0 && days[i].date > today0) i--;
+  if (i >= 0 && days[i].total === 0) i--; // hoje sem atividade não quebra streak
   while (i >= 0 && days[i].total > 0) { streak++; i--; }
 
-  // Header
-  $('#chartTitle').textContent =
-    currentRange === 7 ? 'Últimos 7 dias' :
-    currentRange === 30 ? 'Últimos 30 dias' : 'Últimos 60 dias';
+  // Header (modo Mês: nome do mês + navegação ‹ ›)
+  if (monthMode) {
+    const label = days[0].date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    $('#chartTitle').textContent = label.charAt(0).toUpperCase() + label.slice(1);
+  } else {
+    $('#chartTitle').textContent = 'Últimos 7 dias';
+  }
+  const prevB = $('#histPrev'), nextB = $('#histNext');
+  if (prevB) prevB.style.display = monthMode ? '' : 'none';
+  if (nextB) { nextB.style.display = monthMode ? '' : 'none'; nextB.disabled = histMonthOffset >= 0; }
   $('#chartTotal').textContent = total > 0 ? formatDuration(total) : '0min';
 
   // Bars
@@ -4317,14 +4356,12 @@ function renderHistory() {
 
   // Labels
   const dayNames = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
-  const step = currentRange === 7 ? 1 : currentRange === 30 ? 5 : 10;
   $('#chartLabels').innerHTML = days.map((d, idx) => {
     let txt = '';
-    if (currentRange === 7) {
-      txt = dayNames[d.date.getDay()];
+    if (monthMode) {
+      if (idx % 5 === 0) txt = String(d.date.getDate()); // 1, 6, 11, 16, 21, 26, 31
     } else {
-      const fromEnd = days.length - 1 - idx;
-      if (fromEnd % step === 0) txt = `${d.date.getDate()}/${d.date.getMonth() + 1}`;
+      txt = dayNames[d.date.getDay()];
     }
     return `<div class="chart-label ${txt ? '' : 'muted'}">${txt || '.'}</div>`;
   }).join('');
@@ -4341,10 +4378,11 @@ function renderHistory() {
         <span>${escapeHtml(cat)}</span>
       </div>`).join('') : '';
 
-  // Stats
+  // Stats (modo Mês: "de N" = dias do mês, sem contar futuro no mês corrente)
+  const denomDays = monthMode ? days.filter(d => d.date <= today0).length : currentRange;
   $('#statAvg').textContent = avg > 0 ? formatDuration(avg) : '0min';
   $('#statMax').textContent = max > 0 ? formatDuration(max) : '0min';
-  $('#statActive').textContent = `${activeDays} de ${currentRange}`;
+  $('#statActive').textContent = `${activeDays} de ${denomDays}`;
   $('#statStreak').textContent = streak === 1 ? '1 dia' : `${streak} dias`;
 }
 
@@ -4352,11 +4390,14 @@ document.querySelectorAll('.range-tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.range-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
-    currentRange = parseInt(tab.dataset.range);
+    if (tab.dataset.range === 'month') { histMode = 'month'; }
+    else { histMode = 'days'; currentRange = parseInt(tab.dataset.range); }
     selectedDate = null;
     renderHistory();
   });
 });
+$('#histPrev').addEventListener('click', () => { histMonthOffset--; selectedDate = null; renderHistory(); });
+$('#histNext').addEventListener('click', () => { if (histMonthOffset < 0) { histMonthOffset++; selectedDate = null; renderHistory(); } });
 
 document.addEventListener('click', (e) => {
   const bar = e.target.closest('#chart .bar-col');

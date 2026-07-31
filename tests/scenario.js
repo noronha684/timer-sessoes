@@ -95,7 +95,27 @@
     calMonthOffset = prevOffset;
     renderCalMonth();
 
-    // 9) Fechar semestre: seção renderiza e o texto compila
+    // 9) Histórico por mês-calendário (tabs 7 dias / Mês com ‹ ›)
+    const monthTab = document.querySelector('.range-tab[data-range="month"]');
+    t('tab Mês existe', !!monthTab);
+    monthTab.click();
+    await sleep(50);
+    const now2 = new Date();
+    const monthName = now2.toLocaleDateString('pt-BR', { month: 'long' });
+    t('título mostra o mês corrente', $$('#chartTitle').textContent.toLowerCase().includes(monthName));
+    t('barras = dias do mês', document.querySelectorAll('#chart .bar-col').length === new Date(now2.getFullYear(), now2.getMonth() + 1, 0).getDate());
+    t('› desabilitado no mês corrente', $$('#histNext').disabled === true);
+    $$('#histPrev').click();
+    await sleep(50);
+    const prevM = new Date(now2.getFullYear(), now2.getMonth() - 1, 1).toLocaleDateString('pt-BR', { month: 'long' });
+    t('‹ navega pro mês anterior', $$('#chartTitle').textContent.toLowerCase().includes(prevM));
+    $$('#histNext').click();
+    await sleep(50);
+    document.querySelector('.range-tab[data-range="7"]').click();
+    await sleep(50);
+    t('volta pra 7 dias esconde as setas', $$('#histPrev').style.display === 'none');
+
+    // 10) Fechar semestre: seção renderiza e o texto compila
     try { localStorage.setItem('timerH2Tab', 'fechamento'); } catch {}
     h2Active = 'fechamento';
     renderH2Section();

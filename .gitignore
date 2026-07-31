@@ -10,6 +10,8 @@ desktop/dist/
 desktop/build/
 desktop/smoke.png
 desktop/*.log
+# Screenshots da submissão na Microsoft Store (regeneráveis via desktop/shots.js)
+desktop/store-shots/
 
 # App Android (TWA) — keystore e senhas NUNCA no git
 android-twa/*.keystore

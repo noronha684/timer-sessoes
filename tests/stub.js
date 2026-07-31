@@ -35,6 +35,8 @@
       if (api('snapshot')) return ok({ unchanged: true, serverStamp: 1 });
       if (api('sync')) return ok({ sessions: {}, history: {}, categories: [], settings: { _stamps: {} }, serverStamp: 1, serverTime: Date.now() });
       if (api('whoop/status')) return ok({ connected: false });
+      if (api('week-note')) return ok({ note: 'Reiteramos COMPRA na execução (stub).' });
+      if (api('suggest-week')) return ok({ week: 1, reason: 'stub' });
       if (api('ping')) return ok({ ok: true, now: Date.now() });
       return ok({ ok: true });
     }

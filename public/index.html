@@ -1019,6 +1019,36 @@ window.firebaseConfig = {
   }
   /* recovery do Whoop: sub-linha discreta sob o valor de sono */
   .sleep-card-sub { font-size: 11px; color: var(--text-subtle); margin-top: 2px; letter-spacing: 0.5px; }
+  .sleep-insight { font-size: 12px; color: var(--text-muted); margin-top: 10px; }
+  /* Strip de execução + âncora no card Hoje */
+  .exec-strip { font-size: 11.5px; color: var(--text-subtle); margin-top: 8px; letter-spacing: 0.3px; }
+  .exec-strip b { color: var(--text-muted); font-weight: 600; }
+  /* ▶ sessão etiquetada no Plano de hoje */
+  .dp-play { border: 1px solid var(--border); background: transparent; color: var(--text-muted); border-radius: 50%; width: 22px; height: 22px; font-size: 9px; line-height: 1; cursor: pointer; flex-shrink: 0; }
+  .dp-play:hover { color: var(--accent); border-color: var(--border-strong); }
+  /* ⚓ entrega-âncora da semana */
+  .wk-anchor-btn { border: none; background: transparent; color: var(--text-subtle); opacity: 0.25; cursor: pointer; font-size: 11px; padding: 0 2px; flex-shrink: 0; margin-left: auto; }
+  .wk-topic:hover .wk-anchor-btn { opacity: 0.7; }
+  .wk-anchor-btn.on { opacity: 1; color: var(--warn); }
+  .wk-topic.anchor > span:not(.wk-drag) { color: var(--text); font-weight: 600; }
+  /* Tracker de balanços */
+  .earn-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-top: 1px solid var(--border); font-size: 12.5px; }
+  .earn-row.done { opacity: 0.55; }
+  .earn-tk { font-weight: 600; min-width: 56px; }
+  .earn-dt { color: var(--text-subtle); font-variant-numeric: tabular-nums; }
+  .earn-chk { display: flex; align-items: center; gap: 3px; font-size: 10.5px; color: var(--text-subtle); cursor: pointer; }
+  .earn-chk.on { color: var(--text-muted); }
+  .earn-chk input { width: 13px; height: 13px; }
+  .earn-st { margin-left: auto; font-size: 10.5px; letter-spacing: 0.5px; white-space: nowrap; }
+  .earn-st.ok { color: var(--success); }
+  .earn-st.due { color: var(--warn); }
+  .earn-st.late { color: var(--danger); }
+  .earn-st.wait { color: var(--text-subtle); }
+  .earn-del { border: none; background: none; color: var(--text-subtle); cursor: pointer; font-size: 14px; padding: 0 2px; }
+  .earn-del:hover { color: var(--danger); }
+  /* Por entrega na revisão da semana */
+  .wr-sub { color: var(--text-muted); }
+  .wr-sub-title { font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-subtle); margin-bottom: 6px; }
   .sleep-chart-wrap { margin-top: 4px; }
   .sleep-chart {
     display: flex; align-items: flex-end; gap: 4px;
@@ -2743,6 +2773,7 @@ window.firebaseConfig = {
       </div>
       <div class="today-total" id="todayTotal">0min</div>
       <div class="today-subtitle" id="todaySubtitle">0 sessões de foco</div>
+      <div class="exec-strip" id="execStrip" style="display:none"></div>
       <div class="today-breakdown" id="todayBreakdown"></div>
       <div class="today-avg-row">
         <span class="today-avg-label">Média / dia útil</span>
@@ -2899,6 +2930,7 @@ window.firebaseConfig = {
         <div class="sono-section-title" style="font-size: 11px; margin-bottom: 10px;">Últimos 7 dias</div>
         <div class="sleep-chart" id="sleepChart"></div>
         <div class="sleep-chart-labels" id="sleepChartLabels"></div>
+        <div class="sleep-insight" id="recFocusInsight" style="display:none"></div>
       </div>
     </div>
 
@@ -2959,6 +2991,8 @@ window.firebaseConfig = {
     <div class="tasks-card" id="dayPlanCard" style="display:none"></div>
 
     <div class="tasks-card" id="tasksCard"></div>
+
+    <div class="tasks-card" id="earnTrackerCard"></div>
 
     <div class="waiting-card tasks-card" id="waitingCard"></div>
 
@@ -3910,6 +3944,8 @@ function finishSession(completed, opts = {}) {
   syncWakeLock();
   updateDisplay();
   updatePipMediaState();
+  // Etiqueta de entrega (play no plano) vale só pra sessão que acabou — volta pra seleção
+  state.subcategory = loadSelectedSubcategory();
   renderToday();
   if (typeof checkNewRecords === 'function') checkNewRecords();
   if (typeof renderGoals === 'function') renderGoals();
@@ -4093,7 +4129,35 @@ function checkNewRecords(quiet) {
   else if (rec.bestWeekMs > (prev.bestWeekMs || 0)) showRecordToast('novo recorde — melhor semana: ' + formatDuration(rec.bestWeekMs));
   else if (rec.bestStreak > (prev.bestStreak || 0)) showRecordToast('novo recorde — streak: ' + rec.bestStreak + ' dias');
 }
+// Strip no card Hoje: índice de execução (horas×itens) + entrega-âncora da semana.
+// É o número que diferencia "trabalhei muito" de "entreguei" — visível onde se olha todo dia.
+function renderExecStrip() {
+  const el = $('#execStrip');
+  if (!el) return;
+  const parts = [];
+  try {
+    const s = (typeof execScoreToday === 'function') ? execScoreToday() : null;
+    const w = (typeof execWeekAvg === 'function') ? execWeekAvg() : null;
+    if (s != null || w != null) {
+      parts.push(`execução ${s != null ? 'hoje <b>' + s + '</b>' : ''}${s != null && w != null ? ' · ' : ''}${w != null ? 'semana <b>' + w + '</b>' : ''}`);
+    }
+    const cur = (typeof h2CurrentWeek === 'function') ? h2CurrentWeek() : null;
+    if (cur) {
+      const D = loadH2();
+      const anc = D['wkanchor_' + cur.n];
+      if (anc) {
+        const done = !!D[h2TopicKey(cur.n, anc)];
+        const short = anc.length > 48 ? anc.slice(0, 47) + '…' : anc;
+        parts.push(`⚓ ${escapeHtml(short)} ${done ? '<b>✓</b>' : '· aberta'}`);
+      }
+    }
+  } catch { /* h2 pode não estar pronto no primeiro paint */ }
+  if (parts.length) { el.style.display = ''; el.innerHTML = parts.join(' &nbsp;·&nbsp; '); }
+  else el.style.display = 'none';
+}
+
 function renderToday() {
+  renderExecStrip();
   const history = loadHistory();
   const today = dateKey(new Date());
   const day = history[today] || {};
@@ -5578,6 +5642,29 @@ function renderSono() {
     return `<div class="sleep-bar ${d.min === 0 ? 'empty' : ''}" style="height:${h}%" title="${formatDuration(d.min * 60000)}"></div>`;
   }).join('');
   labels.innerHTML = days.map(d => `<span>${dayNames[d.date.getDay()]}</span>`).join('');
+
+  // Recovery × foco: quanto rende um dia de recovery alto vs. o resto? (bandas do Whoop:
+  // verde ≥67%). Dia sem foco conta como 0h — pular trabalho POR recovery baixo é o dado.
+  // Só aparece com amostra mínima (3+ dias em cada balde nos últimos 60d).
+  const insight = $('#recFocusInsight');
+  if (insight) {
+    const hist2 = loadHistory();
+    const hi = [], lo = [];
+    for (let i = 1; i <= 60; i++) {
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      const k = dateKey(d);
+      const e = sleep[k];
+      if (!e || typeof e.recovery !== 'number') continue;
+      const day = hist2[k] || {};
+      let ms = 0; for (const c in day) ms += day[c];
+      (e.recovery >= 67 ? hi : lo).push(ms / 3600000);
+    }
+    const avg = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+    if (hi.length >= 3 && lo.length >= 3) {
+      insight.style.display = '';
+      insight.textContent = `Recovery alto (≥67%): ${avg(hi).toFixed(1)}h de foco/dia · abaixo disso: ${avg(lo).toFixed(1)}h — últimos 60 dias (${hi.length}×${lo.length} noites)`;
+    } else insight.style.display = 'none';
+  }
 }
 
 // ====== Agenda (timeline semanal) ======
@@ -7007,9 +7094,74 @@ function renderPlano() {
   renderPlanToday();
   renderDayPlan();
   renderTasks();
+  renderEarnTracker();
   renderWaiting();
   renderWeekPlan();
   renderWeekReview();
+}
+
+// ===== Balanços: tracker de releases com relógio de 48h (KR1.1: Tier 1 em ≤48h) =====
+// Lista editável (name + data do release) com preview/call/modelo; o relógio corre a
+// partir das 18h do dia do release (pós-pregão). Persiste em h2Plan.earnTracker (sync).
+function renderEarnTracker() {
+  const c = $('#earnTrackerCard');
+  if (!c) return;
+  const D0 = loadH2();
+  const list = (Array.isArray(D0.earnTracker) ? D0.earnTracker : []).slice()
+    .sort((a, b) => String(a.dt || '').localeCompare(String(b.dt || '')) || String(a.tk).localeCompare(String(b.tk)));
+  const todayK = dateKey(new Date());
+  const rows = list.map(r => {
+    let st = '', cls = '';
+    if (r.modelo) { st = 'modelo ✓'; cls = 'ok'; }
+    else if (r.dt && todayK < r.dt) {
+      const dd = Math.round((new Date(r.dt + 'T00:00:00') - new Date(todayK + 'T00:00:00')) / 86400000);
+      st = 'D-' + dd; cls = 'wait';
+    } else if (r.dt) {
+      const deadline = new Date(r.dt + 'T18:00:00').getTime() + 48 * 3600 * 1000;
+      const hLeft = Math.ceil((deadline - Date.now()) / 3600000);
+      if (hLeft < 0) { st = 'estourou ' + Math.abs(Math.floor(hLeft / 24)) + 'd'; cls = 'late'; }
+      else { st = 'vence em ' + (hLeft >= 24 ? Math.ceil(hLeft / 24) + 'd' : hLeft + 'h'); cls = 'due'; }
+    }
+    const chk = (f, lbl) => `<label class="earn-chk${r[f] ? ' on' : ''}" title="${lbl}"><input type="checkbox" data-earnchk="${f}" data-earnid="${r.id}"${r[f] ? ' checked' : ''}>${lbl}</label>`;
+    return `<div class="earn-row${r.modelo ? ' done' : ''}">
+      <span class="earn-tk">${escapeHtml(r.tk)}</span>
+      <span class="earn-dt">${r.dt ? r.dt.slice(8, 10) + '/' + r.dt.slice(5, 7) : '—'}</span>
+      ${chk('preview', 'prev')}${chk('call', 'call')}${chk('modelo', 'modelo')}
+      <span class="earn-st ${cls}">${st}</span>
+      <button class="earn-del" data-earndel="${r.id}" aria-label="Remover">×</button>
+    </div>`;
+  }).join('');
+  const doneN = list.filter(r => r.modelo).length;
+  c.innerHTML = `
+    <div class="dp-head">
+      <div class="dp-title">Balanços · 2T26</div>
+      ${list.length ? `<div class="dp-progress${doneN === list.length ? ' all' : ''}">${doneN}/${list.length} modelos</div>` : ''}
+    </div>
+    ${rows || '<div class="dp-empty">Adicione os releases (name + data) — o relógio de 48h corre das 18h do dia do release.</div>'}
+    <div class="todo-add-row">
+      <input type="text" id="earnTk" class="new-cat-input" placeholder="Name (ex.: EQTL3)" maxlength="12" style="flex:0 0 110px">
+      <input type="date" id="earnDt" class="new-cat-input" style="flex:1">
+      <button class="sono-add-btn" id="earnAdd">+ Release</button>
+    </div>`;
+  const saveList = (arr) => { const D = loadH2(); D.earnTracker = arr; saveH2(D); renderEarnTracker(); };
+  c.querySelector('#earnAdd').addEventListener('click', () => {
+    const tk = c.querySelector('#earnTk').value.trim().toUpperCase().slice(0, 12);
+    const dt = c.querySelector('#earnDt').value;
+    if (!tk || !dt) return;
+    const arr = (Array.isArray(loadH2().earnTracker) ? loadH2().earnTracker : []).slice();
+    arr.push({ id: 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), tk, dt, preview: false, call: false, modelo: false });
+    saveList(arr);
+  });
+  c.querySelectorAll('[data-earnchk]').forEach(el => el.addEventListener('change', () => {
+    const arr = (Array.isArray(loadH2().earnTracker) ? loadH2().earnTracker : []).slice();
+    const r = arr.find(x => x.id === el.dataset.earnid);
+    if (!r) return;
+    r[el.dataset.earnchk] = el.checked;
+    saveList(arr);
+  }));
+  c.querySelectorAll('[data-earndel]').forEach(el => el.addEventListener('click', () => {
+    saveList((Array.isArray(loadH2().earnTracker) ? loadH2().earnTracker : []).filter(x => x.id !== el.dataset.earndel));
+  }));
 }
 
 // Plano semana-a-semana do H2/2026 dentro da aba Plano (reusa o renderizador do Semestre)
@@ -7353,6 +7505,7 @@ function renderDayPlan() {
     <div class="dp-task${e.done ? ' done' : ''}" data-dpslug="${e.slug}">
       <button class="dp-check" data-dpact="toggle" aria-label="Concluir">${e.done ? '✓' : ''}</button>
       <span class="dp-text">${escapeHtml(e.text)}</span>
+      ${!e.done ? '<button class="dp-play" data-dpact="play" title="Iniciar sessão de foco nesta entrega (etiqueta a sessão)">▶</button>' : ''}
       ${where === 'today'
         ? '<button class="dp-toweek" data-dpact="unday" title="Tirar do dia — volta pro dia padrão da semana (sexta)">tirar</button>'
         : '<button class="dp-toweek" data-dpact="today" title="Trazer esta entrada pra hoje">→ hoje</button>'}
@@ -7374,6 +7527,18 @@ function renderDayPlan() {
   c.querySelectorAll('[data-dpact]').forEach(btn => btn.addEventListener('click', () => {
     const slug = btn.closest('[data-dpslug]').dataset.dpslug;
     const act = btn.dataset.dpact;
+    // ▶ sessão etiquetada: a entrega vira subcategoria da sessão (aparece no
+    // "por entrega" da revisão) — sem poluir a lista de subcategorias do picker
+    if (act === 'play') {
+      if (state.running) { alert('Já existe uma sessão em andamento.'); return; }
+      const txtEl = btn.closest('[data-dpslug]').querySelector('.dp-text');
+      const txt = txtEl ? txtEl.textContent.trim().slice(0, 80) : '';
+      if (txt) state.subcategory = txt;
+      const tb = document.querySelector('.tab[data-panel="timer"]');
+      if (tb) tb.click();
+      startBtn.click();
+      return;
+    }
     const D = loadH2();
     if (act === 'toggle') {
       const k = h2PlanDoneKey(E.n, slug);
@@ -7643,6 +7808,18 @@ function renderWeekReview() {
       </div>`;
   }).join('');
 
+  // Por entrega: horas da semana agrupadas pela ETIQUETA da sessão (subcategoria —
+  // nasce do ▶ no plano). Responde "pra onde foram as horas?" no nível que importa.
+  const sessAll = loadSessions();
+  const subTot = {};
+  for (const day of days) {
+    for (const s of (sessAll[day.dk] || [])) {
+      if (s.subcategory) subTot[s.subcategory] = (subTot[s.subcategory] || 0) + s.durationMs;
+    }
+  }
+  const subHtml = Object.entries(subTot).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([t, ms]) =>
+    `<div class="plan-cat-row"><span class="plan-cat-name wr-sub">↳ ${escapeHtml(t)}</span><span class="plan-cat-vals">${formatDuration(ms)}</span></div>`).join('');
+
   card.innerHTML = `
     <div class="wr-head">
       <button class="wr-nav" id="wrPrev" aria-label="Semana anterior">‹</button>
@@ -7656,7 +7833,8 @@ function renderWeekReview() {
     <div class="plan-bar"><div class="plan-bar-fill ${complete ? 'done' : ''}" style="width:${pct}%"></div></div>
     <div class="wr-days">${daysHtml}</div>
     ${note ? `<div class="wr-note">${note}</div>` : ''}
-    ${catsHtml ? `<div class="wr-cats">${catsHtml}</div>` : ''}`;
+    ${catsHtml ? `<div class="wr-cats">${catsHtml}</div>` : ''}
+    ${subHtml ? `<div class="wr-cats"><div class="wr-sub-title">Por entrega</div>${subHtml}</div>` : ''}`;
 
   card.querySelector('#wrPrev').addEventListener('click', () => { weekReviewOffset--; renderWeekReview(); });
   card.querySelector('#wrNext').addEventListener('click', () => { if (weekReviewOffset < 0) { weekReviewOffset++; renderWeekReview(); } });
@@ -8016,14 +8194,17 @@ function h2TopicKey(n, text) {
 function h2WkTopicsHtml(raw, n) {
   const tp = h2WkTopics(raw);
   const D = loadH2();
+  const anchor = D['wkanchor_' + n] || ''; // entrega-âncora da semana (texto do tópico)
   const inner = tp.length
     ? tp.map(t => {
         const k = h2TopicKey(n, t);
         const done = !!D[k];
-        return `<div class="wk-topic${done ? ' done' : ''}" data-tpk="${k}">
+        const isA = anchor && anchor === t;
+        return `<div class="wk-topic${done ? ' done' : ''}${isA ? ' anchor' : ''}" data-tpk="${k}">
           <span class="wk-drag" title="Arrastar pra outra semana">⠿</span>
           <input type="checkbox" class="h2-check wk-topic-check"${done ? ' checked' : ''} title="Concluir tópico">
           <span>${escapeHtml(t)}</span>
+          <button type="button" class="wk-anchor-btn${isA ? ' on' : ''}" title="${isA ? 'Remover âncora da semana' : 'Tornar entrega-âncora da semana'}">⚓</button>
         </div>`;
       }).join('')
     : '<div class="wk-topic wk-topic-empty"><span>clique para escrever…</span></div>';
@@ -8397,8 +8578,54 @@ async function h2GenWeekNote(wn, force) {
     _wkNoteBusy = false;
   }
 }
+// Nota de sexta AUTOMÁTICA: de sex 17h até domingo, se a semana que contém a última
+// sexta ainda não tem nota e teve horas, gera sozinha ao abrir/voltar pro app (as
+// semanas 1–3 de jul/26 fecharam sem nota porque a geração dependia de gesto manual).
+// Guarda de 6h entre tentativas — falha de API não vira martelo.
+function maybeAutoWeekNote() {
+  try {
+    if (localStorage.getItem('timerIsOwner') === '0') return; // plano de convidado não tem o ritual
+    if (!window.API_BASE || !syncCode) return;
+    const now = new Date();
+    const dow = now.getDay();
+    if (!((dow === 5 && now.getHours() >= 17) || dow === 6 || dow === 0)) return;
+    const fri = new Date(now); fri.setDate(now.getDate() - ((dow + 2) % 7)); // última sexta
+    const fk = dateKey(fri);
+    const wk = H2_WEEKPLAN.find(x => fk >= x.s && fk <= x.e);
+    if (!wk) return;
+    const D = loadH2();
+    if (D['wknote_' + wk.n]) return;
+    const last = parseInt(localStorage.getItem('timerAutoNoteAt') || '0') || 0;
+    if (Date.now() - last < 6 * 3600 * 1000) return;
+    const hist = loadHistory();
+    let ms = 0;
+    for (let d = new Date(wk.s + 'T00:00:00'); dateKey(d) <= wk.e; d.setDate(d.getDate() + 1)) {
+      const day = hist[dateKey(d)] || {};
+      for (const c2 in day) ms += day[c2];
+    }
+    if (ms <= 0) return; // semana sem horas (férias?) não merece nota automática
+    try { localStorage.setItem('timerAutoNoteAt', String(Date.now())); } catch {}
+    h2GenWeekNote(wk.n, false);
+  } catch { /* best-effort */ }
+}
+setTimeout(maybeAutoWeekNote, 8000); // pós-boot (sync já assentou)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') setTimeout(maybeAutoWeekNote, 3000);
+});
+
 function bindH2Plano(c) {
   c.querySelectorAll('[data-h2check]').forEach(el => el.addEventListener('change', () => {
+    // Fechar semana com a entrega-âncora ABERTA exige confirmação explícita — é o
+    // "atrasado difuso" virando decisão consciente (fechar assim mesmo ou reagendar).
+    if (el.checked && /^wk_\d+$/.test(el.dataset.h2check)) {
+      const nW = el.dataset.h2check.slice(3);
+      const Dg = loadH2();
+      const anc = Dg['wkanchor_' + nW];
+      if (anc && !Dg[h2TopicKey(nW, anc)]) {
+        const okClose = confirm('A entrega-âncora desta semana ainda está aberta:\n\n«' + anc + '»\n\nFechar a semana mesmo assim?\n(Cancelar = manter aberta — considere arrastar a âncora pra outra semana.)');
+        if (!okClose) { el.checked = false; return; }
+      }
+    }
     const D = loadH2(); D[el.dataset.h2check] = el.checked; saveH2(D);
     if (/^wk_\d+$/.test(el.dataset.h2check)) {
       // Feito da semana: esmaece a linha, sincroniza o checkbox-gêmeo (coluna + espelho
@@ -8440,6 +8667,23 @@ function bindH2Plano(c) {
     // Clique no CHECKBOX de um tópico: alterna feito (in place, sem re-render que rouba
     // clique) e NÃO abre o editor. Clique no texto continua abrindo o editor.
     if (ev.target.closest && ev.target.closest('.wk-drag')) return; // alça é do drag, não do editor
+    // ⚓ âncora: alterna a entrega-âncora da semana e NÃO abre o editor
+    const ab = ev.target.closest && ev.target.closest('.wk-anchor-btn');
+    if (ab) {
+      const row = ab.closest('.wk-topic');
+      const txtEl = row && row.querySelector('span:not(.wk-drag)');
+      const txt = txtEl && txtEl.textContent.trim();
+      const nA = el.dataset.h2wked;
+      if (txt) {
+        const Da = loadH2();
+        if (Da['wkanchor_' + nA] === txt) delete Da['wkanchor_' + nA];
+        else Da['wkanchor_' + nA] = txt;
+        saveH2(Da);
+        refreshWeekPlanSafe();
+        if (typeof renderExecStrip === 'function') renderExecStrip();
+      }
+      return;
+    }
     const cb = ev.target.closest && ev.target.closest('.wk-topic-check');
     if (cb) {
       const row = cb.closest('.wk-topic');
@@ -8447,6 +8691,7 @@ function bindH2Plano(c) {
       if (k) {
         const Dt = loadH2(); Dt[k] = cb.checked; if (!cb.checked) delete Dt[k]; saveH2(Dt);
         row.classList.toggle('done', cb.checked);
+        if (typeof renderExecStrip === 'function') renderExecStrip(); // âncora pode ter fechado
       }
       return;
     }

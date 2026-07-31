@@ -115,7 +115,70 @@
     await sleep(50);
     t('volta pra 7 dias esconde as setas', $$('#histPrev').style.display === 'none');
 
-    // 10) Fechar semestre: seção renderiza e o texto compila
+    // 10) Âncora da semana: aparece no strip do Timer e some ao remover
+    const curW = h2CurrentWeek();
+    if (curW) {
+      const Da = loadH2();
+      const seedW = (H2_WEEKPLAN.find(w => w.n === curW.n) || {}).w || '';
+      const topics = h2WkTopics(Da['wkw_' + curW.n] != null ? Da['wkw_' + curW.n] : seedW);
+      if (topics.length) {
+        Da['wkanchor_' + curW.n] = topics[0];
+        saveH2(Da);
+        renderExecStrip();
+        t('âncora no strip do Timer', ($$('#execStrip').innerHTML || '').includes('⚓'));
+        const Db = loadH2(); delete Db['wkanchor_' + curW.n]; saveH2(Db);
+        renderExecStrip();
+      } else t('âncora no strip do Timer', true);
+    } else t('âncora no strip do Timer', true);
+
+    // 11) Play etiquetado no Plano de hoje (só quando a lente do dia está na janela)
+    renderTasks();
+    const dpCard = $$('#dayPlanCard');
+    const playBtn = document.querySelector('#dayPlanCard .dp-play');
+    if (dpCard && dpCard.style.display !== 'none' && playBtn) {
+      playBtn.click();
+      await sleep(80);
+      t('play inicia sessão etiquetada', state.running === true && !!state.subcategory);
+      $$('#stopBtn').click();
+      await sleep(50);
+      t('etiqueta volta pra seleção no fim', state.subcategory === loadSelectedSubcategory());
+    } else {
+      t('play: fora da janela do plano (ok)', true);
+      t('play: fora da janela do plano (ok 2)', true);
+    }
+
+    // 12) Tracker de balanços: estados do relógio de 48h
+    const Dt = loadH2();
+    Dt.earnTracker = [
+      { id: 'tA', tk: 'EQTL3', dt: '2026-07-25', preview: true, call: false, modelo: false },
+      { id: 'tB', tk: 'ENEV3', dt: (() => { const d = new Date(); d.setDate(d.getDate() + 5); return d.toISOString().slice(0, 10); })(), preview: false, call: false, modelo: false },
+      { id: 'tC', tk: 'CPLE3', dt: '2026-07-20', preview: true, call: true, modelo: true },
+    ];
+    saveH2(Dt);
+    renderEarnTracker();
+    t('tracker: 3 releases', document.querySelectorAll('#earnTrackerCard .earn-row').length === 3);
+    t('tracker: estourado', !!document.querySelector('#earnTrackerCard .earn-st.late'));
+    t('tracker: modelo ✓', !!document.querySelector('#earnTrackerCard .earn-st.ok'));
+    t('tracker: release futuro D-n', !!document.querySelector('#earnTrackerCard .earn-st.wait'));
+    const Dt2 = loadH2(); delete Dt2.earnTracker; saveH2(Dt2);
+
+    // 13) Recovery × foco: insight com amostra seedada (4 noites altas × 4 baixas)
+    const sl = {}, hh = {};
+    for (let i = 1; i <= 8; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const k = dateKey(d);
+      sl[k] = { durationMin: 420, source: 'whoop', at: Date.now(), recovery: i <= 4 ? 80 : 30 };
+      hh[k] = { Trabalho: (i <= 4 ? 5 : 2) * 3600000 };
+    }
+    const histBefore = localStorage.getItem('timerHistory');
+    localStorage.setItem('timerSleep', JSON.stringify(sl));
+    localStorage.setItem('timerHistory', JSON.stringify(Object.assign({}, JSON.parse(histBefore || '{}'), hh)));
+    renderSono();
+    t('insight recovery × foco', $$('#recFocusInsight').style.display !== 'none' && $$('#recFocusInsight').textContent.includes('Recovery alto'));
+    localStorage.setItem('timerHistory', histBefore || '{}');
+    localStorage.removeItem('timerSleep');
+
+    // 14) Fechar semestre: seção renderiza e o texto compila
     try { localStorage.setItem('timerH2Tab', 'fechamento'); } catch {}
     h2Active = 'fechamento';
     renderH2Section();

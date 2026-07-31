@@ -26,7 +26,7 @@ wrangler deploy                        # app  → timer.gnoronha.app
 wrangler deploy -c wrangler.api.jsonc  # API  (só quando mexer no worker.js)
 ```
 - O GitHub **não deploya** nada (o Workers Builds foi desconectado). GitHub = backup do código.
-- **Ao mudar o app, SEMPRE bumpar `CACHE_NAME`** em `public/service-worker.js` (é stale-while-revalidate + auto-reload). Versão atual: **v152**.
+- **Ao mudar o app, SEMPRE bumpar `CACHE_NAME`** em `public/service-worker.js` (é stale-while-revalidate + auto-reload). Versão atual: **v153**.
 - O SW tem um **cache permanente `CDN_CACHE`** (fontes + Firebase SDK) que sobrevive a bumps — NÃO apagá-lo no activate (era isso que causava primeira abertura de 3–5 min pós-deploy: re-download de 3 CDNs com DNS de roteador ruim). Imutáveis (woff2/firebasejs) = cache-first puro; CSS do Google Fonts = stale-while-revalidate em modo CORS (opaque nunca entra). **Se mudar a versão do firebasejs no index.html, atualizar `FIREBASEJS_VER` no service-worker.js** (poda das versões velhas no activate).
 - Segredos da API (todos já setados; `wrangler deploy` preserva): `WHOOP_CLIENT_SECRET`, `ANTHROPIC_API_KEY` (usado pelo `/api/suggest-week`; sem ele o endpoint responde 501) e `OWNER_UID` (trava a API ao uid do dono — outros uids levam 403). `wrangler secret put <NOME> -c wrangler.api.jsonc`.
 - Rollback rápido da API: `wrangler rollback -c wrangler.api.jsonc`.
@@ -88,6 +88,7 @@ Auditoria de 25 agentes + repro empírico headless. **Raiz confirmada e REPRODUZ
 - **Whoop recovery:** o escopo `read:recovery` sempre foi pedido e nunca usado — `whoopSync` agora puxa `/v2/recovery`, casa por `sleep_id` e anexa `recovery`/`hrvMs`/`rhr` à entrada de sono. Front: sub-linha "rec N%" nos cards do Sono; média da semana vai no payload da nota sell-side (`recoveryAvg`).
 - **07 · Fechar semestre (aba Semestre):** compila o semestre (horas × alvo por categoria, execução semana a semana, recordes, sono/recovery, TODAS as `wknote_<n>` arquivadas) e copia em texto pro ritual de autoavaliação do Notion (`h2FechamentoText`).
 - **CORS restrito:** ACAO refletido só pra `timer.gnoronha.app` (+ workers.dev do app), num choke point único no fim do `fetch()` — handlers continuam usando `corsHeaders`.
+- **Feriados no Calendário (v153):** motor CALCULADO em `holidaysForYear`/`holidayFor` (Páscoa por Meeus → Carnaval −48/−47, Sexta Santa −2, Corpus +60; fixos nacionais incl. Consciência Negra; vésperas 24/31-dez marcadas `b3` = B3 fechada sem ser feriado). Renderiza nas visões mês (`.cal-holiday`, rótulo âmbar `--warn`) e semana (`.cal-week-holiday`); dia de feriado NÃO conta como "empty" na semana. Deliberadamente NÃO mexe na conta de dias úteis das metas (mudaria o ritmo do anel — decisão pendente do dono).
 - **Harness de smoke do site em `tests/`** (o de 20/jul vivia em scratchpad efêmero): `node tests/smoke.js` monta `fixture.html` (Firebase stubado via `firebaseConfig=null` + `_fb` fake, API mockada) e roda 17 cenários no Chrome headless (portão, start duplo, pausa, seq Lamport, heatmap, fechamento). `--shot OUT.png [--tab X]` tira screenshot autenticado — foi o que provou que a camada champagne não pode ser podada.
 
 ## Pendências conhecidas

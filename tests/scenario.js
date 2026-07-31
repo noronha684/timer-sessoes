@@ -75,7 +75,20 @@
     const cells = document.querySelectorAll('#heatmapCard .hm-cell').length;
     t('heatmap com 371 células', cells === 53 * 7);
 
-    // 8) Fechar semestre: seção renderiza e o texto compila
+    // 8) Feriados: motor calculado (Páscoa 2026 = 05/abr → móveis derivados) + render no mês
+    t('feriado fixo (Tiradentes)', !!holidayFor('2026-04-21'));
+    t('Sexta Santa 2026 = 03/abr', (holidayFor('2026-04-03') || {}).name === 'Sexta-feira Santa');
+    t('Carnaval 2026 = 16-17/fev', !!holidayFor('2026-02-16') && !!holidayFor('2026-02-17'));
+    t('véspera B3 marcada', !!(holidayFor('2026-12-24') || {}).b3);
+    t('dia comum sem feriado', holidayFor('2026-07-30') === null);
+    const prevOffset = calMonthOffset;
+    calMonthOffset += (11 - new Date().getMonth()); // vai pra dezembro do ano corrente
+    renderCalMonth();
+    t('feriados renderizam no mês', document.querySelectorAll('#calGrid .cal-holiday').length >= 3);
+    calMonthOffset = prevOffset;
+    renderCalMonth();
+
+    // 9) Fechar semestre: seção renderiza e o texto compila
     try { localStorage.setItem('timerH2Tab', 'fechamento'); } catch {}
     h2Active = 'fechamento';
     renderH2Section();

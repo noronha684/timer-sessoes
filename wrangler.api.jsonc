@@ -17,6 +17,16 @@
       "database_name": "timer-sessoes",
       "database_id": "63f9fce0-a3e3-4e68-87ef-3390c40babdc"
     }
+  ],
+  // Backup diário do D1 (06:00 BRT = 09:00 UTC). Destino: KV (R2 não habilitado na
+  // conta em jul/2026 — se habilitar, criar bucket timer-sessoes-backup e trocar por
+  // um binding r2_buckets BACKUP; o código prefere R2 quando presente).
+  "triggers": { "crons": ["0 9 * * *"] },
+  "kv_namespaces": [
+    {
+      "binding": "BACKUP_KV",
+      "id": "61dd5e50039b45d1924eb0d2d97497eb"
+    }
   ]
   // Segredos (WHOOP_CLIENT_ID / WHOOP_CLIENT_SECRET) NÃO ficam aqui:
   // já existem no Worker e o deploy os preserva. Para (re)definir:

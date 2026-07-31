@@ -1014,6 +1014,8 @@ window.firebaseConfig = {
     margin-top: 4px; letter-spacing: -0.02em;
     color: var(--text);
   }
+  /* recovery do Whoop: sub-linha discreta sob o valor de sono */
+  .sleep-card-sub { font-size: 11px; color: var(--text-subtle); margin-top: 2px; letter-spacing: 0.5px; }
   .sleep-chart-wrap { margin-top: 4px; }
   .sleep-chart {
     display: flex; align-items: flex-end; gap: 4px;
@@ -2865,14 +2867,17 @@ window.firebaseConfig = {
         <div class="sleep-card">
           <div class="sleep-card-label">Ontem</div>
           <div class="sleep-card-value" id="sleepYesterday">—</div>
+          <div class="sleep-card-sub" id="recoveryYesterday" style="display:none"></div>
         </div>
         <div class="sleep-card">
           <div class="sleep-card-label">Média 7 dias</div>
           <div class="sleep-card-value" id="sleepAvg7">—</div>
+          <div class="sleep-card-sub" id="recoveryAvg7" style="display:none"></div>
         </div>
         <div class="sleep-card">
           <div class="sleep-card-label">Média 30 dias</div>
           <div class="sleep-card-value" id="sleepAvg30">—</div>
+          <div class="sleep-card-sub" id="recoveryAvg30" style="display:none"></div>
         </div>
       </div>
       <div class="sleep-chart-wrap">
@@ -3740,10 +3745,24 @@ function closeSegment(endOverride) {
 let timerDirty = false;
 let timerDirtyGen = 0; // geração: gesto durante push em voo não pode ser "limpado" pela resposta
 
+// Seq LAMPORT do activeTimer (fecha o "deferido" de 20/jul: ordenar pausa/retomada por
+// updatedAt = relógio de parede reordenava com skew <60s entre devices). Cada GESTO local
+// carimba seq = clock+1; o clock adota todo seq remoto visto (applyRemoteTimer). O worker
+// só aceita estado com seq maior (empate desempata no updatedAt = compat com legado).
+let timerSeqClock = parseInt(localStorage.getItem('timerSeqClock') || '0') || 0;
+function bumpTimerSeqClock(v) {
+  v = Number(v) || 0;
+  if (v > timerSeqClock) { timerSeqClock = v; try { localStorage.setItem('timerSeqClock', String(v)); } catch {} }
+}
+function nextTimerSeq() { bumpTimerSeqClock(timerSeqClock + 1); return timerSeqClock; }
+
 function persistTimerState() {
   // Mudança vinda do sync (adoção/reconcílio) NÃO suja: re-publicar estado alheio
   // como meu, com carimbo novo, é exatamente o eco que revertia pausas.
-  if (typeof isApplyingRemote === 'undefined' || !isApplyingRemote) { timerDirty = true; timerDirtyGen++; }
+  if (typeof isApplyingRemote === 'undefined' || !isApplyingRemote) {
+    timerDirty = true; timerDirtyGen++;
+    state.timerSeq = nextTimerSeq(); // gesto local: este estado supera tudo que já vimos
+  }
   if (!state.running) { localStorage.removeItem('timerActiveState'); }
   else {
     localStorage.setItem('timerActiveState', JSON.stringify({
@@ -3757,6 +3776,7 @@ function persistTimerState() {
       currentSegStart: currentSegStart,
       sessionId: state.sessionId,
       owner: state.owner,
+      timerSeq: state.timerSeq || 0,
       dirty: timerDirty, // push não confirmado sobrevive a reload (restore re-arma)
     }));
   }
@@ -4510,19 +4530,25 @@ function buildPushPayload() {
         device: state.owner || DEVICE_ID,
         by: DEVICE_ID,
         updatedAt: Date.now(),
+        seq: state.timerSeq || 0, // seq Lamport do último GESTO local (ver nextTimerSeq)
       } : (() => {
         // tombstone SÓ com o device parado: rodando uma sessão ADOTADA com tombstone
         // velho no bolso, emitir {stopped} da sessão antiga clobberava o slot do servidor
         if (state.running) return undefined;
         const t = loadStopTombstone();
-        return t ? { stopped: true, sessionId: t.sessionId, device: DEVICE_ID, by: DEVICE_ID, updatedAt: t.at } : undefined;
+        return t ? { stopped: true, sessionId: t.sessionId, device: DEVICE_ID, by: DEVICE_ID, updatedAt: t.at, seq: t.seq || 0 } : undefined;
       })(),
     },
+    // Até onde este device já viu o servidor: a resposta do push vem PARCIAL (só sessões
+    // gravadas depois disso) em vez do histórico inteiro — o merge local é aditivo.
+    sinceSessions: lastServerStamp,
   };
 }
 
-// Tombstone de parada: sobrevive a reload; sai do localStorage quando um push confirma
-function setStopTombstone(sessionId) { try { localStorage.setItem('timerStopTombstone', JSON.stringify({ sessionId, at: Date.now() })); } catch {} }
+// Tombstone de parada: sobrevive a reload; sai do localStorage quando um push confirma.
+// Carrega seq PRÓPRIO (gesto de parar > qualquer estado rodando já visto) — sem ele o
+// worker recusaria o {stopped} contra um estado rodando com seq maior.
+function setStopTombstone(sessionId) { try { localStorage.setItem('timerStopTombstone', JSON.stringify({ sessionId, at: Date.now(), seq: (typeof nextTimerSeq === 'function') ? nextTimerSeq() : 0 })); } catch {} }
 function loadStopTombstone() { try { return JSON.parse(localStorage.getItem('timerStopTombstone') || 'null'); } catch { return null; } }
 function clearStopTombstone() { try { localStorage.removeItem('timerStopTombstone'); } catch {} }
 
@@ -5034,6 +5060,7 @@ function restoreTimerState() {
   state.subcategory = saved.subcategory || null;
   state.sessionId = saved.sessionId || saved.startedAt;
   state.owner = saved.owner || null;
+  state.timerSeq = saved.timerSeq || 0; // seq Lamport do último gesto sobrevive a reload
   // Push do timer não confirmado antes do reload → re-arma a publicação
   if (saved.dirty) { timerDirty = true; timerDirtyGen++; }
   // Restaura o segmento de foco aberto (se estava rodando E a sessão é minha — espelho não grava)
@@ -5461,6 +5488,27 @@ function renderSono() {
   }
   const avg30El = $('#sleepAvg30');
   if (avg30El) avg30El.textContent = count30 > 0 ? formatDuration((sum30 / count30) * 60000) : '—';
+
+  // Recovery do Whoop (quando presente na entrada de sono — worker anexa via /v2/recovery).
+  // Sub-linha discreta em cada card; some quando não há dado (contas sem Whoop).
+  const recoveryAvgOver = (nDays) => {
+    let rs = 0, rn = 0;
+    for (let i = 1; i <= nDays; i++) {
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      const e = sleep[dateKey(d)];
+      if (e && typeof e.recovery === 'number') { rs += e.recovery; rn++; }
+    }
+    return rn > 0 ? Math.round(rs / rn) : null;
+  };
+  const setRec = (id, val) => {
+    const el = $(id); if (!el) return;
+    if (val == null) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    el.textContent = `rec ${val}%`;
+  };
+  setRec('#recoveryYesterday', (yEntry && typeof yEntry.recovery === 'number') ? yEntry.recovery : null);
+  setRec('#recoveryAvg7', recoveryAvgOver(7));
+  setRec('#recoveryAvg30', recoveryAvgOver(30));
 
   // Mini chart 7 dias
   const chart = $('#sleepChart');
@@ -6551,9 +6599,20 @@ $('#saveManualBtn').addEventListener('click', () => {
 // determinístico (sessionId+duração), então dois devices concluindo juntos deduplicam no merge.
 function updateRemoteBanner() { const b = $('#remoteTimerBanner'); if (b) b.style.display = 'none'; }
 let lastRemoteTimerStamp = 0;
+let lastRemoteTimerSeq = 0;
 function applyRemoteTimer(rt) {
-  if (!rt || rt.by === DEVICE_ID) return;              // null legado ou eco meu
-  if (!(rt.updatedAt > lastRemoteTimerStamp)) return;  // já apliquei este estado
+  if (!rt) return;                                     // null legado
+  // Adota o seq remoto no clock Lamport ANTES de qualquer filtro: mesmo estado que eu
+  // não aplico (eco/velho) avança o relógio — meu próximo gesto supera tudo já visto.
+  if (rt.seq) bumpTimerSeqClock(rt.seq);
+  if (rt.by === DEVICE_ID) return;                     // eco meu
+  // Ordena por SEQ LAMPORT (empate → updatedAt, compat c/ estados legados sem seq).
+  // Era só updatedAt (relógio de parede): skew <60s entre devices reordenava pausa/retomada.
+  const rSeq = Number(rt.seq) || 0;
+  const newer = rSeq > lastRemoteTimerSeq ||
+    (rSeq === lastRemoteTimerSeq && rt.updatedAt > lastRemoteTimerStamp);
+  if (!newer) return;                                  // já apliquei este estado
+  lastRemoteTimerSeq = rSeq;
   // clamp: device com relógio adiantado não pode calar pausas/paradas legítimas dos
   // outros — o stamp guarda no máx. agora+60s (estado futuro re-aplica idempotente)
   lastRemoteTimerStamp = Math.min(rt.updatedAt, Date.now() + 60000);
@@ -6642,6 +6701,7 @@ function applyRemoteTimer(rt) {
     // espelho NÃO salva a sessão do dono (ele salva quando parar) — só sessão iniciada aqui
     finishSession(false, { suppressAlert: true, noSave: !!state.owner });
     lastRemoteTimerStamp = 0;
+    lastRemoteTimerSeq = 0;
     applyRemoteTimer(rt);
   }
   // senão: mantenho a minha; meu próximo push sobrescreve o servidor
@@ -7508,6 +7568,7 @@ const H2_SECTIONS = [
   { id: 'calendario', n: '05', label: 'Calendário & cadência' },
   { id: 'regulatorio', n: '06', label: 'Calendário regulatório' },
   // (07 · Plano semanal migrou pra aba Plano — renderWeekPlan/#weekPlanBlock)
+  { id: 'fechamento', n: '07', label: 'Fechar semestre' },
 ];
 const H2_EARNINGS = [
   { per: 'Earnings 2T26', tri: '2º tri de 2026', what: 'Bloco pesado: 21 names reportam. Update ágil de modelos (Tier 1 em ≤48h), guidance vs. consenso. NÃO iniciar relatórios de iniciação aqui.', ini: '29/jul/2026', fim: '14/ago/2026' },
@@ -7690,6 +7751,7 @@ function renderH2Section() {
   else if (h2Active === 'scorecard') { c.innerHTML = h2SecScorecard(D); bindH2Scorecard(c); }
   else if (h2Active === 'calendario') c.innerHTML = h2SecCalendario();
   else if (h2Active === 'regulatorio') { c.innerHTML = h2SecRegulatorio(); bindH2Reg(c); }
+  else if (h2Active === 'fechamento') { c.innerHTML = h2SecFechamento(D); bindH2Fechamento(c); }
   else {
     const lbl = (H2_SECTIONS.find(s => s.id === h2Active) || {}).label || '';
     c.innerHTML = `<div class="h2-sec"><div class="h2-soon">A seção <b>${escapeHtml(lbl)}</b> ainda não foi construída.</div></div>`;
@@ -8037,6 +8099,130 @@ function h2SecPlano(D) {
     </tr></thead><tbody>${rows}</tbody></table></div>
   </div>`;
 }
+// ===== 07 · Fechar semestre: compila o semestre inteiro (horas × alvo, execução semana
+// a semana, recordes, sono/recovery e as notas sell-side da IA arquivadas em wknote_<n>)
+// e exporta em TEXTO pronto pra colar na autoavaliação do Notion. =====
+function h2FechamentoData() {
+  const D = loadH2();
+  const start = H2_WEEKPLAN[0].s;
+  const endCap = dateKey(new Date());
+  const history = loadHistory();
+  const sleep = loadSleep();
+  const hoursByCat = {}; let totalMs = 0;
+  for (const dk in history) {
+    if (dk < start || dk > endCap) continue;
+    for (const c in history[dk]) { hoursByCat[c] = (hoursByCat[c] || 0) + history[dk][c]; totalMs += history[dk][c]; }
+  }
+  // alvo semanal por categoria (weekPlan é por dia-da-semana; alvo = soma da semana)
+  const plan = loadWeekPlan();
+  const weeklyTargetByCat = {};
+  for (const c in plan) {
+    const t = (plan[c] || []).reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0);
+    if (t > 0) weeklyTargetByCat[c] = t;
+  }
+  const weeks = [];
+  for (const x of H2_WEEKPLAN) {
+    if (x.s > endCap) break;
+    let ms = 0;
+    for (let d = new Date(x.s + 'T00:00:00'); dateKey(d) <= x.e; d.setDate(d.getDate() + 1)) {
+      const day = history[dateKey(d)] || {};
+      for (const c in day) ms += day[c];
+    }
+    weeks.push({ n: x.n, d: x.d, t: x.t, ms, done: !!D['wk_' + x.n], note: D['wknote_' + x.n] || '' });
+  }
+  let sSum = 0, sN = 0, rSum = 0, rN = 0;
+  for (const dk in sleep) {
+    if (dk < start || dk > endCap) continue;
+    const e = sleep[dk];
+    if (e && e.durationMin > 0) { sSum += e.durationMin; sN++; }
+    if (e && typeof e.recovery === 'number') { rSum += e.recovery; rN++; }
+  }
+  return {
+    start, endCap, hoursByCat, totalMs, weeklyTargetByCat, weeks,
+    sleepAvgH: sN ? (sSum / sN / 60) : null,
+    recoveryAvg: rN ? Math.round(rSum / rN) : null,
+    rec: computeRecords(),
+  };
+}
+function h2FechamentoText() {
+  const F = h2FechamentoData();
+  const fmt1 = (h) => (Math.round(h * 10) / 10).toString().replace('.', ',');
+  const L = [];
+  L.push(`FECHAMENTO DO SEMESTRE — ${F.start} a ${F.endCap}`);
+  L.push('');
+  L.push(`Total de foco: ${fmt1(F.totalMs / 3600000)}h em ${F.weeks.length} semanas (média ${fmt1(F.totalMs / 3600000 / Math.max(1, F.weeks.length))}h/sem).`);
+  L.push('');
+  L.push('HORAS POR CATEGORIA (entregue · média semanal vs. alvo):');
+  const cats = Object.keys(F.hoursByCat).sort((a, b) => F.hoursByCat[b] - F.hoursByCat[a]);
+  for (const c of cats) {
+    const done = F.hoursByCat[c] / 3600000;
+    const wAvg = done / Math.max(1, F.weeks.length);
+    const tgt = F.weeklyTargetByCat[c];
+    L.push(`- ${c}: ${fmt1(done)}h · ${fmt1(wAvg)}h/sem` + (tgt ? ` vs. alvo ${fmt1(tgt)}h/sem (${Math.round(wAvg / tgt * 100)}%)` : ''));
+  }
+  L.push('');
+  L.push('EXECUÇÃO SEMANA A SEMANA:');
+  for (const w of F.weeks) L.push(`- S${w.n} (${w.d}) [${w.t}] ${fmt1(w.ms / 3600000)}h ${w.done ? '✓' : '· aberta'}`);
+  L.push('');
+  if (F.sleepAvgH != null) {
+    L.push(`Sono médio: ${fmt1(F.sleepAvgH)}h/noite` + (F.recoveryAvg != null ? ` · recovery médio ${F.recoveryAvg}%` : '') + '.');
+  }
+  const r = F.rec;
+  L.push(`Recordes: melhor dia ${formatDuration(r.bestDayMs || 0)} (${r.bestDayKey || '—'}) · melhor semana ${formatDuration(r.bestWeekMs || 0)} (${r.bestWeekKey || '—'}) · maior streak ${r.bestStreak || 0}d.`);
+  const notes = F.weeks.filter(w => w.note);
+  if (notes.length) {
+    L.push('');
+    L.push('NOTAS SELL-SIDE DA IA (registro contemporâneo da execução):');
+    for (const w of notes) { L.push(`— S${w.n} (${w.d}):`); L.push(w.note); }
+  }
+  return L.join('\n');
+}
+function h2SecFechamento(D) {
+  const F = h2FechamentoData();
+  const fmt1 = (h) => (Math.round(h * 10) / 10).toString().replace('.', ',');
+  const catRows = Object.keys(F.hoursByCat).sort((a, b) => F.hoursByCat[b] - F.hoursByCat[a]).map(c => {
+    const done = F.hoursByCat[c] / 3600000;
+    const wAvg = done / Math.max(1, F.weeks.length);
+    const tgt = F.weeklyTargetByCat[c];
+    const pct = tgt ? Math.round(wAvg / tgt * 100) : null;
+    return `<tr><td>${escapeHtml(c)}</td><td class="mono">${fmt1(done)}h</td><td class="mono">${fmt1(wAvg)}h/sem</td><td class="mono">${tgt ? fmt1(tgt) + 'h/sem' : '—'}</td><td class="mono">${pct != null ? pct + '%' : '—'}</td></tr>`;
+  }).join('');
+  const wkRows = F.weeks.map(w =>
+    `<tr${w.done ? ' style="opacity:.55"' : ''}><td class="mono" style="text-align:center">${w.n}</td><td class="mono" style="white-space:nowrap">${escapeHtml(w.d)}</td><td>${escapeHtml(w.t)}</td><td class="mono">${fmt1(w.ms / 3600000)}h</td><td style="text-align:center">${w.done ? '✓' : ''}</td></tr>`).join('');
+  const notes = F.weeks.filter(w => w.note).map(w =>
+    `<div class="h2-card"><div class="h2-card-h">Semana ${w.n} <span class="h2-note" style="font-weight:400">· ${escapeHtml(w.d)}</span></div><div class="h2-note" style="color:var(--text-muted)">${escapeHtml(w.note)}</div></div>`).join('');
+  return `<div class="h2-sec">
+    <div class="h2-card">
+      <div class="h2-card-h">Fechamento · ${escapeHtml(F.start)} → ${escapeHtml(F.endCap)}</div>
+      <div class="h2-note" style="margin-bottom:8px">Total de foco: <b>${fmt1(F.totalMs / 3600000)}h</b> em ${F.weeks.length} semanas (média ${fmt1(F.totalMs / 3600000 / Math.max(1, F.weeks.length))}h/sem).${F.sleepAvgH != null ? ` Sono médio ${fmt1(F.sleepAvgH)}h/noite${F.recoveryAvg != null ? ` · recovery ${F.recoveryAvg}%` : ''}.` : ''}</div>
+      <div class="h2-note" style="color:var(--text-muted)">Recordes: dia ${formatDuration(F.rec.bestDayMs || 0)} · semana ${formatDuration(F.rec.bestWeekMs || 0)} · streak ${F.rec.bestStreak || 0}d.</div>
+      <button type="button" class="sono-add-btn" id="h2CopyFechamento" style="margin-top:12px">Copiar resumo pro Notion</button>
+    </div>
+    <div class="h2-table-wrap"><table class="h2-table"><thead><tr><th>Categoria</th><th>Total</th><th>Média</th><th>Alvo</th><th>%</th></tr></thead><tbody>${catRows || '<tr><td colspan="5" class="h2-note">sem horas no período</td></tr>'}</tbody></table></div>
+    <div class="h2-table-wrap"><table class="h2-table"><thead><tr><th style="text-align:center">Sem.</th><th>Datas</th><th>Tipo</th><th>Horas</th><th style="text-align:center">Feita</th></tr></thead><tbody>${wkRows}</tbody></table></div>
+    ${notes ? `<div class="h2-card-h" style="margin-top:14px">Notas da IA (arquivo do semestre)</div>${notes}` : '<div class="h2-note">Nenhuma nota sell-side gerada ainda — feche semanas na aba Plano.</div>'}
+  </div>`;
+}
+function bindH2Fechamento(c) {
+  const btn = c.querySelector('#h2CopyFechamento');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const txt = h2FechamentoText();
+    let ok = false;
+    try { await navigator.clipboard.writeText(txt); ok = true; } catch {}
+    if (!ok) { // fallback (WebView antigo sem clipboard API em contexto não-gesto)
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        ok = document.execCommand('copy'); ta.remove();
+      } catch {}
+    }
+    btn.textContent = ok ? '✓ copiado' : 'não deu — tenta de novo';
+    setTimeout(() => { btn.textContent = 'Copiar resumo pro Notion'; }, 2000);
+  });
+}
+
 // Nota "sell-side" da semana: junta horas × alvo, itens/tópicos e sono e pede ao Claude
 // (POST /api/week-note). Salva em wknote_<n> no doc h2Plan (sincroniza).
 let _wkNoteBusy = false;
@@ -8073,11 +8259,15 @@ async function h2GenWeekNote(wn, force) {
     const entries = h2WkTopics(raw).map(t => ({ text: t, done: !!D[h2TopicKey(x.n, t)] }))
       .concat(h2WkItemsArr(D).filter(it => (it.text || '').trim() && h2ItemAppliesTo(it, x.n, firsts))
         .map(it => ({ text: it.text, done: !!D['wkit_' + it.id + '_' + x.n] })));
-    let sleepSum = 0, sleepN = 0;
+    let sleepSum = 0, sleepN = 0, recSum = 0, recN = 0;
+    const sleepAll = loadSleep();
     if (typeof sleepForDay === 'function') {
       for (let d = new Date(x.s + 'T00:00:00'); dateKey(d) <= x.e; d.setDate(d.getDate() + 1)) {
-        const ms = sleepForDay(dateKey(d));
+        const dk = dateKey(d);
+        const ms = sleepForDay(dk);
         if (ms > 0) { sleepSum += ms / 3600000; sleepN++; }
+        const e = sleepAll[dk]; // recovery do Whoop, quando anexado à noite
+        if (e && typeof e.recovery === 'number') { recSum += e.recovery; recN++; }
       }
     }
     const resp = await fetch(`${window.API_BASE}/api/week-note`, {
@@ -8086,6 +8276,7 @@ async function h2GenWeekNote(wn, force) {
       body: JSON.stringify({
         n: Number(wn), dates: x.d, hours, targets, entries,
         sleepAvgH: sleepN ? Math.round(sleepSum / sleepN * 10) / 10 : null,
+        recoveryAvg: recN ? Math.round(recSum / recN) : null,
         streak: (typeof currentStreakDays === 'function') ? currentStreakDays() : 0,
       }),
     });

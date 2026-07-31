@@ -15,3 +15,6 @@ desktop/*.log
 android-twa/*.keystore
 android-twa/.keystore-pass
 android-twa/keystore-info.txt
+
+# Harness de smoke — fixture é gerado a cada run
+tests/fixture.html

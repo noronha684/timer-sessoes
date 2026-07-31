@@ -7,8 +7,13 @@
 // header Authorization: Bearer <token>. O uid usado é o do token VERIFICADO
 // (payload.sub), nunca o que o cliente manda — assim ninguém acessa dados de outro.
 
+// CORS restrito ao app (antes era '*'). Com Bearer não é a barreira principal, mas
+// é defesa em profundidade de graça. O origin é REFLETIDO no fim do fetch() (choke
+// point único) — aqui fica só o default; requests sem Origin (curl/cron) não ligam.
+const APP_ORIGIN = 'https://timer.gnoronha.app';
+const ALLOWED_ORIGINS = [APP_ORIGIN, 'https://timer-app.gabriel-noronha-o-p.workers.dev'];
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': APP_ORIGIN,
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Access-Control-Max-Age': '86400',
@@ -170,6 +175,21 @@ async function requireUid(request) {
 
 export default {
   async fetch(request, env) {
+    // Reflete o Origin permitido em TODA resposta (choke point único — os handlers
+    // continuam usando corsHeaders com o default; aqui só sobrescreve o ACAO).
+    const origin = request.headers.get('Origin') || '';
+    const acao = ALLOWED_ORIGINS.includes(origin) ? origin : APP_ORIGIN;
+    const res = await this.route(request, env);
+    try { res.headers.set('Access-Control-Allow-Origin', acao); res.headers.append('Vary', 'Origin'); } catch { /* Response imutável não acontece aqui */ }
+    return res;
+  },
+
+  // Backup diário do D1 (cron em wrangler.api.jsonc). Sem binding de destino, no-op.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(backupDump(env));
+  },
+
+  async route(request, env) {
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders });
     }
@@ -218,6 +238,41 @@ export default {
     }
   },
 };
+
+// ====== Backup diário do D1 ======
+// Dump completo (sessions/categories/settings) num JSON datado. whoop_tokens fica de
+// fora (sensível; reconectar é 1 clique). Destino: R2 (binding BACKUP) se existir;
+// senão KV (binding BACKUP_KV — R2 ainda não está habilitado na conta, jul/2026).
+// Retenção: 30 dumps mais recentes (chave YYYY-MM-DD ordena lexicográfico = cronológico).
+async function backupDump(env) {
+  const store = env.BACKUP || env.BACKUP_KV;
+  if (!store) { console.warn('backup: nenhum binding (BACKUP/BACKUP_KV) — pulei'); return; }
+  const isR2 = !!env.BACKUP;
+  try {
+    const [sessions, categories, settings] = await Promise.all([
+      env.DB.prepare('SELECT uid, date, category, subcategory, duration_ms, started_at, created_at FROM sessions').all(),
+      env.DB.prepare('SELECT uid, name, position FROM categories').all(),
+      env.DB.prepare('SELECT uid, key, value, stamp, updated_at FROM settings').all(),
+    ]);
+    const day = new Date().toISOString().slice(0, 10);
+    const key = `backup/${day}.json`;
+    const body = JSON.stringify({
+      at: Date.now(),
+      sessions: sessions.results || [],
+      categories: categories.results || [],
+      settings: settings.results || [],
+    });
+    if (isR2) await store.put(key, body, { httpMetadata: { contentType: 'application/json' } });
+    else await store.put(key, body);
+    const list = await store.list({ prefix: 'backup/' });
+    const keys = (isR2 ? (list.objects || []).map(o => o.key) : (list.keys || []).map(k => k.name)).sort();
+    const excess = keys.slice(0, Math.max(0, keys.length - 30));
+    for (const k of excess) await store.delete(k);
+    console.log('backup ok:', day, body.length, 'bytes;', excess.length, 'podados;', isR2 ? 'R2' : 'KV');
+  } catch (e) {
+    console.error('backup falhou:', e && e.stack || e);
+  }
+}
 
 // ====== IA: sugere em qual semana do plano H2 encaixar uma tarefa ======
 // Chama a Messages API da Anthropic direto por fetch (Worker não usa SDK).
@@ -378,8 +433,9 @@ async function apiWeekNote(request, env, uid) {
   const lines = Array.isArray(body.entries)
     ? body.entries.slice(0, 30).map(e => `${e && e.done ? '[FEITO]' : '[NÃO FEITO]'} ${cap(e && e.text, 140)}`).join('\n') : '';
   const sleep = (body.sleepAvgH != null && isFinite(+body.sleepAvgH)) ? (+body.sleepAvgH).toFixed(1) : '';
-  const system = 'Você é um analista sell-side que cobre a EXECUÇÃO SEMANAL de um profissional de buy-side (equities, setor elétrico/saneamento, estudando pro CFA). Escreva uma nota curta de research (60–110 palavras, pt-BR) avaliando a semana dele como se fosse um resultado trimestral: comece com um rating (ex.: "Reiteramos COMPRA na execução", "Rebaixamos para NEUTRO"), compare horas entregues vs alvo por categoria, cite itens entregues e perdidos, e trate o sono como fator de risco quando relevante. Tom: research de equities — seco, quantitativo, com uma pitada de humor de mesa. Primeira pessoa do plural. Sem markdown, um parágrafo só.';
-  const userMsg = `Semana ${cap(body.n, 4)} (${cap(body.dates, 40)}).\nHoras entregues por categoria: ${hours || 'n/d'}.\nHoras-alvo da semana: ${targets || 'n/d'}.\nItens/tópicos da semana:\n${lines || 'n/d'}\nSono médio no período: ${sleep ? sleep + 'h/noite' : 'n/d'}.\nStreak atual de dias com foco: ${cap(body.streak, 5)}.`;
+  const recovery = (body.recoveryAvg != null && isFinite(+body.recoveryAvg)) ? Math.round(+body.recoveryAvg) : null;
+  const system = 'Você é um analista sell-side que cobre a EXECUÇÃO SEMANAL de um profissional de buy-side (equities, setor elétrico/saneamento, estudando pro CFA). Escreva uma nota curta de research (60–110 palavras, pt-BR) avaliando a semana dele como se fosse um resultado trimestral: comece com um rating (ex.: "Reiteramos COMPRA na execução", "Rebaixamos para NEUTRO"), compare horas entregues vs alvo por categoria, cite itens entregues e perdidos, e trate o sono (e o recovery do Whoop, quando houver) como fator de risco quando relevante. Tom: research de equities — seco, quantitativo, com uma pitada de humor de mesa. Primeira pessoa do plural. Sem markdown, um parágrafo só.';
+  const userMsg = `Semana ${cap(body.n, 4)} (${cap(body.dates, 40)}).\nHoras entregues por categoria: ${hours || 'n/d'}.\nHoras-alvo da semana: ${targets || 'n/d'}.\nItens/tópicos da semana:\n${lines || 'n/d'}\nSono médio no período: ${sleep ? sleep + 'h/noite' : 'n/d'}.\nRecovery médio (Whoop) no período: ${recovery != null ? recovery + '%' : 'n/d'}.\nStreak atual de dias com foco: ${cap(body.streak, 5)}.`;
   const schema = { type: 'object', properties: { note: { type: 'string', description: 'a nota, um parágrafo em pt-BR' } }, required: ['note'], additionalProperties: false };
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -572,6 +628,7 @@ async function whoopSync(env, uid) {
   const data = await res.json();
   const records = data.records || [];
   const sleepByDate = {};
+  const dateBySleepId = {}; // id do sleep (v2) → dateKey, pra casar o recovery abaixo
   for (const r of records) {
     if (r.nap) continue; // ignora cochilos
     const start = r.start ? new Date(r.start) : null;
@@ -587,13 +644,39 @@ async function whoopSync(env, uid) {
     if (stage && typeof stage.total_awake_time_milli === 'number') {
       durationMin -= Math.round(stage.total_awake_time_milli / 60000);
     }
-    if (durationMin > 0) sleepByDate[dateKey] = {
-      durationMin,
-      source: 'whoop',
-      at: Date.now(),
-      start: start.getTime(),
-      end: end.getTime(),
-    };
+    if (durationMin > 0) {
+      sleepByDate[dateKey] = {
+        durationMin,
+        source: 'whoop',
+        at: Date.now(),
+        start: start.getTime(),
+        end: end.getTime(),
+      };
+      if (r.id) dateBySleepId[r.id] = dateKey;
+    }
+  }
+
+  // Recovery (v2): o escopo read:recovery sempre foi pedido no OAuth mas nunca usado.
+  // Casa cada recovery com a noite pelo sleep_id e anexa score/HRV/RHR à entrada de sono.
+  // Best-effort: falha aqui não derruba o sync de sono (recovery é bônus).
+  if (apiVersion === 'v2') {
+    try {
+      const recRes = await fetch(`${WHOOP_API}/v2/recovery?limit=25`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (recRes.ok) {
+        const recData = await recRes.json();
+        for (const r of (recData.records || [])) {
+          const dk = r.sleep_id && dateBySleepId[r.sleep_id];
+          const sc = r.score;
+          if (!dk || !sc || sc.user_calibrating) continue;
+          const entry = sleepByDate[dk];
+          if (typeof sc.recovery_score === 'number') entry.recovery = Math.round(sc.recovery_score);
+          if (typeof sc.hrv_rmssd_milli === 'number') entry.hrvMs = Math.round(sc.hrv_rmssd_milli * 10) / 10;
+          if (typeof sc.resting_heart_rate === 'number') entry.rhr = Math.round(sc.resting_heart_rate);
+        }
+      }
+    } catch (e) { console.warn('whoop recovery:', e && e.message); }
   }
 
   // Salva em settings.sleep (merge com o existente)
@@ -638,9 +721,19 @@ async function serverStamp(env, uid) {
   return Number((s && s.m) || 0);
 }
 
-async function loadFullSnapshot(env, uid) {
+// sinceSessions > 0: devolve SÓ as sessões gravadas no servidor depois desse carimbo.
+// A coluna created_at (default unixepoch()*1000 — relógio do SERVIDOR, existe desde o
+// schema original) faz o papel de carimbo de chegada; nenhuma migração foi necessária.
+// O merge do cliente é aditivo, então snapshot parcial de sessões é seguro; settings e
+// categories seguem completos (pequenos). Janela de 60s de sobreposição: push no mesmo
+// segundo do serverStamp não cai no vão (o dedupe do cliente absorve o reenvio).
+async function loadFullSnapshot(env, uid, sinceSessions = 0) {
+  const partial = Number(sinceSessions) > 0;
+  const sessionsQ = partial
+    ? env.DB.prepare('SELECT date, category, subcategory, duration_ms, started_at FROM sessions WHERE uid = ? AND created_at >= ? ORDER BY started_at ASC').bind(uid, Number(sinceSessions) - 60000)
+    : env.DB.prepare('SELECT date, category, subcategory, duration_ms, started_at FROM sessions WHERE uid = ? ORDER BY started_at ASC').bind(uid);
   const [sessions, categories, settings, stamp] = await Promise.all([
-    env.DB.prepare('SELECT date, category, subcategory, duration_ms, started_at FROM sessions WHERE uid = ? ORDER BY started_at ASC').bind(uid).all(),
+    sessionsQ.all(),
     env.DB.prepare('SELECT name FROM categories WHERE uid = ? ORDER BY position ASC, name ASC').bind(uid).all(),
     env.DB.prepare('SELECT key, value, stamp, updated_at FROM settings WHERE uid = ?').bind(uid).all(),
     serverStamp(env, uid),
@@ -664,18 +757,21 @@ async function loadFullSnapshot(env, uid) {
     settings: settingsObj,
     serverStamp: stamp,
     serverTime: Date.now(),
+    ...(partial ? { partial: true } : {}),
   };
 }
 
 // ====== Endpoints (uid vem sempre do token verificado) ======
 async function apiSnapshot(request, env, uid) {
-  // ?since=<ms>: se nada mudou desde então, responde ~50 bytes em vez do snapshot inteiro
+  // ?since=<ms>: se nada mudou desde então, responde ~50 bytes em vez do snapshot inteiro.
+  // Se mudou, devolve snapshot PARCIAL (só sessões novas desde o carimbo) — antes qualquer
+  // mudança devolvia o histórico completo desde sempre.
   const since = Number(new URL(request.url).searchParams.get('since') || 0);
   if (since > 0) {
     const stamp = await serverStamp(env, uid);
     if (stamp <= since) return json({ unchanged: true, serverStamp: stamp });
   }
-  const snap = await loadFullSnapshot(env, uid);
+  const snap = await loadFullSnapshot(env, uid, since);
   return json(snap);
 }
 
@@ -793,17 +889,27 @@ async function apiBulkSync(request, env, uid) {
     'INSERT INTO settings (uid, key, value, updated_at, stamp) VALUES (?, ?, ?, ?, 0) ON CONFLICT(uid, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at ' +
     'WHERE settings.value IS NOT excluded.value'
   ).bind(uid, key, JSON.stringify(value), Date.now());
-  // activeTimer: LWW pelo updatedAt DO ESTADO (não pela ordem de chegada) — push atrasado
-  // de estado velho não pode calar uma pausa/parada mais nova. COALESCE cobre legado sem campo.
+  // activeTimer: LWW por SEQ LAMPORT do estado (era o "deferido" da rodada de 20/jul:
+  // ordenar por updatedAt = relógio de parede reordenava pausa/retomada com skew <60s).
+  // O cliente carimba cada gesto local com seq = clock lógico + 1 e adota o seq remoto no
+  // pull. Aqui: seq maior ganha; empate (inclui legado sem seq, 0=0) desempata no updatedAt
+  // — que é exatamente o comportamento antigo, então a transição é compatível.
   const normalizeActiveTimer = (value) => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
     const now = Date.now();
     const incoming = Number(value.updatedAt);
-    return { ...value, updatedAt: Number.isFinite(incoming) ? Math.min(incoming, now + 60000) : now };
+    const seq = Number(value.seq);
+    return {
+      ...value,
+      updatedAt: Number.isFinite(incoming) ? Math.min(incoming, now + 60000) : now,
+      seq: Number.isFinite(seq) && seq > 0 ? Math.round(seq) : 0,
+    };
   };
   const upsertActiveTimer = (value) => env.DB.prepare(
     'INSERT INTO settings (uid, key, value, updated_at, stamp) VALUES (?, ?, ?, ?, 0) ON CONFLICT(uid, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at ' +
-    "WHERE COALESCE(json_extract(excluded.value, '$.updatedAt'), 0) >= MIN(COALESCE(json_extract(settings.value, '$.updatedAt'), 0), unixepoch() * 1000)"
+    "WHERE COALESCE(json_extract(excluded.value, '$.seq'), 0) > COALESCE(json_extract(settings.value, '$.seq'), 0) " +
+    "OR (COALESCE(json_extract(excluded.value, '$.seq'), 0) = COALESCE(json_extract(settings.value, '$.seq'), 0) " +
+    "AND COALESCE(json_extract(excluded.value, '$.updatedAt'), 0) >= MIN(COALESCE(json_extract(settings.value, '$.updatedAt'), 0), unixepoch() * 1000))"
   ).bind(uid, 'activeTimer', JSON.stringify(normalizeActiveTimer(value)), Date.now());
   const upsertVersioned = (key, value, stamp) => env.DB.prepare(
     'INSERT INTO settings (uid, key, value, updated_at, stamp) VALUES (?, ?, ?, ?, ?) ' +
@@ -822,6 +928,10 @@ async function apiBulkSync(request, env, uid) {
 
   if (stmts.length > 0) await runBatches(env, stmts);
 
-  const snap = await loadFullSnapshot(env, uid);
+  // Resposta parcial quando o cliente informa até onde já viu (sinceSessions =
+  // lastServerStamp dele): era o maior payload do app — todo push ecoava o histórico
+  // inteiro de volta. O merge aditivo do cliente torna o parcial seguro.
+  const sinceSessions = Number(body.sinceSessions) || 0;
+  const snap = await loadFullSnapshot(env, uid, sinceSessions);
   return json(snap);
 }

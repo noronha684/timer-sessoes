@@ -81,6 +81,13 @@
     t('Carnaval 2026 = 16-17/fev', !!holidayFor('2026-02-16') && !!holidayFor('2026-02-17'));
     t('véspera B3 marcada', !!(holidayFor('2026-12-24') || {}).b3);
     t('dia comum sem feriado', holidayFor('2026-07-30') === null);
+    t('hoje 31/jul NÃO é feriado', holidayFor('2026-07-31') === null);
+    // dias úteis descontam feriado nacional: nov/2026 tem 21 seg–sex, menos Finados
+    // (seg 02) e Consciência Negra (sex 20) = 19; 15/nov cai no domingo (já fora)
+    t('weekdaysBetween desconta feriados', weekdaysBetween(new Date(2026, 10, 1), new Date(2026, 10, 30)) === 19);
+    // véspera B3 (24/dez, qui) NÃO é folga de meta: dez/2026 tem 23 seg–sex, menos
+    // só o Natal (sex 25) = 22 úteis (vésperas 24 e 31 continuam contando)
+    t('véspera B3 segue útil', weekdaysBetween(new Date(2026, 11, 1), new Date(2026, 11, 31)) === 22);
     const prevOffset = calMonthOffset;
     calMonthOffset += (11 - new Date().getMonth()); // vai pra dezembro do ano corrente
     renderCalMonth();

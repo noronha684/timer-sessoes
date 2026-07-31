@@ -5740,13 +5740,16 @@ function getMonthTotalsByCategory() {
   return totals;
 }
 
-// Conta dias úteis (seg–sex) entre duas datas, inclusive
+// Conta dias úteis (seg–sex) entre duas datas, inclusive — FERIADO NACIONAL NÃO CONTA
+// (pedido de 31/jul/26: desconta do denominador da meta diária). Vésperas "B3 fechada"
+// (hol.b3) seguem úteis: não são feriado, só pregão fechado.
 function weekdaysBetween(start, end) {
   let c = 0;
   const d = new Date(start.getFullYear(), start.getMonth(), start.getDate());
   while (d <= end) {
     const dow = d.getDay();
-    if (dow >= 1 && dow <= 5) c++;
+    const hol = (typeof holidayFor === 'function') ? holidayFor(dateKey(d)) : null;
+    if (dow >= 1 && dow <= 5 && !(hol && !hol.b3)) c++;
     d.setDate(d.getDate() + 1);
   }
   return c;
@@ -5787,6 +5790,8 @@ function renderMonthGoal() {
   const diasUteisMes = weekdaysBetween(firstDay, lastDay);
   const metaDiariaMs = (metaHoras / diasUteisMes) * 3600000;
   const isWeekend = (now.getDay() === 0 || now.getDay() === 6);
+  const holHoje = (typeof holidayFor === 'function') ? holidayFor(dateKey(now)) : null;
+  const feriadoHoje = !!(holHoje && !holHoje.b3); // véspera B3 não é folga de meta
 
   // Anel = progresso de HOJE contra a meta diária
   const pct = metaDiariaMs > 0 ? Math.min(100, (feitoHojeMs / metaDiariaMs) * 100) : 0;
@@ -5802,14 +5807,14 @@ function renderMonthGoal() {
   expEl.textContent = feitoHojeMs > 0 ? formatDuration(feitoHojeMs) : '0min';
   expEl.classList.toggle('ahead', feitoHojeMs >= metaDiariaMs);
   expEl.classList.remove('behind');
-  $('#mgTodaySub').textContent = isWeekend ? 'fim de semana' : `meta ${formatDuration(metaDiariaMs)}`;
+  $('#mgTodaySub').textContent = isWeekend ? 'fim de semana' : feriadoHoje ? 'feriado' : `meta ${formatDuration(metaDiariaMs)}`;
 
   // Direita: progresso no mês
   $('#mgRemaining').textContent = formatDuration(feitoMs);
   $('#mgMonthSub').textContent = `de ${metaHoras}h`;
 
   // Rodapé: explica o cálculo
-  footer.innerHTML = `<span class="accent">${metaHoras}h</span> ÷ ${diasUteisMes} dias úteis = <span class="accent">${formatDuration(metaDiariaMs)}</span>/dia · sáb e dom livres`;
+  footer.innerHTML = `<span class="accent">${metaHoras}h</span> ÷ ${diasUteisMes} dias úteis = <span class="accent">${formatDuration(metaDiariaMs)}</span>/dia · sáb, dom e feriados livres`;
 }
 
 function renderGoals() {

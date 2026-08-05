@@ -2605,6 +2605,10 @@ window.firebaseConfig = {
   /* Recordes: toast sóbrio */
   #recordToast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(8px); background: #1a1a1b; border: 1px solid rgba(242,242,240,0.35); color: var(--accent); border-radius: 10px; padding: 10px 18px; font-size: 12.5px; letter-spacing: 0.4px; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 1000; }
   #recordToast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* Ritmo (gamificação sóbria): semânticas dessaturadas do Monólito */
+  #paceBadge.ahead { color: #9ad0a5; }
+  #paceBadge.behind { color: #e0a19b; }
+  #paceBadge.gold { color: #d9c58a; }
   /* Heatmap anual (Histórico) */
   .hm-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin: 0 0 14px; }
   .hm-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
@@ -2770,6 +2774,7 @@ window.firebaseConfig = {
       <div class="today-title">
         <span>Hoje</span>
         <span class="streak-badge" id="streakBadge" style="display:none"></span>
+        <span class="streak-badge" id="paceBadge" style="display:none"></span>
       </div>
       <div class="today-total" id="todayTotal">0min</div>
       <div class="today-subtitle" id="todaySubtitle">0 sessões de foco</div>
@@ -4156,6 +4161,70 @@ function renderExecStrip() {
   else el.style.display = 'none';
 }
 
+// ===== Ritmo (gamificação sóbria) — você correndo contra você mesmo =====
+// Média dos últimos 28 dias corridos NO MESMO horário do dia (dias vazios contam
+// zero): "estou à frente ou atrás do meu ritmo?" — recalculada 1x por minuto.
+let _paceCache = { min: -1, val: null };
+function computePaceDelta() {
+  const now = new Date();
+  const minuteStamp = now.getDate() * 10000 + now.getHours() * 60 + now.getMinutes();
+  if (_paceCache.min === minuteStamp) return _paceCache.val;
+  const cutoff = now.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const sessions = loadSessions();
+  let sum = 0;
+  for (let i = 1; i <= 28; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    const mid = d.getTime();
+    const list = sessions[dateKey(d)] || [];
+    for (const s of list) {
+      if (!s || !Number.isFinite(s.at)) continue;
+      const startTod = s.at - mid; // início relativo à meia-noite DAQUELE dia
+      if (startTod >= cutoff) continue;
+      sum += Math.min(s.durationMs || 0, Math.max(0, cutoff - startTod));
+    }
+  }
+  const media = sum / 28;
+  const day = loadHistory()[dateKey(now)] || {};
+  let hoje = Object.values(day).reduce((a, b) => a + b, 0);
+  // sessão AO VIVO ainda não está no history — soma o decorrido dela
+  if (state.running) hoje += state.totalElapsedMs + (state.paused ? 0 : Date.now() - state.startedAt);
+  const val = { delta: hoje - media, media, hoje };
+  _paceCache = { min: minuteStamp, val };
+  return val;
+}
+
+// Horas de ouro: minutos ACIMA da meta do dia (grade de horas-alvo) viram um
+// contador dourado acumulado no mês — hora extra deixa de ser invisível.
+function computeGold() {
+  const plan = loadWeekPlan();
+  if (!plan || Object.keys(plan).length === 0) return null;
+  const targetForDow = (jsDay) => {
+    const idx = (jsDay + 6) % 7; // 0=seg..6=dom
+    let h = 0;
+    for (const cat in plan) h += Number((plan[cat] || [])[idx]) || 0;
+    return h * 3600000;
+  };
+  const history = loadHistory();
+  const now = new Date();
+  let mes = 0;
+  for (let d = 1; d <= now.getDate(); d++) {
+    const dt = new Date(now.getFullYear(), now.getMonth(), d);
+    const k = dateKey(dt);
+    const dayTotal = history[k] ? Object.values(history[k]).reduce((a, b) => a + b, 0) : 0;
+    mes += Math.max(0, dayTotal - targetForDow(dt.getDay()));
+  }
+  return { mes, hojeTarget: targetForDow(now.getDay()) };
+}
+
+// Odômetro de carreira: total de horas da vida + próximo marco
+const MARCOS_H = [50, 100, 200, 300, 500, 750, 1000, 1500, 2000, 3000, 5000];
+function computeCareer() {
+  const history = loadHistory();
+  let total = 0;
+  for (const d in history) total += Object.values(history[d]).reduce((a, b) => a + b, 0);
+  return { totalMs: total, nextH: MARCOS_H.find((m) => m * 3600000 > total) || null };
+}
+
 function renderToday() {
   renderExecStrip();
   const history = loadHistory();
@@ -4202,6 +4271,40 @@ function renderToday() {
       streakBadge.style.display = 'none';
     }
   }
+
+  // Ritmo: à frente/atrás da tua média de 28 dias neste horário; meta batida vira ouro
+  const paceBadge = $('#paceBadge');
+  if (paceBadge) {
+    try {
+      const MIN5 = 5 * 60000;
+      const g = computeGold();
+      const p = computePaceDelta();
+      if (g && g.hojeTarget > 0 && p.hoje >= g.hojeTarget) {
+        paceBadge.textContent = `meta do dia batida · +${formatDuration(p.hoje - g.hojeTarget)} de ouro`;
+        paceBadge.className = 'streak-badge gold';
+        paceBadge.style.display = 'inline-flex';
+      } else if (p.media >= MIN5 || p.hoje >= MIN5) { // sem base de 28d nem foco hoje, não mostra
+        if (p.delta >= MIN5) { paceBadge.textContent = `▲ ${formatDuration(p.delta)} à frente do teu ritmo`; paceBadge.className = 'streak-badge ahead'; }
+        else if (p.delta <= -MIN5) { paceBadge.textContent = `▼ ${formatDuration(-p.delta)} atrás do teu ritmo`; paceBadge.className = 'streak-badge behind'; }
+        else { paceBadge.textContent = 'no teu ritmo de 28 dias'; paceBadge.className = 'streak-badge'; }
+        paceBadge.style.display = 'inline-flex';
+      } else paceBadge.style.display = 'none';
+    } catch { paceBadge.style.display = 'none'; }
+  }
+
+  // Marco de carreira: toast quando cruza (1x por marco; 1ª vez só semeia a baseline
+  // pra device novo não comemorar marcos antigos)
+  try {
+    const car = computeCareer();
+    const doneH = car.totalMs / 3600000;
+    const passado = MARCOS_H.filter((m) => m <= doneH).pop() || 0;
+    const last = Number(localStorage.getItem('timerLastMilestone') || -1);
+    if (last < 0) localStorage.setItem('timerLastMilestone', String(passado));
+    else if (passado > last) {
+      localStorage.setItem('timerLastMilestone', String(passado));
+      showRecordToast(`🏁 marco de carreira — ${passado}h de foco acumuladas`);
+    }
+  } catch {}
 
   // Média por dia útil: soma TODAS as horas (inclui fim de semana),
   // mas divide pelos dias úteis (seg–sex) com atividade — distribui o fds na semana
@@ -4363,7 +4466,13 @@ function renderHeatmap() {
   c.innerHTML = `
     <div class="hm-head"><span class="hm-title">último ano</span><span class="hm-total">${formatDuration(total)}</span></div>
     <div class="hm-grid">${cells}</div>
-    <div class="hm-rec">recordes — dia ${rec.bestDayMs ? formatDuration(rec.bestDayMs) + ' (' + dm(rec.bestDayKey) + ')' : '—'} · semana ${rec.bestWeekMs ? formatDuration(rec.bestWeekMs) + ' (' + dm(rec.bestWeekKey) + ')' : '—'} · maior streak ${rec.bestStreak || 0}d</div>`;
+    <div class="hm-rec">recordes — dia ${rec.bestDayMs ? formatDuration(rec.bestDayMs) + ' (' + dm(rec.bestDayKey) + ')' : '—'} · semana ${rec.bestWeekMs ? formatDuration(rec.bestWeekMs) + ' (' + dm(rec.bestWeekKey) + ')' : '—'} · maior streak ${rec.bestStreak || 0}d</div>
+    <div class="hm-rec">${(() => {
+      const car = computeCareer();
+      const marco = car.nextH ? `próximo marco ${car.nextH}h — faltam ${formatDuration(car.nextH * 3600000 - car.totalMs)}` : 'todos os marcos batidos 🏁';
+      const g = computeGold();
+      return `carreira ${formatDuration(car.totalMs)} · ${marco}${g && g.mes > 0 ? ` · <span style="color:#d9c58a">ouro do mês ${formatDuration(g.mes)}</span>` : ''}`;
+    })()}</div>`;
   const g = c.querySelector('.hm-grid');
   if (g) g.scrollLeft = g.scrollWidth; // abre mostrando as semanas RECENTES (o fim do ano)
 }

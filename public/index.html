@@ -2605,10 +2605,14 @@ window.firebaseConfig = {
   /* Recordes: toast sóbrio */
   #recordToast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(8px); background: #1a1a1b; border: 1px solid rgba(242,242,240,0.35); color: var(--accent); border-radius: 10px; padding: 10px 18px; font-size: 12.5px; letter-spacing: 0.4px; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 1000; }
   #recordToast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
-  /* Ritmo (gamificação sóbria): semânticas dessaturadas do Monólito */
-  #paceBadge.ahead { color: #9ad0a5; }
-  #paceBadge.behind { color: #e0a19b; }
-  #paceBadge.gold { color: #d9c58a; }
+  /* Ritmo (gamificação sóbria): mais presença que o chip de streak — número
+     grande em destaque, fundo tingido da cor semântica, sem o pontinho */
+  #paceBadge { font-size: 13px; padding: 7px 14px; gap: 0; }
+  #paceBadge::before { display: none; }
+  #paceBadge b { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; margin: 0 2px; }
+  #paceBadge.ahead { color: #9ad0a5; background: rgba(154,208,165,0.10); border-color: rgba(154,208,165,0.35); }
+  #paceBadge.behind { color: #e0a19b; background: rgba(224,161,155,0.10); border-color: rgba(224,161,155,0.35); }
+  #paceBadge.gold { color: #d9c58a; background: rgba(217,197,138,0.10); border-color: rgba(217,197,138,0.35); }
   /* Heatmap anual (Histórico) */
   .hm-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin: 0 0 14px; }
   .hm-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
@@ -4280,13 +4284,13 @@ function renderToday() {
       const g = computeGold();
       const p = computePaceDelta();
       if (g && g.hojeTarget > 0 && p.hoje >= g.hojeTarget) {
-        paceBadge.textContent = `meta do dia batida · +${formatDuration(p.hoje - g.hojeTarget)} de ouro`;
+        paceBadge.innerHTML = `meta batida&nbsp;·&nbsp;<b>+${formatDuration(p.hoje - g.hojeTarget)}</b>&nbsp;de ouro`;
         paceBadge.className = 'streak-badge gold';
         paceBadge.style.display = 'inline-flex';
       } else if (p.media >= MIN5 || p.hoje >= MIN5) { // sem base de 28d nem foco hoje, não mostra
-        if (p.delta >= MIN5) { paceBadge.textContent = `▲ ${formatDuration(p.delta)} à frente do teu ritmo`; paceBadge.className = 'streak-badge ahead'; }
-        else if (p.delta <= -MIN5) { paceBadge.textContent = `▼ ${formatDuration(-p.delta)} atrás do teu ritmo`; paceBadge.className = 'streak-badge behind'; }
-        else { paceBadge.textContent = 'no teu ritmo de 28 dias'; paceBadge.className = 'streak-badge'; }
+        if (p.delta >= MIN5) { paceBadge.innerHTML = `▲&nbsp;<b>${formatDuration(p.delta)}</b>&nbsp;à frente do teu ritmo`; paceBadge.className = 'streak-badge ahead'; }
+        else if (p.delta <= -MIN5) { paceBadge.innerHTML = `▼&nbsp;<b>${formatDuration(-p.delta)}</b>&nbsp;atrás do teu ritmo`; paceBadge.className = 'streak-badge behind'; }
+        else { paceBadge.innerHTML = 'no teu ritmo de 28 dias'; paceBadge.className = 'streak-badge'; }
         paceBadge.style.display = 'inline-flex';
       } else paceBadge.style.display = 'none';
     } catch { paceBadge.style.display = 'none'; }

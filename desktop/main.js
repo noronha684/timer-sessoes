@@ -339,6 +339,35 @@ function toggleMini() {
   rebuildTray();
 }
 
+// ---- auto-update do SITE dentro da casca ----
+// Com o service worker bloqueado, a página carregada fica ETERNA enquanto o app
+// vive na bandeja — updates do site nunca chegavam sem reiniciar. Checa a versão
+// (CACHE_NAME do service-worker.js) a cada 30min e recarrega quando muda, mas só
+// em momento seguro: janela escondida OU sem sessão rodando (o reload preserva
+// sessão viva via restoreTimerState, mas não vale o susto no meio do foco).
+let siteVer = null;
+let siteVerPending = false;
+async function checkSiteUpdate() {
+  try {
+    const r = await fetch(APP_URL + '/service-worker.js?_cb=' + Date.now(), { cache: 'no-store' });
+    const m = (await r.text()).match(/timer-sessoes-v(\d+)/);
+    if (!m) return;
+    const v = Number(m[1]);
+    if (siteVer === null) { siteVer = v; return; } // baseline da carga atual
+    if (v > siteVer) siteVerPending = true;
+    if (!siteVerPending || !mainAlive()) return;
+    const st = await readTimerState();
+    const seguro = !win.isVisible() || !(st && st.running && !st.paused);
+    if (seguro) {
+      siteVer = v;
+      siteVerPending = false;
+      win.webContents.reload();
+    }
+  } catch { /* offline etc. — tenta na próxima */ }
+}
+setInterval(checkSiteUpdate, 30 * 60 * 1000);
+setTimeout(checkSiteUpdate, 20000); // baseline logo após o boot
+
 // ---- polling do estado (3s; 1s com o flutuante aberto; só re-monta a bandeja quando muda) ----
 let lastHiddenPull = 0;
 function startPolling() {

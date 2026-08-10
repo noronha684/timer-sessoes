@@ -2783,6 +2783,7 @@ window.firebaseConfig = {
       <div class="today-total" id="todayTotal">0min</div>
       <div class="today-subtitle" id="todaySubtitle">0 sessões de foco</div>
       <div class="exec-strip" id="execStrip" style="display:none"></div>
+      <div class="exec-strip" id="contractLine" style="display:none"></div>
       <div class="today-breakdown" id="todayBreakdown"></div>
       <div class="today-avg-row">
         <span class="today-avg-label">Média / dia útil</span>
@@ -4150,6 +4151,14 @@ function renderExecStrip() {
     if (s != null || w != null) {
       parts.push(`execução ${s != null ? 'hoje <b>' + s + '</b>' : ''}${s != null && w != null ? ' · ' : ''}${w != null ? 'semana <b>' + w + '</b>' : ''}`);
     }
+    // Duelo semanal: semana atual × passada no mesmo ponto (dia da semana + hora)
+    const duel = computeDuel();
+    if (duel && (duel.atual > 0 || duel.passada > 0)) {
+      const diff = duel.atual - duel.passada;
+      const cor = diff >= 0 ? '#9ad0a5' : '#e0a19b';
+      const placar = (duel.vit + duel.der) > 0 ? ` (mês ${duel.vit}×${duel.der})` : '';
+      parts.push(`duelo <b>${formatDuration(duel.atual)}</b> × ${formatDuration(duel.passada)} <span style="color:${cor}">${diff >= 0 ? '▲' : '▼'}${formatDuration(Math.abs(diff))}</span>${placar}`);
+    }
     const cur = (typeof h2CurrentWeek === 'function') ? h2CurrentWeek() : null;
     if (cur) {
       const D = loadH2();
@@ -4229,6 +4238,173 @@ function computeCareer() {
   return { totalMs: total, nextH: MARCOS_H.find((m) => m * 3600000 > total) || null };
 }
 
+// ===== Contrato do dia: aposta declarada na véspera; o ritmo corre contra ela =====
+// Mora no doc h2Plan (blob versionado) e SÓ é escrito em gesto do usuário —
+// nunca como efeito colateral de render (lição da migração fantasma).
+function contractFor(dk_) {
+  const v = Number(loadH2()['contrato_' + dk_]);
+  return Number.isFinite(v) && v > 0 ? v : null;
+}
+function setContract(dk_, hours) {
+  const D = loadH2();
+  if (hours > 0) D['contrato_' + dk_] = hours;
+  else delete D['contrato_' + dk_];
+  // poda contratos com mais de 70 dias (no gesto, não no render)
+  const lim = dateKey(new Date(Date.now() - 70 * 86400000));
+  for (const k in D) if (k.startsWith('contrato_') && k.slice(9) < lim) delete D[k];
+  saveH2(D);
+}
+function contractStreak() {
+  // contratos CUMPRIDOS consecutivos até ontem; dia SEM contrato é neutro (não
+  // quebra nem conta) — o jogo é honrar o que foi declarado
+  const history = loadHistory();
+  const D = loadH2();
+  let streak = 0;
+  const cur = new Date();
+  cur.setDate(cur.getDate() - 1);
+  for (let i = 0; i < 90; i++) {
+    const k = dateKey(cur);
+    const c = Number(D['contrato_' + k]);
+    if (Number.isFinite(c) && c > 0) {
+      const tot = history[k] ? Object.values(history[k]).reduce((a, b) => a + b, 0) : 0;
+      if (tot >= c * 3600000) streak++;
+      else break;
+    }
+    cur.setDate(cur.getDate() - 1);
+  }
+  return streak;
+}
+
+// ===== Duelo semanal: a semana atual contra a passada NO MESMO ponto =====
+let _dueloCache = { min: -1, val: null };
+function computeDuel() {
+  const now = new Date();
+  const minuteStamp = now.getDate() * 10000 + now.getHours() * 60 + now.getMinutes();
+  if (_dueloCache.min === minuteStamp) return _dueloCache.val;
+  const sessions = loadSessions();
+  const history = loadHistory();
+  const dayTotal = (k) => history[k] ? Object.values(history[k]).reduce((a, b) => a + b, 0) : 0;
+  const monThis = mondayOf(now);
+  const monLast = mondayOf(now, -1);
+  let atual = 0;
+  for (let i = 0; i <= planWeekdayIndex(now); i++) {
+    const d = new Date(monThis); d.setDate(d.getDate() + i);
+    atual += dayTotal(dateKey(d));
+  }
+  if (state.running) atual += state.totalElapsedMs + (state.paused ? 0 : Date.now() - state.startedAt);
+  // semana passada: dias inteiros até a véspera do mesmo dia-da-semana + parcial por hora
+  let passada = 0;
+  const idxHoje = planWeekdayIndex(now);
+  for (let i = 0; i < idxHoje; i++) {
+    const d = new Date(monLast); d.setDate(d.getDate() + i);
+    passada += dayTotal(dateKey(d));
+  }
+  const dEq = new Date(monLast); dEq.setDate(dEq.getDate() + idxHoje);
+  const mid = dEq.getTime();
+  const cutoff = now.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  for (const s of (sessions[dateKey(dEq)] || [])) {
+    if (!s || !Number.isFinite(s.at)) continue;
+    const startTod = s.at - mid;
+    if (startTod >= cutoff) continue;
+    passada += Math.min(s.durationMs || 0, Math.max(0, cutoff - startTod));
+  }
+  // placar do mês: semanas COMPLETAS cuja segunda cai no mês corrente
+  let vit = 0, der = 0;
+  for (let w = 1; w <= 6; w++) {
+    const mon = mondayOf(now, -w);
+    if (mon.getMonth() !== now.getMonth() || mon.getFullYear() !== now.getFullYear()) break;
+    let a = 0, b = 0;
+    for (let i = 0; i < 7; i++) {
+      const d1 = new Date(mon); d1.setDate(d1.getDate() + i); a += dayTotal(dateKey(d1));
+      const d0 = new Date(mon); d0.setDate(d0.getDate() - 7 + i); b += dayTotal(dateKey(d0));
+    }
+    if (a > b) vit++; else if (b > a) der++;
+  }
+  const val = { atual, passada, vit, der };
+  _dueloCache = { min: minuteStamp, val };
+  return val;
+}
+
+// ===== Boss do mês: alvo DETERMINÍSTICO do histórico FECHADO (pré-mês) =====
+// Todo device converge pro mesmo boss sem gravar nada (dados passados são imutáveis).
+const MESES_PT = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+let _bossCache = { mes: '', alvo: 0 };
+function computeBoss() {
+  const now = new Date();
+  const mesKey = dateKey(now).slice(0, 7);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const history = loadHistory();
+  const dayTotal = (k) => history[k] ? Object.values(history[k]).reduce((a, b) => a + b, 0) : 0;
+  if (_bossCache.mes !== mesKey) {
+    let best = 0;
+    for (let w = 0; w < 104; w++) {
+      const m = mondayOf(monthStart, -1 - w);
+      let t = 0, fechada = true;
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(m); d.setDate(d.getDate() + i);
+        if (d >= monthStart) { fechada = false; break; } // semana que invade o mês não vale
+        t += dayTotal(dateKey(d));
+      }
+      if (fechada && t > best) best = t;
+    }
+    _bossCache = { mes: mesKey, alvo: best >= 3600000 ? best : 0 }; // sem histórico → sem boss
+  }
+  if (!_bossCache.alvo) return null;
+  let melhor = 0;
+  for (let w = 0; w < 6; w++) {
+    const m = mondayOf(now, -w);
+    if (m < monthStart) break;
+    let t = 0;
+    for (let i = 0; i < 7; i++) { const d = new Date(m); d.setDate(d.getDate() + i); t += dayTotal(dateKey(d)); }
+    melhor = Math.max(melhor, t);
+  }
+  return { alvo: _bossCache.alvo, melhor, venceu: melhor >= _bossCache.alvo, mes: MESES_PT[now.getMonth()], mesKey };
+}
+
+// Editor inline do contrato (Enter/blur salvam, Esc cancela, "remover" zera).
+// Fecho único com flag: o blur disparado no fecho não pode salvar de novo, e o
+// re-render só acontece DEPOIS do foco sair da linha (o guard do renderToday
+// pula a linha enquanto o input está focado).
+(() => {
+  const cl = document.getElementById('contractLine');
+  if (!cl) return;
+  cl.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-ct="edit"]');
+    if (!a) return;
+    e.preventDefault();
+    const amanha = dateKey(new Date(Date.now() + 86400000));
+    const atual = contractFor(amanha);
+    cl.innerHTML = `amanhã: <input id="ctInput" type="number" step="0.5" min="0.5" max="16" value="${atual || ''}"
+      style="width:64px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:inherit;padding:3px 6px;font:inherit"> horas
+      <a href="#" data-ct="zero" style="color:inherit;margin-left:8px">${atual ? 'remover' : ''}</a>`;
+    const inp = document.getElementById('ctInput');
+    let done = false;
+    const fecha = (salvar, valor) => {
+      if (done) return;
+      done = true;
+      inp.blur(); // tira o foco da linha ANTES do re-render (blur re-entra e cai no guard done)
+      if (salvar) setContract(amanha, valor);
+      renderToday();
+    };
+    inp.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        const v = Number(String(inp.value).replace(',', '.'));
+        fecha(Number.isFinite(v) && v >= 0.5 && v <= 16, v);
+      } else if (ev.key === 'Escape') fecha(false);
+    });
+    inp.addEventListener('blur', () => {
+      const v = Number(String(inp.value).replace(',', '.'));
+      fecha(Number.isFinite(v) && v >= 0.5 && v <= 16, v);
+    });
+    const zero = cl.querySelector('[data-ct="zero"]');
+    // mousedown dispara antes do blur (lição do swap-back: click depois de re-render morre)
+    if (zero) zero.addEventListener('mousedown', (ev) => { ev.preventDefault(); fecha(true, 0); });
+    inp.focus();
+    inp.select();
+  });
+})();
+
 function renderToday() {
   renderExecStrip();
   const history = loadHistory();
@@ -4276,14 +4452,27 @@ function renderToday() {
     }
   }
 
-  // Ritmo: à frente/atrás da tua média de 28 dias neste horário; meta batida vira ouro
+  // Ritmo: com CONTRATO do dia, o chip corre contra ele (aposta declarada vence a
+  // média); sem contrato, contra a média de 28 dias; meta batida vira ouro
   const paceBadge = $('#paceBadge');
   if (paceBadge) {
     try {
       const MIN5 = 5 * 60000;
       const g = computeGold();
       const p = computePaceDelta();
-      if (g && g.hojeTarget > 0 && p.hoje >= g.hojeTarget) {
+      const cHoras = contractFor(today);
+      if (cHoras) {
+        const cMs = cHoras * 3600000;
+        if (p.hoje >= cMs) {
+          const seq = contractStreak() + 1; // o de hoje conta
+          paceBadge.innerHTML = `contrato cumprido&nbsp;·&nbsp;<b>+${formatDuration(p.hoje - cMs)}</b>${seq > 1 ? `&nbsp;· ${seq}ª seguida` : ''}`;
+          paceBadge.className = 'streak-badge gold';
+        } else {
+          paceBadge.innerHTML = `contrato <b>${cHoras}h</b>&nbsp;— faltam ${formatDuration(cMs - p.hoje)}`;
+          paceBadge.className = 'streak-badge behind';
+        }
+        paceBadge.style.display = 'inline-flex';
+      } else if (g && g.hojeTarget > 0 && p.hoje >= g.hojeTarget) {
         paceBadge.innerHTML = `meta batida&nbsp;·&nbsp;<b>+${formatDuration(p.hoje - g.hojeTarget)}</b>&nbsp;de ouro`;
         paceBadge.className = 'streak-badge gold';
         paceBadge.style.display = 'inline-flex';
@@ -4295,6 +4484,30 @@ function renderToday() {
       } else paceBadge.style.display = 'none';
     } catch { paceBadge.style.display = 'none'; }
   }
+
+  // Linha do contrato: estado de amanhã + streak (edição inline; não re-renderiza com foco dentro)
+  const cl = $('#contractLine');
+  if (cl && !(document.activeElement && cl.contains(document.activeElement))) {
+    try {
+      const amanha = dateKey(new Date(Date.now() + 86400000));
+      const cAmanha = contractFor(amanha);
+      const seq = contractStreak();
+      const seqTxt = seq > 0 ? ` &nbsp;·&nbsp; sequência de contratos <b>${seq}</b> ✓` : '';
+      cl.innerHTML = cAmanha
+        ? `contrato de amanhã: <b>${cAmanha}h</b> <a href="#" data-ct="edit" style="color:inherit">✎</a>${seqTxt}`
+        : `<a href="#" data-ct="edit" style="color:inherit;text-decoration:underline">apostar quantas horas amanhã →</a>${seqTxt}`;
+      cl.style.display = '';
+    } catch { cl.style.display = 'none'; }
+  }
+
+  // Boss do mês: toast único na vitória (guarda local por mês)
+  try {
+    const boss = computeBoss();
+    if (boss && boss.venceu && !localStorage.getItem('timerBossWin_' + boss.mesKey)) {
+      localStorage.setItem('timerBossWin_' + boss.mesKey, '1');
+      showRecordToast(`⚔ boss de ${boss.mes} derrubado — ${formatDuration(boss.melhor)} na semana`);
+    }
+  } catch {}
 
   // Marco de carreira: toast quando cruza (1x por marco; 1ª vez só semeia a baseline
   // pra device novo não comemorar marcos antigos)
@@ -4476,7 +4689,13 @@ function renderHeatmap() {
       const marco = car.nextH ? `próximo marco ${car.nextH}h — faltam ${formatDuration(car.nextH * 3600000 - car.totalMs)}` : 'todos os marcos batidos 🏁';
       const g = computeGold();
       return `carreira ${formatDuration(car.totalMs)} · ${marco}${g && g.mes > 0 ? ` · <span style="color:#d9c58a">ouro do mês ${formatDuration(g.mes)}</span>` : ''}`;
-    })()}</div>`;
+    })()}</div>${(() => {
+      const boss = computeBoss();
+      if (!boss) return '';
+      return boss.venceu
+        ? `<div class="hm-rec">⚔ boss de ${boss.mes} <span style="color:#9ad0a5">DERRUBADO ✓</span> — ${formatDuration(boss.melhor)} na semana (alvo ${formatDuration(boss.alvo)})</div>`
+        : `<div class="hm-rec">⚔ boss de ${boss.mes} — derrubar tua melhor semana (${formatDuration(boss.alvo)}) · melhor do mês ${formatDuration(boss.melhor)} (${Math.min(99, Math.round(100 * boss.melhor / boss.alvo))}%)</div>`;
+    })()}`;
   const g = c.querySelector('.hm-grid');
   if (g) g.scrollLeft = g.scrollWidth; // abre mostrando as semanas RECENTES (o fim do ano)
 }

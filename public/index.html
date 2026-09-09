@@ -8241,12 +8241,12 @@ const H2_WEEKPLAN = [
   { n: 17, d: '20–24/out',     s: '2026-10-20', e: '2026-10-24', t: 'Empresa nova', w: 'MOTV3: ENTREGAR a nota de iniciação (2 de 3).\nFechar o calendário de releases do 3T26 — última semana calma antes da temporada.' },
   { n: 18, d: '27–31/out',     s: '2026-10-27', e: '2026-10-31', t: 'Balanços',     w: 'INÍCIO BALANÇOS 3T26: updates dos modelos do book (Core ≤48h).\nRevisão mensal de outubro.' },
   { n: 19, d: '03–07/nov',     s: '2026-11-03', e: '2026-11-07', t: 'Balanços',     w: 'PICO DE BALANÇOS 3T26: atualização ágil dos modelos do book.\nNão iniciar nada novo esta semana.' },
-  { n: 20, d: '10–14/nov',     s: '2026-11-10', e: '2026-11-14', t: 'Balanços',     w: 'Fim do pico do 3T26: últimos updates do book.\nECOR3: abrir o modelo como CLONE do template Motiva.' },
-  { n: 21, d: '17–21/nov',     s: '2026-11-17', e: '2026-11-21', t: 'Empresa nova', w: 'ECOR3: premissas próprias por concessão, fluxo e valuation.' },
-  { n: 22, d: '24–28/nov',     s: '2026-11-24', e: '2026-11-28', t: 'Empresa nova', w: 'ECOR3: ENTREGAR a nota de iniciação (3 de 3 — fecha a meta do semestre).\nRevisão mensal de novembro.' },
-  { n: 23, d: '01–05/dez',     s: '2026-12-01', e: '2026-12-05', t: 'Análise',      w: 'Polir as 3 coberturas novas: pendências de modelo, sensibilidades, comparáveis entre si (Orizon × rodovias).' },
-  { n: 24, d: '08–12/dez',     s: '2026-12-08', e: '2026-12-12', t: 'Análise',      w: 'Levar as 3 iniciações ao PM como teses acionáveis.\nConferência final: book atualizado com o 3T26.' },
-  { n: 25, d: '15–19/dez',     s: '2026-12-15', e: '2026-12-19', t: 'Cadência',     w: 'Retrospectiva do H2/2026 (incluindo o replanejamento de setembro): o que funcionou, erros documentados.\nMontar o handoff para o H1/2027.' },
+  { n: 20, d: '10–14/nov',     s: '2026-11-10', e: '2026-11-14', t: 'Balanços',     w: 'Fim do pico do 3T26: últimos updates do book, sem pressa de abrir nada novo.\nBuffer da temporada.' },
+  { n: 21, d: '17–21/nov',     s: '2026-11-17', e: '2026-11-21', t: 'Empresa nova', w: 'ECOR3: abrir o modelo como CLONE do template Motiva (histórico por concessão).' },
+  { n: 22, d: '24–28/nov',     s: '2026-11-24', e: '2026-11-28', t: 'Empresa nova', w: 'ECOR3: premissas próprias por concessão (tráfego, tarifas, capex) e fluxo.\nRevisão mensal de novembro.' },
+  { n: 23, d: '01–05/dez',     s: '2026-12-01', e: '2026-12-05', t: 'Empresa nova', w: 'ECOR3: fechar valuation e preço-alvo; rascunho da nota de iniciação.' },
+  { n: 24, d: '08–12/dez',     s: '2026-12-08', e: '2026-12-12', t: 'Empresa nova', w: 'ECOR3: revisar números e ENTREGAR a nota de iniciação (3 de 3 — fecha a meta do semestre) até 12/dez.\nConferência: book atualizado com o 3T26.' },
+  { n: 25, d: '15–19/dez',     s: '2026-12-15', e: '2026-12-19', t: 'Cadência',     w: 'Levar as 3 iniciações ao PM como teses acionáveis.\nRetrospectiva do H2/2026: o que funcionou, erros documentados; handoff para o H1/2027.' },
   { n: 26, d: '22–31/dez',     s: '2026-12-22', e: '2026-12-31', t: 'Cadência',     w: 'Fechar o semestre: post-mortems e metas do H1/2027.\nEncerrar.' },
 ];
 function h2PlanTok(t) {
@@ -8268,7 +8268,7 @@ const H2_OBJ_QUAL = {};
 const H2_KR_DEFS = [
   {"code": "KR8.1", "fam": "O8", "op": true, "baseline": "modelo em curso (V5)", "meta": "1/1", "atualSeed": "0/1", "leadSeed": "Bloco diário no modelo até a entrega: projetar 2026+, montar o bloco ROIC, fechar valuation.", "body": "ORVR3 (Orizon): completar o modelo — projeção 2026+, bloco ROIC, valuation — e ENTREGAR a nota de iniciação com tese, recomendação e preço-alvo. Alvo: semana 13 (26/set)."},
   {"code": "KR8.2", "fam": "O8", "op": true, "baseline": "0/1", "meta": "1/1", "atualSeed": "0/1", "leadSeed": "Semanas 14–17: template de rodovias do zero (histórico e premissas POR CONCESSÃO — tráfego, tarifa, capex, prazo).", "body": "MOTV3 (Motiva): construir o TEMPLATE de rodovias do zero (o custo é do template — EcoRodovias depois clona) e ENTREGAR a nota de iniciação com preço-alvo. Alvo: semana 17 (24/out), antes da temporada 3T26."},
-  {"code": "KR8.3", "fam": "O8", "op": true, "baseline": "0/1", "meta": "1/1", "atualSeed": "0/1", "leadSeed": "Pós-pico do 3T26: clonar o template Motiva (sem. 20) e trocar premissas por concessão.", "body": "ECOR3 (EcoRodovias): montar o modelo como CLONE do template Motiva, com premissas próprias por concessão, e ENTREGAR a nota de iniciação com preço-alvo. Alvo: semana 22 (28/nov) — fecha a meta 3/3 do semestre."},
+  {"code": "KR8.3", "fam": "O8", "op": true, "baseline": "0/1", "meta": "1/1", "atualSeed": "0/1", "leadSeed": "Pós-pico do 3T26: clonar o template Motiva (sem. 21) e trocar premissas por concessão.", "body": "ECOR3 (EcoRodovias): montar o modelo como CLONE do template Motiva, com premissas próprias por concessão, e ENTREGAR a nota de iniciação com preço-alvo. Alvo: semana 24 (12/dez) — fecha a meta 3/3 do semestre."},
 ];
 const H2_COV_DEFS = [
   { t: 'SAPR11', sub: 'Saneamento', tier: 2, earn: '13/08', nota: 'A que preço comprar', st: 'updated', note: '1T26', star: false },
@@ -8289,7 +8289,7 @@ const H2_COV_DEFS = [
   { t: 'LIGT3', sub: 'Integrada', tier: 3, earn: '—', nota: 'Pós-RJ', st: 'fromzero', note: 'cancelado no replanejamento set/26', star: false },
   { t: 'PASS3', sub: 'Integrada', tier: 3, earn: '13/08', nota: 'Radar; o preço já precifica o EDGE?', st: 'fromzero', note: 'cancelado no replanejamento set/26', star: false },
   { t: 'MOTV3', sub: 'Infra', tier: 3, earn: '29/07', nota: 'Iniciação de cobertura (replanejamento set/26)', st: 'fromzero', note: '★ meta do semestre — template rodovias, entregar sem. 17 (24/out)', star: true },
-  { t: 'ECOR3', sub: 'Infra', tier: 3, earn: '30/07', nota: 'Iniciação de cobertura (replanejamento set/26)', st: 'fromzero', note: '★ meta do semestre — clone do template Motiva, entregar sem. 22 (28/nov)', star: true },
+  { t: 'ECOR3', sub: 'Infra', tier: 3, earn: '30/07', nota: 'Iniciação de cobertura (replanejamento set/26)', st: 'fromzero', note: '★ meta do semestre — clone do template Motiva, entregar sem. 24 (12/dez)', star: true },
   { t: 'AMBP3', sub: 'Waste', tier: 3, earn: '—', nota: 'Distressed — não modelar', st: 'watch', note: '', star: false },
   { t: 'ORVR3', sub: 'Waste', tier: 1, earn: '13/08', nota: 'Iniciação de cobertura (pós-M&A Holding Vital)', st: 'fromzero', note: '★ meta do semestre — completar V5 e entregar sem. 13 (26/set)', star: true },
 ];

@@ -2626,6 +2626,14 @@ window.firebaseConfig = {
   .hm-cell.hm-l4 { background: rgba(242,242,240,0.92); }
   .hm-cell.hm-fut { visibility: hidden; }
   .hm-rec { margin-top: 10px; font-size: 11.5px; color: var(--text-subtle); }
+  /* Evolução semanal (barras por semana + média móvel de 4 sem) */
+  .wke-row { display: flex; align-items: flex-end; gap: 4px; margin-top: 12px; overflow-x: auto; padding-bottom: 2px; }
+  .wke-col { flex: 1 1 0; min-width: 22px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .wke-barwrap { position: relative; width: 100%; height: 96px; display: flex; align-items: flex-end; }
+  .wke-bar { width: 100%; background: rgba(255,255,255,0.16); border-radius: 3px 3px 0 0; }
+  .wke-bar.wke-cur { background: rgba(255,255,255,0.08); border: 1px dashed rgba(255,255,255,0.25); border-bottom: none; }
+  .wke-mm { position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid #f2f2f0; opacity: 0.85; pointer-events: none; }
+  .wke-lbl { font-size: 9.5px; color: var(--text-subtle); letter-spacing: 0.02em; }
   /* Nota sell-side da semana */
   .wk-ai-note { margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.10); font-size: 11.5px; line-height: 1.55; color: var(--text-muted); font-style: italic; max-width: 560px; }
   .wk-note-btn { border: none; background: none; color: var(--text-subtle); font-size: 11px; cursor: pointer; text-decoration: underline; padding: 2px 0; font-style: normal; }
@@ -2867,6 +2875,8 @@ window.firebaseConfig = {
     </div>
 
     <div class="hm-card" id="heatmapCard"></div>
+
+    <div class="hm-card" id="weeklyEvoCard"></div>
 
     <div class="chart-card">
       <div class="chart-header">
@@ -4699,8 +4709,61 @@ function renderHeatmap() {
   const g = c.querySelector('.hm-grid');
   if (g) g.scrollLeft = g.scrollWidth; // abre mostrando as semanas RECENTES (o fim do ano)
 }
+// ===== Evolução semanal: barras por semana do semestre + média móvel de 4 semanas =====
+// Semana = seg–dom; numeração casa com o plano (s1 = semana de 29/jun). Tudo derivado.
+function computeWeeklyEvo() {
+  const history = loadHistory();
+  const dayTotal = (k) => history[k] ? Object.values(history[k]).reduce((a, b) => a + b, 0) : 0;
+  const mon0 = new Date(2026, 5, 29); // segunda da semana 1 do plano (29/jun)
+  const monNow = mondayOf(new Date());
+  const semanas = [];
+  for (let m = new Date(mon0); m <= monNow; m.setDate(m.getDate() + 7)) {
+    let total = 0;
+    for (let i = 0; i < 7; i++) { const d = new Date(m); d.setDate(d.getDate() + i); total += dayTotal(dateKey(d)); }
+    semanas.push({ mon: new Date(m), total });
+  }
+  for (let i = 0; i < semanas.length; i++) {
+    const ini = Math.max(0, i - 3);
+    let s = 0;
+    for (let j = ini; j <= i; j++) s += semanas[j].total;
+    semanas[i].mm4 = s / (i - ini + 1);
+  }
+  return semanas;
+}
+function renderWeeklyEvo() {
+  const c = $('#weeklyEvoCard');
+  if (!c) return;
+  const sem = computeWeeklyEvo();
+  if (sem.length < 2) { c.style.display = 'none'; return; }
+  c.style.display = '';
+  const H = 96;
+  const max = Math.max(...sem.map(s => Math.max(s.total, s.mm4)), 3600000);
+  const px = (ms) => Math.max(2, Math.round(H * ms / max));
+  const dm = (d) => String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0');
+  const cols = sem.map((s, i) => {
+    const atual = i === sem.length - 1;
+    return `<div class="wke-col" title="s${i + 1} · semana de ${dm(s.mon)} — ${formatDuration(s.total)} · média 4 sem ${formatDuration(s.mm4)}${atual ? ' · em curso' : ''}">
+      <div class="wke-barwrap">
+        <div class="wke-bar${atual ? ' wke-cur' : ''}" style="height:${px(s.total)}px"></div>
+        <div class="wke-mm" style="bottom:${px(s.mm4)}px"></div>
+      </div>
+      <span class="wke-lbl">s${i + 1}</span>
+    </div>`;
+  }).join('');
+  const ult = sem[sem.length - 1];
+  const fechadas = sem.slice(0, -1);
+  const mediaSem = fechadas.length ? fechadas.reduce((a, s) => a + s.total, 0) / fechadas.length : 0;
+  const mmAnt = sem.length >= 5 ? sem[sem.length - 2].mm4 : null;
+  const tend = mmAnt != null ? (ult.mm4 >= mmAnt ? '▲' : '▼') : '';
+  c.innerHTML = `
+    <div class="hm-head"><span class="hm-title">semana a semana</span><span class="hm-total">média 4 sem ${formatDuration(ult.mm4)} ${tend}</span></div>
+    <div class="wke-row">${cols}</div>
+    <div class="hm-rec">média do semestre ${formatDuration(mediaSem)}/sem (${fechadas.length} fechadas) · <span style="color:#f2f2f0">— traço</span> = média móvel de 4 semanas · barra clara = semana em curso</div>`;
+}
+
 function renderHistory() {
   renderHeatmap();
+  renderWeeklyEvo();
   const monthMode = histMode === 'month';
   const days = monthMode ? getMonthData(histMonthOffset) : getRangeData(currentRange);
   const today0 = new Date(); today0.setHours(0, 0, 0, 0);

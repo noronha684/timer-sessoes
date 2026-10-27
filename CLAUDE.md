@@ -105,6 +105,9 @@ Auditoria de 25 agentes + repro empírico headless. **Raiz confirmada e REPRODUZ
 - **Títulos** (`TITULOS`, 10 níveis, depois "Lenda") e **recompensas reais** (`h2Plan.rewards = [{id,lvl,text,done}]`, definidas/resgatadas/removidas só por gesto na `#rewardLine`; toast de nível menciona a recompensa liberada).
 - **Feedback na hora:** `popXp` ("+N XP" sobe do card) ao marcar pílula e ao fim da sessão (`_xpRunSeen`/`_xpIdleTotal`: compara o total parado antes/depois); barra com DOM persistente (transição de largura) e halo no level-up. Smoke: 61 cenários. v165: XP do dia virou numeral hero (52px) + nível grande com título + barra 6px (pedido do dono: "os pontos têm que aparecer mais em destaque").
 
+## Agenda-modelo da semana no Calendário (27/out/26, SW v166, branch `feat/agenda-modelo-calendario`)
+- Botão "Carregar agenda-modelo da semana" no fim da aba Calendário (`#calAgendaLoad`/`#calAgendaDel`): grava blocos semanais recorrentes (`AGENDA_SEMANA`, ids `agsem-<i>-<dow>`, 48 eventos: Orizon, Spravato na segunda, almoço, jantar, dormir…) em `timerEvents`. **Só por gesto** (`aplicarAgendaSemana`); recarregar substitui só os `agsem-*`, remover idem; ambos com desfazer (`showUndoToast`). Âncora = próxima ocorrência do dia da semana (hoje conta). O evento só tem `time` de início — o fim vai no texto. Smoke: 69 cenários.
+
 ## Pendências conhecidas
 - Ativar **Email/Password** no console do Firebase (Google já funciona): Authentication → Sign-in method → Email/Password → Enable. (Único item não-código da rodada de 31/jul.)
 - Confirmar o caminho positivo do token (login real → sync funciona); só o dono consegue testar (não dá pra emitir token sem provider habilitado).

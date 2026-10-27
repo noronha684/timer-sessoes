@@ -261,6 +261,34 @@
       reset(); renderToday();
     }
 
+    // 13c) Agenda-modelo da semana → eventos recorrentes do Calendário (só por gesto)
+    {
+      const keepE = localStorage.getItem('timerEvents');
+      localStorage.setItem('timerEvents', '{}');
+      const total = () => Object.values(loadEvents()).reduce((a, l) => a + l.length, 0);
+      const proxDia = (dow) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + ((dow - d.getDay() + 7) % 7)); return dateKey(d); };
+      t('agenda-modelo: nada é gravado antes do gesto', !agendaSemanaCarregada() && total() === 0);
+      const r1 = aplicarAgendaSemana();
+      t('agenda-modelo: carrega todos os blocos', r1.n >= 45 && total() === r1.n);
+      aplicarAgendaSemana();
+      t('agenda-modelo: recarregar não duplica', total() === r1.n);
+      const ter = eventsForDay(proxDia(2)).map((e) => e.text).join('|');
+      t('agenda-modelo: terça tem Orizon, almoço e jantar', ter.includes('Orizon · bloco 1') && ter.includes('Almoço') && ter.includes('Jantar'));
+      const seg = eventsForDay(proxDia(1)).map((e) => e.text).join('|');
+      t('agenda-modelo: segunda tem Spravato e Orizon leve', seg.includes('Spravato') && seg.includes('Orizon leve'));
+      const spr = eventsForDay(proxDia(1)).find((e) => e.text.startsWith('Spravato'));
+      t('agenda-modelo: Spravato às 07:00, saúde, semanal', spr && spr.time === '07:00' && spr.cat === 'saude' && spr.recur === 'weekly');
+      renderCalendar();
+      t('agenda-modelo: botão "remover" aparece com agenda carregada', $$('#calAgendaDel').style.display !== 'none');
+      const ev0 = loadEvents(); const kk = dateKey(new Date());
+      (ev0[kk] = ev0[kk] || []).push({ id: 'manual-1', text: 'compromisso meu', done: false });
+      saveEvents(ev0);
+      removerAgendaSemana();
+      t('agenda-modelo: remover limpa só os blocos do modelo', !agendaSemanaCarregada() && total() === 1);
+      if (keepE == null) localStorage.removeItem('timerEvents'); else localStorage.setItem('timerEvents', keepE);
+      renderCalendar();
+    }
+
     // 14) Fechar semestre: seção renderiza e o texto compila
     try { localStorage.setItem('timerH2Tab', 'fechamento'); } catch {}
     h2Active = 'fechamento';

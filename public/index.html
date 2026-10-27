@@ -1042,6 +1042,7 @@ window.firebaseConfig = {
   .mission-line .ms-label { text-transform: uppercase; letter-spacing: 1.2px; font-size: 10px; opacity: .8; }
   .mission-line .ms i { font-style: normal; opacity: .6; }
   .mission-line .ms.ok { color: var(--accent); }
+  .cal-agenda-box { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
   #rewardLine { margin: 12px 0 14px; }
   #rewardLine a { color: inherit; }
   #rewardLine b { color: var(--accent); }
@@ -3035,6 +3036,10 @@ window.firebaseConfig = {
     </div>
     <div class="cal-grid" id="calGrid"></div>
     <div class="cal-week-list" id="calWeekList" style="display:none"></div>
+    <div class="cal-agenda-box">
+      <button class="manual-session-btn" id="calAgendaLoad">Carregar agenda-modelo da semana</button>
+      <button class="manual-session-btn" id="calAgendaDel" style="display:none">Remover agenda-modelo</button>
+    </div>
   </div>
 
 
@@ -7093,6 +7098,7 @@ function h2PlanCalEntries() {
   return out;
 }
 function renderCalendar() {
+  updateAgendaBox();
   // Mostra/esconde os containers conforme a visão
   $('#calGrid').style.display = calView === 'month' ? 'grid' : 'none';
   $('#calWeekdays').style.display = calView === 'month' ? 'grid' : 'none';
@@ -7331,6 +7337,92 @@ function addEvent() {
   renderDayEvents();
   renderCalendar();
 }
+
+// ===== Agenda-modelo da semana → eventos recorrentes do Calendário =====
+// Só por GESTO (botão): grava blocos semanais com id `agsem-*` (recarregar substitui,
+// remover limpa só eles). O evento guarda o início em `time`; o fim vai no texto.
+// dow: 0=dom … 6=sáb. Âncora = próxima ocorrência do dia da semana (hoje conta).
+const AGENDA_SEMANA = [
+  { dow: [2, 3, 4, 5], t: '06:15', text: 'Acordar e café da manhã', cat: 'pessoal' },
+  { dow: [2, 3, 4, 5], t: '07:10', text: 'Deslocamento para o trabalho', cat: 'outro' },
+  { dow: [2, 3, 4, 5], t: '08:00', text: 'Orizon · bloco 1 (até 12:00)', cat: 'trabalho' },
+  { dow: [2, 3, 4, 5], t: '12:00', text: 'Almoço sem trabalhar', cat: 'pessoal' },
+  { dow: [2, 3, 4, 5], t: '13:00', text: 'Orizon · bloco 2 (até 16:00)', cat: 'trabalho' },
+  { dow: [2, 3, 4, 5], t: '16:00', text: 'Reuniões, e-mails e demandas (até 19:00)', cat: 'trabalho' },
+  { dow: [2, 3, 4, 5], t: '19:00', text: 'Deslocamento para casa', cat: 'outro' },
+  { dow: [2, 3, 4, 5], t: '19:45', text: 'Jantar', cat: 'pessoal' },
+  { dow: [2, 3, 4], t: '23:00', text: 'Dormir', cat: 'pessoal' },
+  { dow: [1], t: '06:00', text: 'Acordar (jejum conforme a clínica)', cat: 'saude' },
+  { dow: [1], t: '07:00', text: 'Spravato (até 09:00)', cat: 'saude' },
+  { dow: [1], t: '09:00', text: 'Repouso pós-aplicação, sem trabalhar (até 11:30)', cat: 'saude' },
+  { dow: [1], t: '11:30', text: 'Almoço', cat: 'pessoal' },
+  { dow: [1], t: '12:15', text: 'Deslocamento para o trabalho', cat: 'outro' },
+  { dow: [1], t: '13:00', text: 'Orizon leve (até 16:00)', cat: 'trabalho' },
+  { dow: [1], t: '16:00', text: 'Reuniões, e-mails e demandas (até 19:00)', cat: 'trabalho' },
+  { dow: [1], t: '19:00', text: 'Deslocamento para casa', cat: 'outro' },
+  { dow: [1], t: '19:45', text: 'Jantar leve', cat: 'pessoal' },
+  { dow: [1], t: '23:00', text: 'Dormir', cat: 'pessoal' },
+  { dow: [6], t: '09:00', text: 'Reposição Orizon, opcional (até 12:00)', cat: 'trabalho' },
+  { dow: [0], t: '19:00', text: 'Planejar a semana (30 min)', cat: 'trabalho' },
+  { dow: [0], t: '22:30', text: 'Dormir', cat: 'pessoal' },
+];
+const isAgendaEv = (e) => String(e && e.id || '').startsWith('agsem-');
+function agendaSemanaCarregada() {
+  const ev = loadEvents();
+  for (const k in ev) if ((ev[k] || []).some(isAgendaEv)) return true;
+  return false;
+}
+function stripAgendaSemana(events) {
+  for (const k in events) {
+    events[k] = events[k].filter((e) => !isAgendaEv(e));
+    if (!events[k].length) delete events[k];
+  }
+}
+function aplicarAgendaSemana() {
+  const events = loadEvents();
+  const snap = JSON.stringify(events);
+  stripAgendaSemana(events);
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  let n = 0;
+  AGENDA_SEMANA.forEach((b, i) => b.dow.forEach((dow) => {
+    const d = new Date(hoje);
+    d.setDate(d.getDate() + ((dow - d.getDay() + 7) % 7));
+    const key = dateKey(d);
+    (events[key] = events[key] || []).push({ id: `agsem-${i}-${dow}`, text: b.text, time: b.t, cat: b.cat, recur: 'weekly', done: false });
+    n++;
+  }));
+  saveEvents(events);
+  return { n, snap };
+}
+function removerAgendaSemana() {
+  const events = loadEvents();
+  const snap = JSON.stringify(events);
+  stripAgendaSemana(events);
+  saveEvents(events);
+  return snap;
+}
+function updateAgendaBox() {
+  const load = $('#calAgendaLoad'), del = $('#calAgendaDel');
+  if (!load || !del) return;
+  const on = agendaSemanaCarregada();
+  load.textContent = on ? 'Recarregar agenda-modelo da semana' : 'Carregar agenda-modelo da semana';
+  del.style.display = on ? '' : 'none';
+}
+(() => {
+  const load = document.getElementById('calAgendaLoad'), del = document.getElementById('calAgendaDel');
+  if (!load || !del) return;
+  load.addEventListener('click', () => {
+    if (agendaSemanaCarregada() && !confirm('Substituir os blocos da agenda-modelo já carregados?')) return;
+    const { n, snap } = aplicarAgendaSemana();
+    renderCalendar();
+    showUndoToast(`agenda carregada · ${n} blocos semanais`, () => { saveEvents(JSON.parse(snap)); renderCalendar(); });
+  });
+  del.addEventListener('click', () => {
+    const snap = removerAgendaSemana();
+    renderCalendar();
+    showUndoToast('agenda-modelo removida', () => { saveEvents(JSON.parse(snap)); renderCalendar(); });
+  });
+})();
 
 // Visão semanal (lista de 7 dias com eventos por extenso)
 function renderCalWeek() {

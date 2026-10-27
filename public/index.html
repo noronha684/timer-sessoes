@@ -2622,7 +2622,7 @@ window.firebaseConfig = {
   /* Tabela do plano no celular: sombra de overflow (dica de que há mais à direita) +
      nº da semana grudado (referência durante o pan) */
   @media (max-width: 640px) {
-    #weekPlanBlock .h2-table-wrap {
+    #weekPlanBlock .h2-table-wrap, #h2Content .h2-table-wrap {
       background:
         linear-gradient(to right, #0d0d0e 30%, rgba(13,13,14,0)) left center,
         linear-gradient(to left, #0d0d0e 30%, rgba(13,13,14,0)) right center,
@@ -2632,7 +2632,7 @@ window.firebaseConfig = {
       background-size: 30px 100%, 30px 100%, 12px 100%, 12px 100%;
       background-attachment: local, local, scroll, scroll;
     }
-    #weekPlanBlock .h2-table td:first-child, #weekPlanBlock .h2-table th:first-child {
+    #weekPlanBlock .h2-table td:first-child, #weekPlanBlock .h2-table th:first-child, #h2Content .h2-table td:first-child, #h2Content .h2-table th:first-child {
       position: sticky; left: 0; background: #0d0d0e; z-index: 2;
     }
     .wk-done-inline { display: inline-flex !important; }
@@ -2763,7 +2763,6 @@ window.firebaseConfig = {
     <div class="tab active" data-panel="timer">Timer</div>
     <div class="tab" data-panel="plano">Plano</div>
     <div class="tab" data-panel="history">Histórico</div>
-    <div class="tab" data-panel="sono">Sono</div>
     <div class="tab" data-panel="agenda">Agenda</div>
     <div class="tab" data-panel="cal">Calendário</div>
     <div class="tab" data-panel="semestre">Semestre</div>
@@ -2962,59 +2961,6 @@ window.firebaseConfig = {
     </div>
   </div>
 
-  <div class="panel" id="sono-panel">
-    <div class="sono-section">
-      <div class="sono-section-header">
-        <div class="sono-section-title">Alarmes</div>
-        <button class="sono-add-btn" id="addAlarmBtn">+ Novo</button>
-      </div>
-      <div id="alarmsList" class="alarms-list"></div>
-    </div>
-
-    <div class="sono-section">
-      <div class="sono-section-header">
-        <div class="sono-section-title">Sono</div>
-        <button class="sono-add-btn" id="logSleepBtn">+ Registrar</button>
-      </div>
-      <div class="sleep-cards">
-        <div class="sleep-card">
-          <div class="sleep-card-label">Ontem</div>
-          <div class="sleep-card-value" id="sleepYesterday">—</div>
-          <div class="sleep-card-sub" id="recoveryYesterday" style="display:none"></div>
-        </div>
-        <div class="sleep-card">
-          <div class="sleep-card-label">Média 7 dias</div>
-          <div class="sleep-card-value" id="sleepAvg7">—</div>
-          <div class="sleep-card-sub" id="recoveryAvg7" style="display:none"></div>
-        </div>
-        <div class="sleep-card">
-          <div class="sleep-card-label">Média 30 dias</div>
-          <div class="sleep-card-value" id="sleepAvg30">—</div>
-          <div class="sleep-card-sub" id="recoveryAvg30" style="display:none"></div>
-        </div>
-      </div>
-      <div class="sleep-chart-wrap">
-        <div class="sono-section-title" style="font-size: 11px; margin-bottom: 10px;">Últimos 7 dias</div>
-        <div class="sleep-chart" id="sleepChart"></div>
-        <div class="sleep-chart-labels" id="sleepChartLabels"></div>
-        <div class="sleep-insight" id="recFocusInsight" style="display:none"></div>
-      </div>
-    </div>
-
-    <div class="sono-section">
-      <div class="sono-section-title">Whoop</div>
-      <div class="whoop-card" id="whoopCard">
-        <div class="whoop-status" id="whoopStatus">Verificando...</div>
-        <p class="whoop-info" id="whoopInfo">
-          Conecte sua conta Whoop pra importar o sono automaticamente.
-        </p>
-        <button class="sono-add-btn" id="whoopConnectBtn">Conectar Whoop</button>
-        <button class="sono-add-btn" id="whoopSyncBtn" style="display:none">Sincronizar agora</button>
-        <button class="sync-danger-btn" id="whoopDisconnectBtn" style="display:none; margin-top: 8px;">Desconectar</button>
-      </div>
-    </div>
-  </div>
-
   <div class="panel" id="agenda-panel">
     <div class="agenda-nav">
       <button class="agenda-nav-btn" id="agendaPrev">‹</button>
@@ -3063,13 +3009,6 @@ window.firebaseConfig = {
 
     <div class="tasks-card" id="tasksCard"></div>
 
-    <div class="tasks-card" id="earnTrackerCard"></div>
-
-    <div class="waiting-card tasks-card" id="waitingCard"></div>
-
-    <!-- Plano semana-a-semana do H2 (morava no Semestre; unificado aqui) -->
-    <div class="weekplan-block" id="weekPlanBlock"></div>
-
     <div class="weekreview-card" id="weekReviewCard"></div>
 
     <div class="plan-grid-card">
@@ -3083,53 +3022,17 @@ window.firebaseConfig = {
       <div class="plan-week-total" id="planWeekTotal"></div>
     </div>
 
-    <div class="plan-hint">Defina quanto quer focar em cada dia. O card de cima mostra, todo dia, o planejado contra o que você já fez. Fim de semana pode ficar zerado.</div>
+    <div class="waiting-card tasks-card" id="waitingCard"></div>
+
+    <div class="tasks-card" id="earnTrackerCard"></div>
+
+    <!-- Plano semana-a-semana: dono vê na aba Semestre (07); convidado, aqui -->
+    <div class="weekplan-block" id="weekPlanBlock"></div>
   </div>
 
   <div class="panel" id="semestre-panel">
     <div class="h2-subnav" id="h2Subnav"></div>
     <div class="h2-content" id="h2Content"></div>
-  </div>
-</div>
-
-<div class="alarm-overlay" id="alarmModal">
-  <div class="modal-content alarm-modal">
-    <div class="modal-title" id="alarmModalTitle">Novo alarme</div>
-    <input type="time" class="alarm-time-input" id="alarmTimeInput" value="07:00">
-    <input type="text" class="new-cat-input" id="alarmLabelInput" placeholder="Rótulo (ex: Acordar)" maxlength="40" style="margin-top: 12px;">
-    <div class="alarm-days-label" style="margin: 14px 0 6px; font-size: 11px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 1.2px;">Repetir</div>
-    <div class="alarm-days" id="alarmDays">
-      <button class="day-btn" data-day="1">S</button>
-      <button class="day-btn" data-day="2">T</button>
-      <button class="day-btn" data-day="3">Q</button>
-      <button class="day-btn" data-day="4">Q</button>
-      <button class="day-btn" data-day="5">S</button>
-      <button class="day-btn" data-day="6">S</button>
-      <button class="day-btn" data-day="0">D</button>
-    </div>
-    <button class="btn-primary" id="saveAlarmBtn" style="margin-top: 16px;">Salvar</button>
-    <button class="sync-danger-btn" id="deleteAlarmBtn" style="display:none">Excluir alarme</button>
-    <button class="modal-close" id="alarmModalClose">Fechar</button>
-  </div>
-</div>
-
-<div class="modal-overlay" id="sleepModal">
-  <div class="modal-content">
-    <div class="modal-title">Registrar sono</div>
-    <div style="font-size: 11px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 6px;">Data</div>
-    <input type="date" class="new-cat-input" id="sleepDateInput">
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px;">
-      <div>
-        <div style="font-size: 11px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 6px;">Horas</div>
-        <input type="number" class="new-cat-input" id="sleepHoursInput" min="0" max="24" value="7" inputmode="numeric">
-      </div>
-      <div>
-        <div style="font-size: 11px; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 6px;">Minutos</div>
-        <input type="number" class="new-cat-input" id="sleepMinsInput" min="0" max="59" value="30" inputmode="numeric">
-      </div>
-    </div>
-    <button class="btn-primary" id="saveSleepBtn" style="margin-top: 16px;">Salvar</button>
-    <button class="modal-close" id="sleepModalClose">Fechar</button>
   </div>
 </div>
 
@@ -3487,16 +3390,14 @@ document.querySelectorAll('.tab').forEach(tab => {
     tab.classList.add('active');
     $('#' + tab.dataset.panel + '-panel').classList.add('active');
     const tabsEl = document.querySelector('.tabs');
-    tabsEl.classList.remove('tab-plano', 'tab-history', 'tab-sono', 'tab-agenda', 'tab-cal', 'tab-semestre');
+    tabsEl.classList.remove('tab-plano', 'tab-history', 'tab-agenda', 'tab-cal', 'tab-semestre');
     if (tab.dataset.panel === 'plano') tabsEl.classList.add('tab-plano');
     if (tab.dataset.panel === 'history') tabsEl.classList.add('tab-history');
-    if (tab.dataset.panel === 'sono') tabsEl.classList.add('tab-sono');
     if (tab.dataset.panel === 'agenda') tabsEl.classList.add('tab-agenda');
     if (tab.dataset.panel === 'cal') tabsEl.classList.add('tab-cal');
     if (tab.dataset.panel === 'semestre') tabsEl.classList.add('tab-semestre');
     if (tab.dataset.panel === 'plano') renderPlano();
     if (tab.dataset.panel === 'history') renderHistory();
-    if (tab.dataset.panel === 'sono') renderSono();
     if (tab.dataset.panel === 'agenda') renderAgenda();
     if (tab.dataset.panel === 'cal') renderCalendar();
     if (tab.dataset.panel === 'semestre') renderH2();
@@ -5663,7 +5564,6 @@ function applyServerSnapshot(snap) {
     // #12: painéis de calendário/agenda/sono também refletem o pull quando abertos
     if (typeof renderCalendar === 'function' && active('#cal-panel') && !isEditingField()) renderCalendar();
     if (typeof renderAgenda === 'function' && active('#agenda-panel') && !isEditingField()) renderAgenda();
-    if (typeof renderSono === 'function' && active('#sono-panel') && !isEditingField()) renderSono();
   } finally {
     isApplyingRemote = false;
   }
@@ -6001,207 +5901,14 @@ function restoreTimerState() {
   updatePipMediaState();
 }
 
-// ====== Alarmes ======
+// ====== Sono (sem aba) ======
+// A aba Sono, os alarmes e o registro manual saíram (27/out/26, a pedido). Ficam só os
+// DADOS: `timerSleep` alimenta Agenda, Calendário e a nota da semana, e o sync do Whoop
+// roda sozinho (sem botão). `timerAlarms` segue no blob de sync por compatibilidade, inerte.
 function loadAlarms() {
   try { return JSON.parse(localStorage.getItem('timerAlarms') || '[]'); }
   catch { return []; }
 }
-function saveAlarms(alarms) {
-  localStorage.setItem('timerAlarms', JSON.stringify(alarms));
-  stampBlob('alarms');
-  if (typeof triggerSync === 'function') triggerSync();
-}
-
-let editingAlarmId = null;
-function openAlarmModal(alarmId = null) {
-  editingAlarmId = alarmId;
-  const modal = $('#alarmModal');
-  const title = $('#alarmModalTitle');
-  const timeInput = $('#alarmTimeInput');
-  const labelInput = $('#alarmLabelInput');
-  const deleteBtn = $('#deleteAlarmBtn');
-  const days = $('#alarmDays').querySelectorAll('.day-btn');
-  if (alarmId) {
-    const alarm = loadAlarms().find(a => a.id === alarmId);
-    if (!alarm) return;
-    title.textContent = 'Editar alarme';
-    timeInput.value = alarm.time;
-    labelInput.value = alarm.label || '';
-    days.forEach(b => b.classList.toggle('active', alarm.days.includes(parseInt(b.dataset.day))));
-    deleteBtn.style.display = 'block';
-  } else {
-    title.textContent = 'Novo alarme';
-    timeInput.value = '07:00';
-    labelInput.value = '';
-    days.forEach(b => b.classList.add('active'));
-    deleteBtn.style.display = 'none';
-  }
-  modal.classList.add('active');
-}
-function closeAlarmModal() { $('#alarmModal').classList.remove('active'); }
-
-$('#alarmModal').querySelectorAll('.day-btn').forEach(btn => {
-  btn.addEventListener('click', () => btn.classList.toggle('active'));
-});
-
-$('#addAlarmBtn').addEventListener('click', () => openAlarmModal());
-$('#alarmModalClose').addEventListener('click', closeAlarmModal);
-$('#alarmModal').addEventListener('click', (e) => { if (e.target.id === 'alarmModal') closeAlarmModal(); });
-
-$('#saveAlarmBtn').addEventListener('click', () => {
-  const time = $('#alarmTimeInput').value;
-  if (!time) return;
-  const label = $('#alarmLabelInput').value.trim();
-  const days = [...$('#alarmDays').querySelectorAll('.day-btn.active')].map(b => parseInt(b.dataset.day));
-  const alarms = loadAlarms();
-  // Se o horário já passou hoje, marca lastFired=hoje pra o catch-up (tolerância de 30 min)
-  // não disparar o alarme na hora em que ele foi criado/editado pra um horário passado.
-  const nd = new Date();
-  const passedToday = (parseInt(time.slice(0, 2), 10) * 60 + parseInt(time.slice(3, 5), 10)) <= (nd.getHours() * 60 + nd.getMinutes());
-  if (editingAlarmId) {
-    const idx = alarms.findIndex(a => a.id === editingAlarmId);
-    if (idx >= 0) {
-      alarms[idx] = { ...alarms[idx], time, label, days, lastFired: passedToday ? dateKey(nd) : (alarms[idx].lastFired || null) };
-    }
-  } else {
-    alarms.push({
-      id: (crypto.randomUUID ? crypto.randomUUID() : 'a-' + Date.now()),
-      time, label, days, enabled: true, lastFired: passedToday ? dateKey(nd) : null,
-    });
-  }
-  saveAlarms(alarms);
-  closeAlarmModal();
-  renderAlarms();
-});
-
-$('#deleteAlarmBtn').addEventListener('click', () => {
-  if (!editingAlarmId) return;
-  if (!confirm('Excluir este alarme?')) return;
-  const alarms = loadAlarms().filter(a => a.id !== editingAlarmId);
-  saveAlarms(alarms);
-  closeAlarmModal();
-  renderAlarms();
-});
-
-function renderAlarms() {
-  const list = $('#alarmsList');
-  if (!list) return;
-  const alarms = loadAlarms();
-  if (alarms.length === 0) {
-    list.innerHTML = '<div class="alarm-empty">Nenhum alarme configurado.</div>';
-    return;
-  }
-  const dayLabels = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
-  list.innerHTML = alarms.map(a => {
-    const safeLabel = escapeHtml(a.label || 'Alarme');
-    const daysStr = (a.days && a.days.length > 0)
-      ? a.days.sort().map(d => dayLabels[d]).join(' ')
-      : 'Uma vez';
-    return `
-      <div class="alarm-item ${a.enabled ? '' : 'disabled'}" data-alarm-id="${a.id}">
-        <div class="alarm-info">
-          <div class="alarm-time">${a.time}</div>
-          <div class="alarm-meta">
-            <span class="alarm-label">${safeLabel}</span>
-            <span class="alarm-days-display">${daysStr}</span>
-          </div>
-        </div>
-        <label class="toggle" onclick="event.stopPropagation()">
-          <input type="checkbox" ${a.enabled ? 'checked' : ''} data-alarm-toggle="${a.id}">
-          <span class="toggle-slider"></span>
-        </label>
-      </div>
-    `;
-  }).join('');
-}
-
-// Liga/desliga o alarme via CHANGE (não click): o label do toggle tem
-// onclick=stopPropagation pra o clique não abrir o modal de edição — isso bloqueava
-// TAMBÉM o handler de click do toggle (o enabled nunca era salvo). O change borbulha
-// independente do stopPropagation de click, então captura o toggle de forma confiável.
-$('#alarmsList').addEventListener('change', (e) => {
-  const toggle = e.target.closest('input[data-alarm-toggle]');
-  if (!toggle) return;
-  const id = toggle.dataset.alarmToggle;
-  const alarms = loadAlarms();
-  const a = alarms.find(x => x.id === id);
-  if (!a) return;
-  a.enabled = toggle.checked;
-  // Ao RELIGAR, mesmo guard do modal: horário já passado hoje marca lastFired=hoje pra o
-  // catch-up de 30 min não disparar o alarme na hora do religamento.
-  if (toggle.checked && a.time) {
-    const nd = new Date();
-    const passedToday = (parseInt(a.time.slice(0, 2), 10) * 60 + parseInt(a.time.slice(3, 5), 10)) <= (nd.getHours() * 60 + nd.getMinutes());
-    if (passedToday) a.lastFired = dateKey(nd);
-  }
-  saveAlarms(alarms);
-  renderAlarms();
-});
-// Clique no corpo do item (fora do toggle) abre a edição
-$('#alarmsList').addEventListener('click', (e) => {
-  if (e.target.closest('label.toggle')) return; // toggle é tratado no change
-  const item = e.target.closest('.alarm-item');
-  if (item) openAlarmModal(item.dataset.alarmId);
-});
-
-function checkAlarms() {
-  const now = new Date();
-  const day = now.getDay();
-  const today = dateKey(now);
-  const nowMin = now.getHours() * 60 + now.getMinutes();
-  const alarms = loadAlarms();
-  let changed = false;
-  for (const a of alarms) {
-    if (!a.enabled) continue;
-    if (a.lastFired === today) continue;
-    const isOnce = !(a.days && a.days.length > 0);
-    if (!isOnce && !a.days.includes(day)) continue;
-    const parts = String(a.time || '').split(':');
-    const hh = parseInt(parts[0], 10), mm = parseInt(parts[1], 10);
-    if (!Number.isFinite(hh) || !Number.isFinite(mm)) continue;
-    const alarmMin = hh * 60 + mm;
-    // Dispara quando JÁ passou do horário de hoje, com tolerância de 30 min pra recuperar
-    // atrasos (dispositivo dormindo / throttling) — antes exigia o minuto exato e perdia o alarme.
-    if (nowMin >= alarmMin && nowMin - alarmMin <= 30) {
-      fireAlarm(a);
-      a.lastFired = today;
-      if (isOnce) a.enabled = false; // "Uma vez": não repete nos dias seguintes
-      changed = true;
-    }
-  }
-  if (changed) {
-    saveAlarms(alarms);
-    // "Uma vez" desabilitado precisa refletir na lista (senão o toggle segue ligado visualmente)
-    if (typeof renderAlarms === 'function' && $('#sono-panel') && $('#sono-panel').classList.contains('active')) renderAlarms();
-  }
-}
-
-function fireAlarm(alarm) {
-  ensureAudio();
-  // Som contínuo (3 ciclos de beeps)
-  playSound();
-  setTimeout(playSound, 2500);
-  setTimeout(playSound, 5000);
-  // Visual via alert overlay
-  $('#alertCategory').textContent = alarm.label || 'Alarme';
-  $('#alertDuration').textContent = alarm.time;
-  $('#alertTime').textContent = 'Toque pra silenciar';
-  $('.alert-title') && (document.querySelector('.alert-title').textContent = 'Alarme');
-  overlay.classList.add('active');
-  if ('Notification' in window && Notification.permission === 'granted') {
-    try { new Notification('' + (alarm.label || 'Alarme'), { body: alarm.time, requireInteraction: true }); }
-    catch {}
-  }
-}
-
-// Checa a cada 20s + na hora que a aba volta a ficar visível (recupera alarme do período dormindo).
-// O check da carga é ADIADO 4s pra dar tempo do primeiro pull trazer o lastFired de outro
-// aparelho (senão o catch-up de 30 min re-dispararia um alarme já tocado no outro device).
-setInterval(checkAlarms, 20000);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkAlarms(); });
-setTimeout(checkAlarms, 4000);
-
-// ====== Sono ======
 function loadSleep() {
   try { return JSON.parse(localStorage.getItem('timerSleep') || '{}'); }
   catch { return {}; }
@@ -6210,103 +5917,19 @@ function saveSleepData(data) {
   localStorage.setItem('timerSleep', JSON.stringify(data));
   if (typeof triggerSync === 'function') triggerSync();
 }
-
-function openSleepModal() {
-  // Default: ontem (hora local)
-  const yest = new Date();
-  yest.setDate(yest.getDate() - 1);
-  $('#sleepDateInput').value = dateKey(yest);
-  const sleep = loadSleep();
-  const entry = sleep[dateKey(yest)];
-  if (entry) {
-    $('#sleepHoursInput').value = Math.floor(entry.durationMin / 60);
-    $('#sleepMinsInput').value = entry.durationMin % 60;
-  } else {
-    $('#sleepHoursInput').value = 7;
-    $('#sleepMinsInput').value = 30;
-  }
-  $('#sleepModal').classList.add('active');
-}
-
-$('#logSleepBtn').addEventListener('click', openSleepModal);
-$('#sleepModalClose').addEventListener('click', () => $('#sleepModal').classList.remove('active'));
-$('#sleepModal').addEventListener('click', (e) => { if (e.target.id === 'sleepModal') $('#sleepModal').classList.remove('active'); });
-
-$('#saveSleepBtn').addEventListener('click', () => {
-  const date = $('#sleepDateInput').value;
-  const hours = Math.max(0, Math.min(24, parseInt($('#sleepHoursInput').value) || 0));
-  const mins = Math.max(0, Math.min(59, parseInt($('#sleepMinsInput').value) || 0));
-  if (!date) return;
-  const totalMin = hours * 60 + mins;
-  const sleep = loadSleep();
-  sleep[date] = { durationMin: totalMin, source: 'manual', at: Date.now() };
-  saveSleepData(sleep);
-  $('#sleepModal').classList.remove('active');
-  renderSono();
-});
-
-// ====== Whoop (front) ======
 function whoopUid() {
   // Usa o mesmo identificador do sync (uid do Google ou código manual)
   return syncCode || null;
 }
-
-async function checkWhoopStatus() {
+// Puxa o sono do Whoop em segundo plano (no máx. 1x a cada 6 h). Sem Whoop conectado o
+// Worker responde not_connected e nada acontece. O carimbo vai ANTES do fetch (falha não
+// vira laço de tentativas).
+async function whoopAutoSync() {
   const uid = whoopUid();
-  const statusEl = $('#whoopStatus');
-  const infoEl = $('#whoopInfo');
-  const connectBtn = $('#whoopConnectBtn');
-  const syncBtn = $('#whoopSyncBtn');
-  const discBtn = $('#whoopDisconnectBtn');
-  if (!uid) {
-    statusEl.textContent = 'Login necessário';
-    infoEl.textContent = 'Faça login antes de conectar o Whoop.';
-    connectBtn.style.display = 'none';
-    syncBtn.style.display = 'none';
-    discBtn.style.display = 'none';
-    return;
-  }
-  try {
-    const res = await fetch(`${window.API_BASE}/api/whoop/status?uid=${encodeURIComponent(uid)}`, { headers: await authHeaders() });
-    const data = await res.json();
-    if (data.connected) {
-      statusEl.textContent = '✓ Conectado';
-      infoEl.textContent = 'Seu sono é importado do Whoop. Sincronize pra puxar os dados mais recentes.';
-      connectBtn.style.display = 'none';
-      syncBtn.style.display = 'inline-block';
-      discBtn.style.display = 'block';
-    } else {
-      statusEl.textContent = 'Não conectado';
-      infoEl.textContent = 'Conecte sua conta Whoop pra importar o sono automaticamente.';
-      connectBtn.style.display = 'inline-block';
-      syncBtn.style.display = 'none';
-      discBtn.style.display = 'none';
-    }
-  } catch (e) {
-    statusEl.textContent = 'Erro ao verificar';
-    infoEl.textContent = e.message;
-  }
-}
-
-$('#whoopConnectBtn').addEventListener('click', async () => {
-  const u = window._fb && window._fb.auth && window._fb.auth.currentUser;
-  if (!u) { alert('Entre primeiro para conectar o Whoop.'); return; }
-  // Pede a URL de autorização ao Worker (Bearer no header); o token NÃO vai na URL.
-  try {
-    const res = await fetch(`${window.API_BASE}/api/whoop/connect`, { method: 'POST', headers: await authHeaders() });
-    const data = await res.json();
-    if (data && data.url) window.location.href = data.url;
-    else alert('Não foi possível iniciar a conexão com o Whoop.');
-  } catch (e) { alert('Erro ao conectar Whoop: ' + e.message); }
-});
-
-$('#whoopSyncBtn').addEventListener('click', async () => {
-  const uid = whoopUid();
-  if (!uid) return;
-  const btn = $('#whoopSyncBtn');
-  const orig = btn.textContent;
-  btn.textContent = 'Sincronizando...';
-  btn.disabled = true;
+  if (!uid || !document.body.classList.contains('authed')) return;
+  const last = Number(localStorage.getItem('timerWhoopAutoAt') || 0);
+  if (Date.now() - last < 6 * 3600000) return;
+  try { localStorage.setItem('timerWhoopAutoAt', String(Date.now())); } catch {}
   try {
     const res = await fetch(`${window.API_BASE}/api/whoop/sync`, {
       method: 'POST',
@@ -6314,135 +5937,17 @@ $('#whoopSyncBtn').addEventListener('click', async () => {
       body: JSON.stringify({ uid }),
     });
     const data = await res.json();
-    if (data.ok && data.sleep) {
-      // Mescla sono do Whoop no local
+    if (data && data.ok && data.sleep) {
       const local = loadSleep();
       Object.assign(local, data.sleep);
       saveSleepData(local);
-      renderSono();
-      btn.textContent = `✓ ${data.synced} noites`;
-    } else if (data.error === 'not_connected') {
-      btn.textContent = 'Reconectar';
-      checkWhoopStatus();
-    } else {
-      btn.textContent = 'Erro';
-      $('#whoopInfo').textContent = 'Erro: ' + (data.detail || data.error || 'desconhecido') + (data.status ? ' (HTTP ' + data.status + ')' : '');
+      const ap = document.getElementById('agenda-panel');
+      if (typeof renderAgenda === 'function' && ap && ap.classList.contains('active')) renderAgenda();
     }
-  } catch (e) {
-    btn.textContent = 'Erro';
-    $('#whoopInfo').textContent = 'Erro: ' + e.message;
-  }
-  setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
-});
-
-$('#whoopDisconnectBtn').addEventListener('click', async () => {
-  const uid = whoopUid();
-  if (!uid) return;
-  if (!confirm('Desconectar o Whoop?')) return;
-  await fetch(`${window.API_BASE}/api/whoop/disconnect`, {
-    method: 'POST',
-    headers: await authHeaders({ 'Content-Type': 'application/json' }),
-    body: JSON.stringify({ uid }),
-  });
-  checkWhoopStatus();
-});
-
-function renderSono() {
-  renderAlarms();
-  checkWhoopStatus();
-  const sleep = loadSleep();
-  // Ontem
-  const yest = new Date();
-  yest.setDate(yest.getDate() - 1);
-  const yKey = dateKey(yest);
-  const yEntry = sleep[yKey];
-  $('#sleepYesterday').textContent = yEntry ? formatDuration(yEntry.durationMin * 60000) : '—';
-
-  // Média 7 dias
-  let sum = 0, count = 0;
-  const today = new Date();
-  for (let i = 1; i <= 7; i++) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const e = sleep[dateKey(d)];
-    if (e && e.durationMin > 0) { sum += e.durationMin; count++; }
-  }
-  $('#sleepAvg7').textContent = count > 0 ? formatDuration((sum / count) * 60000) : '—';
-
-  // Média 30 dias (só noites com registro)
-  let sum30 = 0, count30 = 0;
-  for (let i = 1; i <= 30; i++) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const e = sleep[dateKey(d)];
-    if (e && e.durationMin > 0) { sum30 += e.durationMin; count30++; }
-  }
-  const avg30El = $('#sleepAvg30');
-  if (avg30El) avg30El.textContent = count30 > 0 ? formatDuration((sum30 / count30) * 60000) : '—';
-
-  // Recovery do Whoop (quando presente na entrada de sono — worker anexa via /v2/recovery).
-  // Sub-linha discreta em cada card; some quando não há dado (contas sem Whoop).
-  const recoveryAvgOver = (nDays) => {
-    let rs = 0, rn = 0;
-    for (let i = 1; i <= nDays; i++) {
-      const d = new Date(today); d.setDate(d.getDate() - i);
-      const e = sleep[dateKey(d)];
-      if (e && typeof e.recovery === 'number') { rs += e.recovery; rn++; }
-    }
-    return rn > 0 ? Math.round(rs / rn) : null;
-  };
-  const setRec = (id, val) => {
-    const el = $(id); if (!el) return;
-    if (val == null) { el.style.display = 'none'; return; }
-    el.style.display = '';
-    el.textContent = `rec ${val}%`;
-  };
-  setRec('#recoveryYesterday', (yEntry && typeof yEntry.recovery === 'number') ? yEntry.recovery : null);
-  setRec('#recoveryAvg7', recoveryAvgOver(7));
-  setRec('#recoveryAvg30', recoveryAvgOver(30));
-
-  // Mini chart 7 dias
-  const chart = $('#sleepChart');
-  const labels = $('#sleepChartLabels');
-  if (!chart || !labels) return;
-  const days = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const e = sleep[dateKey(d)];
-    days.push({ date: d, min: e ? e.durationMin : 0 });
-  }
-  const maxMin = Math.max(60, ...days.map(d => d.min));
-  const dayNames = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
-  chart.innerHTML = days.map(d => {
-    const h = d.min > 0 ? (d.min / maxMin) * 100 : 0;
-    return `<div class="sleep-bar ${d.min === 0 ? 'empty' : ''}" style="height:${h}%" title="${formatDuration(d.min * 60000)}"></div>`;
-  }).join('');
-  labels.innerHTML = days.map(d => `<span>${dayNames[d.date.getDay()]}</span>`).join('');
-
-  // Recovery × foco: quanto rende um dia de recovery alto vs. o resto? (bandas do Whoop:
-  // verde ≥67%). Dia sem foco conta como 0h — pular trabalho POR recovery baixo é o dado.
-  // Só aparece com amostra mínima (3+ dias em cada balde nos últimos 60d).
-  const insight = $('#recFocusInsight');
-  if (insight) {
-    const hist2 = loadHistory();
-    const hi = [], lo = [];
-    for (let i = 1; i <= 60; i++) {
-      const d = new Date(today); d.setDate(d.getDate() - i);
-      const k = dateKey(d);
-      const e = sleep[k];
-      if (!e || typeof e.recovery !== 'number') continue;
-      const day = hist2[k] || {};
-      let ms = 0; for (const c in day) ms += day[c];
-      (e.recovery >= 67 ? hi : lo).push(ms / 3600000);
-    }
-    const avg = (a) => a.reduce((x, y) => x + y, 0) / a.length;
-    if (hi.length >= 3 && lo.length >= 3) {
-      insight.style.display = '';
-      insight.textContent = `Recovery alto (≥67%): ${avg(hi).toFixed(1)}h de foco/dia · abaixo disso: ${avg(lo).toFixed(1)}h — últimos 60 dias (${hi.length}×${lo.length} noites)`;
-    } else insight.style.display = 'none';
-  }
+  } catch { /* offline / sem Whoop: tenta de novo na próxima janela de 6 h */ }
 }
+setTimeout(whoopAutoSync, 8000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') whoopAutoSync(); });
 
 // ====== Agenda (timeline semanal) ======
 let agendaWeekOffset = 0; // 0 = semana atual, -1 = anterior...
@@ -7830,7 +7335,8 @@ function h2Deadlines() {
   const ev = (typeof loadEvents === 'function') ? loadEvents() : {};
   for (const dk in ev) {
     if (dk < from || dk > to) continue;
-    for (const e of (ev[dk] || [])) if ((e.text || '').trim()) out.push({ dk, text: e.text, done: !!e.done, src: 'agenda', evdk: dk, evid: e.id });
+    // blocos da agenda-modelo (`agsem-*`, rotina semanal) NÃO são prazos — senão inundam o radar
+    for (const e of (ev[dk] || [])) if ((e.text || '').trim() && !String(e.id || '').startsWith('agsem-')) out.push({ dk, text: e.text, done: !!e.done, src: 'agenda', evdk: dk, evid: e.id });
   }
   // Dedup por (data + texto): um item RECORRENTE com data no texto ("... até 14/07")
   // aparece em várias semanas e geraria N linhas idênticas no radar — colapsa em uma
@@ -8032,6 +7538,9 @@ function renderEarnTracker() {
 function renderWeekPlan() {
   const c = $('#weekPlanBlock');
   if (!c) return;
+  // Dono: o plano semanal vive na aba Semestre (seção 07); aqui só convidado (sem Semestre)
+  if (h2IsOwner()) { c.innerHTML = ''; c.style.display = 'none'; return; }
+  c.style.display = '';
   c.innerHTML = h2SecPlano(loadH2());
   bindH2Plano(c);
 }
@@ -8713,8 +8222,10 @@ const H2_SECTIONS = [
   { id: 'scorecard', n: '04', label: 'Scorecard mensal' },
   { id: 'calendario', n: '05', label: 'Calendário & cadência' },
   { id: 'regulatorio', n: '06', label: 'Calendário regulatório' },
-  // (07 · Plano semanal migrou pra aba Plano — renderWeekPlan/#weekPlanBlock)
-  { id: 'fechamento', n: '07', label: 'Fechar semestre' },
+  // Plano semanal: no DONO mora aqui (saiu da aba Plano pra simplificá-la, 27/out/26);
+  // convidado (sem aba Semestre) segue vendo o bloco na aba Plano (#weekPlanBlock).
+  { id: 'plano', n: '07', label: 'Plano semanal' },
+  { id: 'fechamento', n: '08', label: 'Fechar semestre' },
 ];
 const H2_EARNINGS = [
   { per: 'Earnings 2T26', tri: '2º tri de 2026', what: 'Bloco pesado: 21 names reportam. Update ágil de modelos (Tier 1 em ≤48h), guidance vs. consenso. NÃO iniciar relatórios de iniciação aqui.', ini: '29/jul/2026', fim: '14/ago/2026' },
@@ -8890,6 +8401,7 @@ function renderH2Section() {
   else if (h2Active === 'scorecard') { c.innerHTML = h2SecScorecard(D); bindH2Scorecard(c); }
   else if (h2Active === 'calendario') c.innerHTML = h2SecCalendario();
   else if (h2Active === 'regulatorio') { c.innerHTML = h2SecRegulatorio(); bindH2Reg(c); }
+  else if (h2Active === 'plano') { c.innerHTML = h2SecPlano(D); bindH2Plano(c); }
   else if (h2Active === 'fechamento') { c.innerHTML = h2SecFechamento(D); bindH2Fechamento(c); }
   else {
     const lbl = (H2_SECTIONS.find(s => s.id === h2Active) || {}).label || '';
@@ -10388,7 +9900,6 @@ updateDisplay();
 renderToday();
 renderGoals();
 renderBurndown();
-renderAlarms();
 h2ApplyPlanConfig(); // plano gerado (não-dono/config) ou seed do dono
 checkNewRecords(true); // semeia a base dos recordes (silencioso)
 if (!h2IsOwner()) { const st = document.querySelector('[data-panel="semestre"]'); if (st) st.style.display = 'none'; }

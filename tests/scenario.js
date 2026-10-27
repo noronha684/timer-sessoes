@@ -162,21 +162,38 @@
     t('tracker: release futuro D-n', !!document.querySelector('#earnTrackerCard .earn-st.wait'));
     const Dt2 = loadH2(); delete Dt2.earnTracker; saveH2(Dt2);
 
-    // 13) Recovery × foco: insight com amostra seedada (4 noites altas × 4 baixas)
-    const sl = {}, hh = {};
-    for (let i = 1; i <= 8; i++) {
+    // 13) Aba Sono removida (27/out/26): some a UI, ficam os DADOS (Agenda continua desenhando o sono)
+    t('sono: aba, painel e modais saíram', !document.querySelector('.tab[data-panel="sono"]') && !$$('#sono-panel') && !$$('#alarmModal') && !$$('#sleepModal'));
+    t('sono: funções de UI/alarme não existem mais', typeof renderSono === 'undefined' && typeof checkAlarms === 'undefined' && typeof fireAlarm === 'undefined');
+    const sl = {};
+    for (let i = 1; i <= 3; i++) {
       const d = new Date(); d.setDate(d.getDate() - i);
-      const k = dateKey(d);
-      sl[k] = { durationMin: 420, source: 'whoop', at: Date.now(), recovery: i <= 4 ? 80 : 30 };
-      hh[k] = { Trabalho: (i <= 4 ? 5 : 2) * 3600000 };
+      sl[dateKey(d)] = { durationMin: 420, source: 'whoop', at: Date.now(), recovery: 70 };
     }
-    const histBefore = localStorage.getItem('timerHistory');
     localStorage.setItem('timerSleep', JSON.stringify(sl));
-    localStorage.setItem('timerHistory', JSON.stringify(Object.assign({}, JSON.parse(histBefore || '{}'), hh)));
-    renderSono();
-    t('insight recovery × foco', $$('#recFocusInsight').style.display !== 'none' && $$('#recFocusInsight').textContent.includes('Recovery alto'));
-    localStorage.setItem('timerHistory', histBefore || '{}');
+    agendaWeekOffset = 0;
+    renderAgenda();
+    t('sono: dados guardados ainda aparecem na Agenda', document.querySelectorAll('#agendaTrack .tl-block.sleep').length > 0 || document.querySelector('#agendaSummary').textContent.length > 0);
     localStorage.removeItem('timerSleep');
+
+    // 13a) Aba Plano simplificada: plano semanal do dono mora no Semestre (seção 07)
+    renderPlano();
+    const wpb = $$('#weekPlanBlock');
+    t('plano: bloco do plano semanal some da aba Plano (dono)', !wpb || (wpb.style.display === 'none' && wpb.innerHTML === ''));
+    t('plano: tarefas antes do tracker de balanços', !!($$('#tasksCard').compareDocumentPosition($$('#earnTrackerCard')) & Node.DOCUMENT_POSITION_FOLLOWING));
+    t('plano: horas-alvo antes de aguardando', !!($$('#planGrid').compareDocumentPosition($$('#waitingCard')) & Node.DOCUMENT_POSITION_FOLLOWING));
+    h2Active = 'plano';
+    renderH2Section();
+    t('semestre: seção 07 Plano semanal renderiza a tabela', H2_SECTIONS.some((s) => s.id === 'plano') && !!document.querySelector('#h2Content table'));
+    h2Active = 'okrs';
+    const errs = []; const oe = window.onerror;
+    window.onerror = (m) => { errs.push(String(m)); };
+    const abas = [...document.querySelectorAll('.tab')];
+    abas.forEach((tb) => tb.click());
+    await sleep(60);
+    abas[0].click();
+    window.onerror = oe;
+    t('abas: 6 abas (sem Sono) e clicar em todas não gera erro', abas.length === 6 && errs.length === 0);
 
     // 13b) XP e níveis: curva, rotina por gesto, bônus, dia leve e sequência com folga/graça
     {
@@ -297,6 +314,7 @@
       t('agenda-modelo: Spravato às 07:00, saúde, semanal', spr && spr.time === '07:00' && spr.cat === 'saude' && spr.recur === 'weekly');
       renderCalendar();
       t('agenda-modelo: botão "remover" aparece com agenda carregada', $$('#calAgendaDel').style.display !== 'none');
+      t('agenda-modelo: NÃO inunda o radar de prazos', !h2Deadlines().some((d) => d.src === 'agenda' && /^agsem-/.test(String(d.evid || ''))));
       const ev0 = loadEvents(); const kk = dateKey(new Date());
       (ev0[kk] = ev0[kk] || []).push({ id: 'manual-1', text: 'compromisso meu', done: false });
       saveEvents(ev0);

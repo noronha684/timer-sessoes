@@ -1023,7 +1023,18 @@ window.firebaseConfig = {
   /* Strip de execução + âncora no card Hoje */
   .exec-strip { font-size: 11.5px; color: var(--text-subtle); margin-top: 8px; letter-spacing: 0.3px; }
   .exec-strip b { color: var(--text-muted); font-weight: 600; }
-  .xp-line { margin-top: 14px; font-size: 11.5px; color: var(--text-subtle); letter-spacing: 0.3px; }
+  .xp-line { position: relative; margin-top: 14px; font-size: 11.5px; color: var(--text-subtle); letter-spacing: 0.3px; }
+  .xp-pop { position: absolute; right: 0; top: -4px; color: var(--accent); font-weight: 600; font-size: 13px; letter-spacing: 0.4px; pointer-events: none; animation: xpPop 1.8s ease-out forwards; }
+  @keyframes xpPop { 0% { opacity: 0; transform: translateY(6px); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-22px); } }
+  .xp-bar i.lvlup { animation: xpLvl 1.3s ease-out; }
+  @keyframes xpLvl { 0%, 100% { box-shadow: none; } 30% { box-shadow: 0 0 0 3px rgba(242,242,240,0.35); } }
+  .mission-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 12px; font-size: 11.5px; color: var(--text-subtle); letter-spacing: 0.3px; }
+  .mission-line .ms-label { text-transform: uppercase; letter-spacing: 1.2px; font-size: 10px; opacity: .8; }
+  .mission-line .ms i { font-style: normal; opacity: .6; }
+  .mission-line .ms.ok { color: var(--accent); }
+  #rewardLine { margin: 12px 0 14px; }
+  #rewardLine a { color: inherit; }
+  #rewardLine b { color: var(--accent); }
   .xp-line b { color: var(--accent); font-weight: 600; }
   .xp-head, .xp-foot { display: flex; justify-content: space-between; gap: 12px; }
   .xp-bar { height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; margin: 7px 0 6px; overflow: hidden; }
@@ -2803,7 +2814,9 @@ window.firebaseConfig = {
       <div class="exec-strip" id="execStrip" style="display:none"></div>
       <div class="exec-strip" id="contractLine" style="display:none"></div>
       <div class="xp-line" id="xpLine" style="display:none"></div>
+      <div class="mission-line" id="missionLine" style="display:none"></div>
       <div class="routine-line" id="routineLine" style="display:none"></div>
+      <div class="exec-strip" id="rewardLine" style="display:none"></div>
       <div class="today-breakdown" id="todayBreakdown"></div>
       <div class="today-avg-row">
         <span class="today-avg-label">Média / dia útil</span>
@@ -3936,6 +3949,7 @@ stopBtn.addEventListener('click', () => {
 });
 
 function finishSession(completed, opts = {}) {
+  if (state.running && !opts.noSave) _xpRunSeen = true; // renderXpLine mostra "sessão +N XP" no re-render
   let elapsedMs = state.totalElapsedMs;
   if (!state.paused && state.running) {
     elapsedMs += Date.now() - state.startedAt;
@@ -4297,12 +4311,12 @@ function contractStreak() {
   return streak;
 }
 
-// ===== XP e níveis (gamificação 3) =====
-// Tudo DERIVADO: XP de foco vem do history; rotina/dia leve moram no doc h2Plan
-// (`rot_<dia>_<id>`, `leve_<dia>`) e SÓ são escritos em gesto do usuário.
+// ===== XP e níveis (gamificação 3 + 4: missões, combo, títulos, recompensas) =====
+// Tudo DERIVADO, exceto o que o dono grava por gesto no doc h2Plan: rotina/dia leve
+// (`rot_<dia>_<id>`, `leve_<dia>`) e recompensas (`rewards`) — nunca escritos em render.
 // Dia sem meta na grade (fim de semana) e dia leve nunca quebram a sequência.
 const XP_FOCO_POR_MIN = 0.4;           // 10 XP a cada 25 min
-const XP_BONUS_META = 30, XP_BONUS_CONTRATO = 25, XP_BONUS_PERFEITO = 40;
+const XP_BONUS_CONTRATO = 25, XP_BONUS_PERFEITO = 40;
 const XP_ROTINA = [
   { id: 'acordar', label: 'acordei no horário', xp: 10 },
   { id: 'sono', label: 'dormi no horário', xp: 20 },
@@ -4311,6 +4325,20 @@ const XP_ROTINA = [
   { id: 'telas', label: 'telas desligadas', xp: 10 },
   { id: 'revisao', label: 'revisão do dia', xp: 10 },
 ];
+// Missões do dia (camada de bônus; as de foco só existem em dia com meta na grade)
+const XP_MISSOES = [
+  { id: 'metade', label: 'metade da meta', xp: 15, precisaAlvo: true },
+  { id: 'meta', label: 'meta do dia', xp: 30, precisaAlvo: true },
+  { id: 'sessoes', label: '3 sessões de foco', xp: 15 },
+  { id: 'essencial', label: 'rotina essencial', xp: 20 },
+];
+const ESSENCIAL_IDS = ['acordar', 'sono', 'mexer'];
+// Combo: sessões coladas (intervalo ≤ 20 min; `at` é o FIM da sessão) multiplicam o XP de foco
+const COMBO_GAP_MS = 20 * 60000;
+const COMBO_MULT = [1, 1.2, 1.5];
+const fmtMult = (m) => String(m).replace('.', ',');
+const TITULOS = ['Iniciante', 'Aprendiz', 'Praticante', 'Consistente', 'Disciplinado', 'Rigoroso', 'Veterano', 'Mestre', 'Grão-mestre', 'Lenda'];
+const tituloDe = (L) => TITULOS[Math.min(L, TITULOS.length) - 1];
 const xpForLevel = (L) => 50 * L * (L - 1);   // XP acumulado pra ENTRAR no nível L (L1 = 0)
 function xpLevelOf(xp) {
   let L = 1;
@@ -4326,32 +4354,62 @@ function dayTargetMs(d, plan) {
   for (const cat in plan) h += Number((plan[cat] || [])[idx]) || 0;
   return h * 3600000;
 }
-function dayXpInfo(k, ctx, liveMs) {
+// Cadeia de combo do dia. liveStart/liveMs: sessão em andamento (ainda fora do history).
+function comboChain(list, liveStart, liveMs) {
+  const ss = (list || []).filter((s) => s && Number.isFinite(s.at) && s.durationMs >= 60000).sort((a, b) => a.at - b.at);
+  let n = 0, prevEnd = null, bonus = 0, mult = 1;
+  const add = (ms) => { mult = COMBO_MULT[Math.min(n, 3) - 1]; bonus += Math.floor(ms / 60000 * XP_FOCO_POR_MIN * (mult - 1) + 1e-6); }; // +1e-6: 1,2−1 = 0,1999… em ponto flutuante
+  for (const s of ss) {
+    n = (prevEnd != null && (s.at - s.durationMs) - prevEnd <= COMBO_GAP_MS) ? n + 1 : 1;
+    add(s.durationMs);
+    prevEnd = s.at;
+  }
+  if (liveMs > 0 && Number.isFinite(liveStart)) {
+    n = (prevEnd != null && liveStart - prevEnd <= COMBO_GAP_MS) ? n + 1 : 1;
+    add(liveMs);
+    prevEnd = null; // em andamento: o combo está vivo
+  }
+  return { bonus, n, mult, endAt: prevEnd, vivo: liveMs > 0 };
+}
+function dayXpInfo(k, ctx, liveMs, liveStart) {
   const d = new Date(k + 'T00:00:00');
   const foco = Math.max(0, (ctx.history[k] ? Object.values(ctx.history[k]).reduce((a, b) => a + b, 0) : 0) + (liveMs || 0));
   const leve = isDiaLeve(ctx.D, k);
   const alvo = dayTargetMs(d, ctx.plan) * (leve ? 0.5 : 1);
   const xpFoco = Math.floor(foco / 60000 * XP_FOCO_POR_MIN);
+  const combo = comboChain(ctx.sessions[k], liveStart, liveMs);
   let xpRot = 0, nRot = 0;
   for (const it of XP_ROTINA) if (rotinaDone(ctx.D, k, it.id)) { xpRot += it.xp; nRot++; }
   const metaOk = alvo > 0 && foco >= alvo;
+  const nSess = (ctx.sessions[k] || []).filter((s) => s && s.durationMs >= 60000).length + (liveMs >= 60000 ? 1 : 0);
+  const nEss = ESSENCIAL_IDS.filter((id) => rotinaDone(ctx.D, k, id)).length;
+  const prog = {
+    metade: { ok: alvo > 0 && foco >= alvo / 2, falta: Math.max(0, alvo / 2 - foco) },
+    meta: { ok: metaOk, falta: Math.max(0, alvo - foco) },
+    sessoes: { ok: nSess >= 3, cur: nSess, tot: 3 },
+    essencial: { ok: nEss === ESSENCIAL_IDS.length, cur: nEss, tot: ESSENCIAL_IDS.length },
+  };
+  const missoes = XP_MISSOES.filter((m) => !m.precisaAlvo || alvo > 0).map((m) => ({ ...m, ...prog[m.id] }));
+  const xpMiss = missoes.reduce((a, m) => a + (m.ok ? m.xp : 0), 0);
   const c = Number(ctx.D['contrato_' + k]);
   const contratoOk = Number.isFinite(c) && c > 0 && foco >= c * 3600000;
   const perfeito = nRot === XP_ROTINA.length && (alvo === 0 ? foco > 0 : metaOk);
-  const bonus = (metaOk ? XP_BONUS_META : 0) + (contratoOk ? XP_BONUS_CONTRATO : 0) + (perfeito ? XP_BONUS_PERFEITO : 0);
+  const bonus = xpMiss + combo.bonus + (contratoOk ? XP_BONUS_CONTRATO : 0) + (perfeito ? XP_BONUS_PERFEITO : 0);
   const xp = xpFoco + xpRot + bonus;
   // dia "ganho" (mantém sequência): meio expediente de XP; folga sem meta e sem nada é neutra
   const folga = alvo === 0 && !leve && xp === 0;
   const ganho = xp >= (leve ? 30 : 60);
-  return { xp, xpFoco, xpRot, bonus, metaOk, contratoOk, perfeito, leve, folga, ganho, alvo, foco };
+  return { xp, xpFoco, xpRot, bonus, metaOk, contratoOk, perfeito, leve, folga, ganho, alvo, foco, missoes, combo };
 }
 let _xpCache = { min: -1, live: -1, val: null };
+const xpReset = () => { _xpCache = { min: -1, live: -1, val: null }; };
 function computeXp() {
   const now = new Date();
   const live = state.running ? state.totalElapsedMs + (state.paused ? 0 : Date.now() - state.startedAt) : 0;
+  const liveStart = state.running ? (state.sessionId || state.startedAt) : null;
   const minuteStamp = now.getDate() * 10000 + now.getHours() * 60 + now.getMinutes();
   if (_xpCache.min === minuteStamp && _xpCache.live === Math.floor(live / 60000)) return _xpCache.val;
-  const ctx = { history: loadHistory(), D: loadH2(), plan: loadWeekPlan() };
+  const ctx = { history: loadHistory(), D: loadH2(), plan: loadWeekPlan(), sessions: loadSessions() };
   if (ctx.plan && Object.keys(ctx.plan).length === 0) ctx.plan = null;
   const hojeK = dateKey(now);
   const dias = new Set(Object.keys(ctx.history));
@@ -4363,7 +4421,7 @@ function computeXp() {
   let total = 0, hoje = null;
   const info = {};
   for (const k of dias) {
-    const r = dayXpInfo(k, ctx, k === hojeK ? live : 0);
+    const r = dayXpInfo(k, ctx, k === hojeK ? live : 0, liveStart);
     info[k] = r;
     total += r.xp;
     if (k === hojeK) hoje = r;
@@ -4377,7 +4435,7 @@ function computeXp() {
   for (let i = 0; i < 400; i++) {
     const k = dateKey(cur);
     if (k < firstKey) break;
-    const r = info[k] || dayXpInfo(k, ctx, 0);
+    const r = info[k] || dayXpInfo(k, ctx, 0, null);
     if (r.ganho) streak++;
     else if (!r.folga) {
       const wk = dateKey(mondayOf(cur));
@@ -4387,40 +4445,101 @@ function computeXp() {
     cur.setDate(cur.getDate() - 1);
   }
   const lv = xpLevelOf(total);
-  const val = { total, hoje, streak, ...lv, graca: graca.has(dateKey(mondayOf(now))) };
+  const val = { total, hoje, streak, ...lv, titulo: tituloDe(lv.level), graca: graca.has(dateKey(mondayOf(now))) };
   _xpCache = { min: minuteStamp, live: Math.floor(live / 60000), val };
   return val;
 }
+// --- Recompensas reais: o dono define "no nível N eu ganho X" (doc h2Plan, só em gesto) ---
+function rewardsOf(D) { return Array.isArray(D.rewards) ? D.rewards : []; }
+function addReward(lvl, text) {
+  const D = loadH2();
+  const rw = rewardsOf(D).slice();
+  rw.push({ id: 'r' + Date.now().toString(36), lvl, text, done: false });
+  D.rewards = rw;
+  saveH2(D);
+}
+function patchReward(id, fn) {
+  const D = loadH2();
+  const rw = rewardsOf(D).map((r) => r.id === id ? fn(r) : r).filter(Boolean);
+  D.rewards = rw;
+  saveH2(D);
+}
 function checkLevelUp() {
   const xp = computeXp();
-  let last = Number(localStorage.getItem('timerLastLevel') || -1);
+  const last = Number(localStorage.getItem('timerLastLevel') || -1);
   if (last < 0) { try { localStorage.setItem('timerLastLevel', String(xp.level)); } catch {} return; } // 1ª vez só semeia
   if (xp.level > last) {
     try { localStorage.setItem('timerLastLevel', String(xp.level)); } catch {}
-    showRecordToast(`nível ${xp.level} — ${xp.total} XP`);
+    const libs = rewardsOf(loadH2()).filter((r) => !r.done && r.lvl > last && r.lvl <= xp.level);
+    showRecordToast(`nível ${xp.level} · ${xp.titulo}${libs.length ? ' — recompensa liberada: ' + libs[0].text : ''}`);
+    const bar = document.getElementById('xpFill');
+    if (bar) { bar.classList.add('lvlup'); setTimeout(() => bar.classList.remove('lvlup'), 1400); }
   }
+}
+// --- Feedback na hora: "+N XP" sobe do card quando uma ação rende XP ---
+let _xpIdleTotal = null, _xpRunSeen = false;
+function popXp(delta, rotulo) {
+  const el = document.getElementById('xpLine');
+  if (!el || !(delta > 0)) return;
+  const p = document.createElement('span');
+  p.className = 'xp-pop';
+  p.textContent = (rotulo ? rotulo + ' ' : '') + '+' + delta + ' XP';
+  el.appendChild(p);
+  setTimeout(() => p.remove(), 1900);
 }
 // Rotina do dia: pílulas que o dono marca (gesto → única escrita)
 function toggleRotina(dk_, id) {
   const D = loadH2();
   const key = id === 'leve' ? 'leve_' + dk_ : 'rot_' + dk_ + '_' + id;
+  const antes = computeXp().total;
   if (D[key] === 1) delete D[key]; else D[key] = 1;
   saveH2(D);
-  _xpCache = { min: -1, live: -1, val: null };
+  xpReset();
   renderToday();
+  popXp(computeXp().total - antes);
 }
 function renderXpLine() {
-  const el = $('#xpLine'), rl = $('#routineLine');
-  if (!el || !rl) return;
+  const el = $('#xpLine'), rl = $('#routineLine'), ml = $('#missionLine');
+  if (!el || !rl || !ml) return;
   try {
     const xp = computeXp();
-    const falta = xp.next - xp.total;
+    if (!el.firstChild || !document.getElementById('xpFill')) {
+      el.innerHTML = `<div class="xp-head"><span id="xpLvl"></span><span id="xpRight"></span></div>
+        <div class="xp-bar"><i id="xpFill"></i></div>
+        <div class="xp-foot"><span id="xpFootL"></span><span id="xpFootR"></span></div>`;
+    }
     const pct = Math.max(0, Math.min(100, Math.round((xp.total - xp.base) / (xp.next - xp.base) * 100)));
     const hojeXp = xp.hoje ? xp.hoje.xp : 0;
-    el.innerHTML = `<div class="xp-head"><span>nível <b>${xp.level}</b></span><span>hoje <b>+${hojeXp}</b> XP${xp.streak > 0 ? ` &nbsp;·&nbsp; sequência <b>${xp.streak}</b>` : ''}</span></div>
-      <div class="xp-bar"><i style="width:${pct}%"></i></div>
-      <div class="xp-foot"><span>${xp.total - xp.base} / ${xp.next - xp.base} XP</span><span>faltam ${falta} pro nível ${xp.level + 1}</span></div>`;
+    $('#xpLvl').innerHTML = `nível <b>${xp.level}</b> · ${xp.titulo}`;
+    $('#xpRight').innerHTML = `hoje <b>+${hojeXp}</b> XP${xp.streak > 0 ? ` &nbsp;·&nbsp; sequência <b>${xp.streak}</b>` : ''}`;
+    $('#xpFill').style.width = pct + '%';
+    $('#xpFootL').textContent = `${xp.total - xp.base} / ${xp.next - xp.base} XP`;
+    // combo: sessão rodando, ou cadeia ainda "quente" depois de uma sessão
+    const cb = xp.hoje && xp.hoje.combo;
+    let cbTxt = '';
+    if (cb && cb.n >= 1) {
+      if (cb.vivo) cbTxt = cb.mult > 1 ? `combo <b>×${fmtMult(cb.mult)}</b>` : '';
+      else if (cb.endAt != null && Date.now() - cb.endAt <= COMBO_GAP_MS) {
+        const prox = COMBO_MULT[Math.min(cb.n + 1, 3) - 1];
+        cbTxt = `próxima sessão <b>×${fmtMult(prox)}</b> em até ${Math.max(1, Math.ceil((COMBO_GAP_MS - (Date.now() - cb.endAt)) / 60000))} min`;
+      }
+    }
+    $('#xpFootR').innerHTML = cbTxt || `faltam ${xp.next - xp.total} pro nível ${xp.level + 1}`;
     el.style.display = '';
+    // feedback: sessão que acabou rende "+N XP" (compara com o último total visto parado)
+    if (state.running) _xpRunSeen = true;
+    else {
+      if (_xpRunSeen && _xpIdleTotal != null) popXp(xp.total - _xpIdleTotal, 'sessão');
+      _xpRunSeen = false;
+      _xpIdleTotal = xp.total;
+    }
+    // missões do dia
+    const ms = (xp.hoje && xp.hoje.missoes) || [];
+    ml.innerHTML = ms.length ? '<span class="ms-label">missões</span>' + ms.map((m) => {
+      const dica = m.ok ? '' : (m.falta != null ? ` · faltam ${formatDuration(m.falta)}` : ` · ${m.cur}/${m.tot}`);
+      return `<span class="ms${m.ok ? ' ok' : ''}">${m.ok ? '●' : '○'} ${m.label}${dica} <i>+${m.xp}</i></span>`;
+    }).join('') : '';
+    ml.style.display = ms.length ? '' : 'none';
     if (!(document.activeElement && rl.contains(document.activeElement))) {
       const hoje = dateKey(new Date());
       const D = loadH2();
@@ -4428,15 +4547,56 @@ function renderXpLine() {
         + `<button type="button" class="rot-pill leve${isDiaLeve(D, hoje) ? ' on' : ''}" data-rot="leve" title="meta do dia pela metade; não quebra a sequência">dia leve</button>`;
       rl.style.display = '';
     }
-  } catch { el.style.display = 'none'; rl.style.display = 'none'; }
+    renderRewardLine(xp);
+  } catch { el.style.display = 'none'; rl.style.display = 'none'; ml.style.display = 'none'; }
+}
+function renderRewardLine(xp) {
+  const el = $('#rewardLine');
+  if (!el || (document.activeElement && el.contains(document.activeElement))) return;
+  const pend = rewardsOf(loadH2()).filter((r) => !r.done).sort((a, b) => a.lvl - b.lvl);
+  const lib = pend.find((r) => r.lvl <= xp.level);
+  const prox = pend.find((r) => r.lvl > xp.level);
+  let h;
+  if (lib) h = `recompensa liberada: <b>${escapeHtml(lib.text)}</b> &nbsp;<a href="#" data-rw="claim" data-id="${lib.id}">resgatar</a>`;
+  else if (prox) h = `próxima recompensa: <b>${escapeHtml(prox.text)}</b> · nível ${prox.lvl} (faltam ${xpForLevel(prox.lvl) - xp.total} XP) &nbsp;<a href="#" data-rw="del" data-id="${prox.id}" title="remover">×</a>`;
+  else h = '';
+  h += ` ${h ? '&nbsp;·&nbsp;' : ''}<a href="#" data-rw="add" style="text-decoration:underline">${pend.length ? '+ outra' : 'definir recompensa por nível →'}</a>`;
+  el.innerHTML = h;
+  el.style.display = '';
 }
 (() => {
   const rl = document.getElementById('routineLine');
-  if (!rl) return;
-  rl.addEventListener('click', (e) => {
+  if (rl) rl.addEventListener('click', (e) => {
     const b = e.target.closest('[data-rot]');
-    if (!b) return;
-    toggleRotina(dateKey(new Date()), b.dataset.rot);
+    if (b) toggleRotina(dateKey(new Date()), b.dataset.rot);
+  });
+  const rw = document.getElementById('rewardLine');
+  if (!rw) return;
+  const inputCss = 'background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.2);border-radius:6px;color:inherit;padding:3px 6px;font:inherit';
+  rw.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-rw]');
+    if (!a) return;
+    e.preventDefault();
+    const act = a.dataset.rw, id = a.dataset.id;
+    if (act === 'claim') { patchReward(id, (r) => ({ ...r, done: true })); renderToday(); }
+    else if (act === 'del') { patchReward(id, () => null); renderToday(); }
+    else if (act === 'add') {
+      const nivelSug = computeXp().level + 1;
+      rw.innerHTML = `no nível <input id="rwLvl" type="number" min="2" max="99" value="${nivelSug}" style="width:54px;${inputCss}">
+        eu ganho <input id="rwTxt" type="text" maxlength="60" placeholder="ex.: jantar fora" style="width:150px;${inputCss}">
+        <a href="#" data-rw="save">salvar</a> &nbsp;<a href="#" data-rw="cancel">cancelar</a>`;
+      document.getElementById('rwTxt').focus();
+    } else if (act === 'save') {
+      const lvl = Math.round(Number(document.getElementById('rwLvl').value));
+      const txt = document.getElementById('rwTxt').value.trim();
+      if (Number.isFinite(lvl) && lvl >= 2 && lvl <= 99 && txt) addReward(lvl, txt);
+      if (document.activeElement) document.activeElement.blur();
+      renderToday();
+    } else if (act === 'cancel') { if (document.activeElement) document.activeElement.blur(); renderToday(); }
+  });
+  rw.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target.id === 'rwTxt') { e.preventDefault(); rw.querySelector('[data-rw="save"]').click(); }
+    else if (e.key === 'Escape' && e.target.closest('#rewardLine')) { e.target.blur(); renderToday(); }
   });
 })();
 

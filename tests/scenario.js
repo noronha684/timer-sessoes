@@ -180,7 +180,7 @@
 
     // 13b) XP e níveis: curva, rotina por gesto, bônus, dia leve e sequência com folga/graça
     {
-      const keep = { h: localStorage.getItem('timerHistory'), d: localStorage.getItem('timerH2Plan'), w: localStorage.getItem('timerWeekPlan') };
+      const keep = { h: localStorage.getItem('timerHistory'), d: localStorage.getItem('timerH2Plan'), w: localStorage.getItem('timerWeekPlan'), s: localStorage.getItem('timerSessions') };
       const reset = () => { _xpCache = { min: -1, live: -1, val: null }; };
       const dk = (off) => dateKey(new Date(Date.now() + off * 86400000));
       t('XP: curva de níveis', xpLevelOf(0).level === 1 && xpLevelOf(99).level === 1 && xpLevelOf(100).level === 2 && xpLevelOf(299).level === 2 && xpLevelOf(300).level === 3);
@@ -195,9 +195,11 @@
       t('XP: rotina soma', computeXp().hoje.xpRot === 15);
       for (const it of XP_ROTINA) if (!rotinaDone(loadH2(), dk(0), it.id)) $$('#routineLine [data-rot="' + it.id + '"]').click();
       const full = computeXp().hoje;
-      t('XP: dia perfeito (rotina 75 + foco 40 + bônus 40)', full.perfeito && full.xp === 155);
+      t('XP: dia perfeito (rotina 75 + foco 40 + essencial 20 + perfeito 40)', full.perfeito && full.xp === 175);
       $$('#routineLine [data-rot="mexer"]').click();
       t('XP: pílula desmarca', computeXp().hoje.xpRot === 60);
+      $$('#routineLine [data-rot="mexer"]').click();
+      t('feedback: "+N XP" aparece ao marcar pílula', !!document.querySelector('#xpLine .xp-pop'));
       // sequência: com meta na grade, dia vazio é falha; 1 deslize por semana é perdoado
       localStorage.setItem('timerWeekPlan', JSON.stringify({ Work: [8, 8, 8, 8, 8, 8, 8] }));
       localStorage.setItem('timerH2Plan', '{}');
@@ -212,6 +214,47 @@
       localStorage.setItem('timerH2Plan', '{}');
       reset();
       t('XP: sem dia leve, 32 XP não vale a sequência', computeXp().hoje.ganho === false);
+      // missões do dia (com meta na grade): metade da meta rende 15, meta cheia ainda não
+      localStorage.setItem('timerWeekPlan', JSON.stringify({ Work: [8, 8, 8, 8, 8, 8, 8] }));
+      localStorage.setItem('timerH2Plan', '{}');
+      localStorage.setItem('timerSessions', '{}');
+      localStorage.setItem('timerHistory', JSON.stringify({ [dk(0)]: { Work: 250 * 60000 } }));
+      reset();
+      const mh = computeXp().hoje;
+      t('missões: metade ok, meta não', mh.missoes.find((m) => m.id === 'metade').ok && !mh.missoes.find((m) => m.id === 'meta').ok);
+      t('missões: XP = foco 100 + metade 15', mh.xp === 115);
+      renderToday();
+      t('missões: linha renderiza', document.querySelectorAll('#missionLine .ms').length === 4);
+      // combo: 3 sessões coladas (gap < 20 min) → bônus 0 + 4 + 10; gap grande quebra a cadeia
+      const fim = Date.now() - 60000;
+      const S = (end, min) => ({ category: 'Work', durationMs: min * 60000, at: end });
+      const c3 = [S(fim - 120 * 60000, 50), S(fim - 55 * 60000, 50), S(fim, 50)]; // gaps 10 min e 5 min
+      localStorage.setItem('timerSessions', JSON.stringify({ [dk(0)]: c3 }));
+      localStorage.setItem('timerHistory', JSON.stringify({ [dk(0)]: { Work: 150 * 60000 } }));
+      reset();
+      const cb = computeXp().hoje.combo;
+      t('combo: cadeia de 3 sessões dá ×1,5 e bônus 14', cb.n === 3 && cb.mult === 1.5 && cb.bonus === 14);
+      const c2 = [S(fim - 200 * 60000, 50), S(fim, 50)]; // gap de ~100 min quebra
+      localStorage.setItem('timerSessions', JSON.stringify({ [dk(0)]: c2 }));
+      reset();
+      t('combo: gap grande quebra a cadeia', computeXp().hoje.combo.bonus === 0);
+      t('missões: 3 sessões conta sessões', computeXp().hoje.missoes.find((m) => m.id === 'sessoes').cur === 2);
+      // títulos
+      t('títulos por nível', tituloDe(1) === 'Iniciante' && tituloDe(4) === 'Consistente' && tituloDe(99) === 'Lenda');
+      // recompensas reais: define, libera ao atingir o nível, resgata
+      localStorage.setItem('timerSessions', '{}');
+      localStorage.setItem('timerHistory', JSON.stringify({ [dk(0)]: { Work: 5 * 60000 } }));
+      localStorage.setItem('timerH2Plan', '{}');
+      reset();
+      addReward(2, 'jantar fora');
+      renderToday();
+      t('recompensa: próxima aparece no card', $$('#rewardLine').textContent.includes('jantar fora') && $$('#rewardLine').textContent.includes('nível 2'));
+      localStorage.setItem('timerHistory', JSON.stringify({ [dk(0)]: { Work: 1000 * 60000 } })); // 400 XP → nível 3
+      reset(); renderToday();
+      t('recompensa: liberada ao atingir o nível', $$('#rewardLine').textContent.includes('liberada'));
+      $$('#rewardLine [data-rw="claim"]').click();
+      t('recompensa: resgatar marca como feita', rewardsOf(loadH2())[0].done === true);
+      if (keep.s == null) localStorage.removeItem('timerSessions'); else localStorage.setItem('timerSessions', keep.s);
       if (keep.h == null) localStorage.removeItem('timerHistory'); else localStorage.setItem('timerHistory', keep.h);
       if (keep.d == null) localStorage.removeItem('timerH2Plan'); else localStorage.setItem('timerH2Plan', keep.d);
       if (keep.w == null) localStorage.removeItem('timerWeekPlan'); else localStorage.setItem('timerWeekPlan', keep.w);

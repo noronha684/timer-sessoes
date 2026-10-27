@@ -97,7 +97,13 @@ Auditoria de 25 agentes + repro empírico headless. **Raiz confirmada e REPRODUZ
 - Pedido do dono (revertendo o "sem XP" das rodadas de jul/ago): XP/níveis no card Hoje, visual Monólito (barra creme 3px, pílulas outline, sem cor viva). Motor em `computeXp`/`dayXpInfo`/`xpLevelOf` (logo antes do Duelo no index.html), UI em `renderXpLine` + `#xpLine`/`#routineLine`, chamado de `renderToday`.
 - **Tudo derivado, exceto a rotina:** XP de foco = 10 por 25 min (do history); rotina do dia (acordei, dormi, exercício, almoço sem trabalhar, telas, revisão — `XP_ROTINA`) e "dia leve" vivem no doc h2Plan (`rot_<dia>_<id>`, `leve_<dia>`) e só são escritos em GESTO (`toggleRotina`) — nunca em render. Bônus: meta da grade +30, contrato +25, dia perfeito +40. Nível L começa em `50·L·(L−1)` XP.
 - **Sequência:** dia "ganho" = ≥60 XP (≥30 no dia leve, meta pela metade). Dia sem meta na grade e sem XP (folga) é neutro; 1 deslize por semana é perdoado. Toast de nível usa baseline local `timerLastLevel` (1ª vez só semeia).
-- Testes: bloco 13b em `tests/scenario.js` (50 cenários passando).
+- Testes: bloco 13b em `tests/scenario.js`.
+
+## Gamificação 4 — missões, combo, títulos, recompensas, feedback (27/out/26, SW v164, branch `feat/gamificacao-missoes-combo`)
+- **Missões do dia** (`XP_MISSOES`, linha `#missionLine`): metade da meta +15, meta do dia +30 (ambas só com meta na grade), 3 sessões de foco +15, rotina essencial (acordar+dormir+exercício) +20. Derivadas em `dayXpInfo`; substituíram o antigo bônus fixo de meta.
+- **Combo** (`comboChain`): sessões com intervalo ≤ 20 min (`COMBO_GAP_MS`) multiplicam só o XP de foco da sessão (×1,2 na 2ª, ×1,5 da 3ª em diante), somado como bônus. **`at` da sessão é o FIM** (saveSession grava `Date.now()`/`sid+duração`), início = `at − durationMs`. Cilada: `1,2−1` em ponto flutuante dá 0,1999… → `+1e-6` no floor.
+- **Títulos** (`TITULOS`, 10 níveis, depois "Lenda") e **recompensas reais** (`h2Plan.rewards = [{id,lvl,text,done}]`, definidas/resgatadas/removidas só por gesto na `#rewardLine`; toast de nível menciona a recompensa liberada).
+- **Feedback na hora:** `popXp` ("+N XP" sobe do card) ao marcar pílula e ao fim da sessão (`_xpRunSeen`/`_xpIdleTotal`: compara o total parado antes/depois); barra com DOM persistente (transição de largura) e halo no level-up. Smoke: 61 cenários.
 
 ## Pendências conhecidas
 - Ativar **Email/Password** no console do Firebase (Google já funciona): Authentication → Sign-in method → Email/Password → Enable. (Único item não-código da rodada de 31/jul.)

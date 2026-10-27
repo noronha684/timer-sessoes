@@ -108,6 +108,9 @@ Auditoria de 25 agentes + repro empírico headless. **Raiz confirmada e REPRODUZ
 ## Agenda-modelo da semana no Calendário (27/out/26, SW v166, branch `feat/agenda-modelo-calendario`)
 - Botão "Carregar agenda-modelo da semana" no fim da aba Calendário (`#calAgendaLoad`/`#calAgendaDel`): grava blocos semanais recorrentes (`AGENDA_SEMANA`, ids `agsem-<i>-<dow>`, 48 eventos: Orizon, Spravato na segunda, almoço, jantar, dormir…) em `timerEvents`. **Só por gesto** (`aplicarAgendaSemana`); recarregar substitui só os `agsem-*`, remover idem; ambos com desfazer (`showUndoToast`). Âncora = próxima ocorrência do dia da semana (hoje conta). O evento só tem `time` de início — o fim vai no texto. Smoke: 69 cenários.
 
+## Barra de XP no topo do Timer (27/out/26, SW v167, branch `feat/xp-barra-topo`)
+- `#xpTop` (1º filho do `#timer-panel`, antes do `#focusIdle`): nível+título, "+N XP hoje", barra 4px, progresso/sequência e combo — sempre à vista, inclusive com sessão rodando. Renderizada por `renderXpTop(xp)` (chamada de `renderXpLine`) e atualizada ao vivo por `xpTopTick()` dentro do `updateDisplay` (throttle 10 s; usa `window._xpTopAt`, NÃO `let`, porque `updateDisplay` roda antes do bloco XP declarar variáveis → TDZ). `popXp` agora sobe o "+N XP" no card Hoje E na barra do topo. Clique rola até o card Hoje. Smoke: 73 cenários.
+
 ## Pendências conhecidas
 - Ativar **Email/Password** no console do Firebase (Google já funciona): Authentication → Sign-in method → Email/Password → Enable. (Único item não-código da rodada de 31/jul.)
 - Confirmar o caminho positivo do token (login real → sync funciona); só o dono consegue testar (não dá pra emitir token sem provider habilitado).

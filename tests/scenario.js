@@ -261,6 +261,23 @@
       reset(); renderToday();
     }
 
+    // 13b2) Barra de XP no topo da aba Timer (sempre à vista, atualiza com a sessão rodando)
+    {
+      renderToday();
+      const top = $$('#xpTop');
+      t('barra de XP no topo do Timer: visível com nível, XP e barra', !!top && top.style.display !== 'none' && top.textContent.includes('XP hoje') && !!$$('#xpTopFill'));
+      t('barra do topo fica ANTES do card de foco', !!(top.compareDocumentPosition($$('#focusIdle')) & Node.DOCUMENT_POSITION_FOLLOWING));
+      window._xpTopAt = 0;
+      $$('#startBtn').click();
+      await sleep(80);
+      const antes = $$('#xpTopPts').textContent;
+      popXp(12, 'teste');
+      t('feedback "+N XP" também aparece na barra do topo', !!document.querySelector('#xpTop .xp-pop'));
+      $$('#stopBtn').click();
+      await sleep(50);
+      t('barra do topo continua depois de parar a sessão', $$('#xpTop').style.display !== 'none' && antes.length > 0);
+    }
+
     // 13c) Agenda-modelo da semana → eventos recorrentes do Calendário (só por gesto)
     {
       const keepE = localStorage.getItem('timerEvents');

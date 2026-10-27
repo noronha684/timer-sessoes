@@ -1024,6 +1024,16 @@ window.firebaseConfig = {
   .exec-strip { font-size: 11.5px; color: var(--text-subtle); margin-top: 8px; letter-spacing: 0.3px; }
   .exec-strip b { color: var(--text-muted); font-weight: 600; }
   .xp-line { position: relative; margin-top: 14px; font-size: 11.5px; color: var(--text-subtle); letter-spacing: 0.3px; }
+  .xp-top { position: relative; margin: 4px 0 18px; padding: 0 2px; cursor: pointer; color: var(--text-subtle); font-size: 12px; letter-spacing: 0.3px; }
+  .xp-top-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .xp-top-lvl { display: inline-flex; align-items: baseline; gap: 10px; color: var(--text-muted); }
+  .xp-top-lvl b { font-size: 26px; font-weight: 200; line-height: 1; color: var(--accent); }
+  .xp-top-pts b { font-size: 26px; font-weight: 200; line-height: 1; color: var(--accent); letter-spacing: -0.5px; }
+  .xp-top-pts small { margin-left: 6px; font-size: 10px; letter-spacing: 1.6px; text-transform: uppercase; }
+  .xp-top .xp-bar { height: 4px; margin: 10px 0 7px; }
+  .xp-top-foot { display: flex; justify-content: space-between; gap: 12px; font-size: 11.5px; }
+  .xp-top-foot b, .xp-top-foot .combo { color: var(--accent); font-weight: 600; }
+  .xp-top .xp-pop { top: -8px; }
   .xp-head { align-items: center; }
   .xp-head > span:first-child { display: inline-flex; align-items: center; gap: 12px; }
   .xp-n { font-size: 34px; font-weight: 200; line-height: 1; color: var(--accent); letter-spacing: -0.5px; }
@@ -2764,6 +2774,7 @@ window.firebaseConfig = {
       <span class="rt-dot"></span>
       <span id="remoteTimerText"></span>
     </div>
+    <div class="xp-top" id="xpTop" style="display:none" role="button" tabindex="0" title="ver detalhes em Hoje"></div>
     <div class="focus-card" id="focusIdle">
       <div class="focus-eyebrow">Sessão de foco</div>
 
@@ -3783,6 +3794,7 @@ function setDuration(ms) {
 
 const RING_CIRCUMFERENCE = 2 * Math.PI * 90; // ≈ 565.49
 function updateDisplay() {
+  if (state.running && typeof xpTopTick === 'function') xpTopTick(); // XP/combo ao vivo na barra do topo
   const totalSec = Math.max(0, Math.ceil(state.remainingMs / 1000));
   const mm = Math.floor(totalSec / 60).toString().padStart(2, '0');
   const ss = (totalSec % 60).toString().padStart(2, '0');
@@ -4494,14 +4506,58 @@ function checkLevelUp() {
 // --- Feedback na hora: "+N XP" sobe do card quando uma ação rende XP ---
 let _xpIdleTotal = null, _xpRunSeen = false;
 function popXp(delta, rotulo) {
-  const el = document.getElementById('xpLine');
-  if (!el || !(delta > 0)) return;
-  const p = document.createElement('span');
-  p.className = 'xp-pop';
-  p.textContent = (rotulo ? rotulo + ' ' : '') + '+' + delta + ' XP';
-  el.appendChild(p);
-  setTimeout(() => p.remove(), 1900);
+  if (!(delta > 0)) return;
+  for (const id of ['xpLine', 'xpTop']) {   // card Hoje E barra do topo (onde o dono está olhando)
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const p = document.createElement('span');
+    p.className = 'xp-pop';
+    p.textContent = (rotulo ? rotulo + ' ' : '') + '+' + delta + ' XP';
+    el.appendChild(p);
+    setTimeout(() => p.remove(), 1900);
+  }
 }
+// Barra do topo da aba Timer: nível, XP de hoje, progresso e combo — sempre à vista
+function xpComboTxt(xp) {
+  const cb = xp.hoje && xp.hoje.combo;
+  if (!cb || cb.n < 1) return '';
+  if (cb.vivo) return cb.mult > 1 ? `combo <b>×${fmtMult(cb.mult)}</b>` : '';
+  if (cb.endAt != null && Date.now() - cb.endAt <= COMBO_GAP_MS) {
+    const prox = COMBO_MULT[Math.min(cb.n + 1, 3) - 1];
+    return `próxima sessão <b>×${fmtMult(prox)}</b> em até ${Math.max(1, Math.ceil((COMBO_GAP_MS - (Date.now() - cb.endAt)) / 60000))} min`;
+  }
+  return '';
+}
+function renderXpTop(xp) {
+  const el = document.getElementById('xpTop');
+  if (!el) return;
+  if (!document.getElementById('xpTopFill')) {
+    el.innerHTML = `<div class="xp-top-row"><span class="xp-top-lvl" id="xpTopLvl"></span><span class="xp-top-pts" id="xpTopPts"></span></div>
+      <div class="xp-bar"><i id="xpTopFill"></i></div>
+      <div class="xp-top-foot"><span id="xpTopL"></span><span id="xpTopR"></span></div>`;
+  }
+  const pct = Math.max(0, Math.min(100, Math.round((xp.total - xp.base) / (xp.next - xp.base) * 100)));
+  document.getElementById('xpTopLvl').innerHTML = `<b>${xp.level}</b>${xp.titulo}`;
+  document.getElementById('xpTopPts').innerHTML = `<b>+${xp.hoje ? xp.hoje.xp : 0}</b><small>XP hoje</small>`;
+  document.getElementById('xpTopFill').style.width = pct + '%';
+  document.getElementById('xpTopL').textContent = `${xp.total - xp.base} / ${xp.next - xp.base} XP${xp.streak > 0 ? ' · ' + xp.streak + (xp.streak === 1 ? ' dia' : ' dias') + ' de sequência' : ''}`;
+  document.getElementById('xpTopR').innerHTML = xpComboTxt(xp) || `faltam ${xp.next - xp.total} pro nível ${xp.level + 1}`;
+  el.style.display = '';
+}
+// Durante a sessão o XP/combo sobe ao vivo: re-renderiza a barra do topo no máx. a cada 10 s
+function xpTopTick() {
+  const now = Date.now();
+  if (window._xpTopAt && now - window._xpTopAt < 10000) return;
+  window._xpTopAt = now;
+  try { renderXpTop(computeXp()); } catch {}
+}
+(() => {
+  const el = document.getElementById('xpTop');
+  if (!el) return;
+  const ir = () => { const c = document.getElementById('xpLine'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+  el.addEventListener('click', ir);
+  el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ir(); } });
+})();
 // Rotina do dia: pílulas que o dono marca (gesto → única escrita)
 function toggleRotina(dk_, id) {
   const D = loadH2();
@@ -4532,17 +4588,9 @@ function renderXpLine() {
     $('#xpFill').style.width = pct + '%';
     $('#xpFootL').textContent = `${xp.total - xp.base} / ${xp.next - xp.base} XP`;
     // combo: sessão rodando, ou cadeia ainda "quente" depois de uma sessão
-    const cb = xp.hoje && xp.hoje.combo;
-    let cbTxt = '';
-    if (cb && cb.n >= 1) {
-      if (cb.vivo) cbTxt = cb.mult > 1 ? `combo <b>×${fmtMult(cb.mult)}</b>` : '';
-      else if (cb.endAt != null && Date.now() - cb.endAt <= COMBO_GAP_MS) {
-        const prox = COMBO_MULT[Math.min(cb.n + 1, 3) - 1];
-        cbTxt = `próxima sessão <b>×${fmtMult(prox)}</b> em até ${Math.max(1, Math.ceil((COMBO_GAP_MS - (Date.now() - cb.endAt)) / 60000))} min`;
-      }
-    }
-    $('#xpFootR').innerHTML = cbTxt || `faltam ${xp.next - xp.total} pro nível ${xp.level + 1}`;
+    $('#xpFootR').innerHTML = xpComboTxt(xp) || `faltam ${xp.next - xp.total} pro nível ${xp.level + 1}`;
     el.style.display = '';
+    renderXpTop(xp);
     // feedback: sessão que acabou rende "+N XP" (compara com o último total visto parado)
     if (state.running) _xpRunSeen = true;
     else {

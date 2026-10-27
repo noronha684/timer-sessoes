@@ -178,6 +178,46 @@
     localStorage.setItem('timerHistory', histBefore || '{}');
     localStorage.removeItem('timerSleep');
 
+    // 13b) XP e níveis: curva, rotina por gesto, bônus, dia leve e sequência com folga/graça
+    {
+      const keep = { h: localStorage.getItem('timerHistory'), d: localStorage.getItem('timerH2Plan'), w: localStorage.getItem('timerWeekPlan') };
+      const reset = () => { _xpCache = { min: -1, live: -1, val: null }; };
+      const dk = (off) => dateKey(new Date(Date.now() + off * 86400000));
+      t('XP: curva de níveis', xpLevelOf(0).level === 1 && xpLevelOf(99).level === 1 && xpLevelOf(100).level === 2 && xpLevelOf(299).level === 2 && xpLevelOf(300).level === 3);
+      localStorage.setItem('timerWeekPlan', '{}');
+      localStorage.setItem('timerH2Plan', '{}');
+      localStorage.setItem('timerHistory', JSON.stringify({ [dk(0)]: { Work: 100 * 60000 } }));
+      reset(); renderToday();
+      t('XP: foco 100min = 40 XP', computeXp().hoje.xpFoco === 40);
+      t('XP: pílulas da rotina renderizam', document.querySelectorAll('#routineLine .rot-pill').length === XP_ROTINA.length + 1);
+      $$('#routineLine [data-rot="mexer"]').click();
+      t('XP: pílula grava só em gesto (rot_ no h2Plan)', JSON.parse(localStorage.getItem('timerH2Plan'))['rot_' + dk(0) + '_mexer'] === 1);
+      t('XP: rotina soma', computeXp().hoje.xpRot === 15);
+      for (const it of XP_ROTINA) if (!rotinaDone(loadH2(), dk(0), it.id)) $$('#routineLine [data-rot="' + it.id + '"]').click();
+      const full = computeXp().hoje;
+      t('XP: dia perfeito (rotina 75 + foco 40 + bônus 40)', full.perfeito && full.xp === 155);
+      $$('#routineLine [data-rot="mexer"]').click();
+      t('XP: pílula desmarca', computeXp().hoje.xpRot === 60);
+      // sequência: com meta na grade, dia vazio é falha; 1 deslize por semana é perdoado
+      localStorage.setItem('timerWeekPlan', JSON.stringify({ Work: [8, 8, 8, 8, 8, 8, 8] }));
+      localStorage.setItem('timerH2Plan', '{}');
+      localStorage.setItem('timerHistory', JSON.stringify({ [dk(-2)]: { Work: 200 * 60000 }, [dk(0)]: { Work: 200 * 60000 } }));
+      reset();
+      t('XP: deslize isolado é perdoado (hoje + anteontem = 2)', computeXp().streak === 2);
+      // dia leve: meta pela metade e limiar de sequência menor
+      localStorage.setItem('timerHistory', JSON.stringify({ [dk(0)]: { Work: 80 * 60000 } })); // 32 XP
+      localStorage.setItem('timerH2Plan', JSON.stringify({ ['leve_' + dk(0)]: 1 }));
+      reset();
+      t('XP: dia leve mantém sequência com 32 XP', computeXp().hoje.ganho === true && computeXp().streak === 1);
+      localStorage.setItem('timerH2Plan', '{}');
+      reset();
+      t('XP: sem dia leve, 32 XP não vale a sequência', computeXp().hoje.ganho === false);
+      if (keep.h == null) localStorage.removeItem('timerHistory'); else localStorage.setItem('timerHistory', keep.h);
+      if (keep.d == null) localStorage.removeItem('timerH2Plan'); else localStorage.setItem('timerH2Plan', keep.d);
+      if (keep.w == null) localStorage.removeItem('timerWeekPlan'); else localStorage.setItem('timerWeekPlan', keep.w);
+      reset(); renderToday();
+    }
+
     // 14) Fechar semestre: seção renderiza e o texto compila
     try { localStorage.setItem('timerH2Tab', 'fechamento'); } catch {}
     h2Active = 'fechamento';

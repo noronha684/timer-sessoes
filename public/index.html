@@ -1023,6 +1023,16 @@ window.firebaseConfig = {
   /* Strip de execução + âncora no card Hoje */
   .exec-strip { font-size: 11.5px; color: var(--text-subtle); margin-top: 8px; letter-spacing: 0.3px; }
   .exec-strip b { color: var(--text-muted); font-weight: 600; }
+  .xp-line { margin-top: 14px; font-size: 11.5px; color: var(--text-subtle); letter-spacing: 0.3px; }
+  .xp-line b { color: var(--accent); font-weight: 600; }
+  .xp-head, .xp-foot { display: flex; justify-content: space-between; gap: 12px; }
+  .xp-bar { height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; margin: 7px 0 6px; overflow: hidden; }
+  .xp-bar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; transition: width .4s; }
+  .routine-line { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .rot-pill { background: transparent; border: 1px solid rgba(255,255,255,0.18); color: var(--text-subtle); border-radius: 999px; padding: 6px 11px; font: inherit; font-size: 11.5px; letter-spacing: 0.3px; cursor: pointer; min-height: 32px; }
+  .rot-pill i { font-style: normal; opacity: .6; margin-left: 3px; }
+  .rot-pill.on { background: var(--accent); border-color: var(--accent); color: #0d0d0e; }
+  .rot-pill.leve { border-style: dashed; }
   /* ▶ sessão etiquetada no Plano de hoje */
   .dp-play { border: 1px solid var(--border); background: transparent; color: var(--text-muted); border-radius: 50%; width: 22px; height: 22px; font-size: 9px; line-height: 1; cursor: pointer; flex-shrink: 0; }
   .dp-play:hover { color: var(--accent); border-color: var(--border-strong); }
@@ -2792,6 +2802,8 @@ window.firebaseConfig = {
       <div class="today-subtitle" id="todaySubtitle">0 sessões de foco</div>
       <div class="exec-strip" id="execStrip" style="display:none"></div>
       <div class="exec-strip" id="contractLine" style="display:none"></div>
+      <div class="xp-line" id="xpLine" style="display:none"></div>
+      <div class="routine-line" id="routineLine" style="display:none"></div>
       <div class="today-breakdown" id="todayBreakdown"></div>
       <div class="today-avg-row">
         <span class="today-avg-label">Média / dia útil</span>
@@ -4285,6 +4297,149 @@ function contractStreak() {
   return streak;
 }
 
+// ===== XP e níveis (gamificação 3) =====
+// Tudo DERIVADO: XP de foco vem do history; rotina/dia leve moram no doc h2Plan
+// (`rot_<dia>_<id>`, `leve_<dia>`) e SÓ são escritos em gesto do usuário.
+// Dia sem meta na grade (fim de semana) e dia leve nunca quebram a sequência.
+const XP_FOCO_POR_MIN = 0.4;           // 10 XP a cada 25 min
+const XP_BONUS_META = 30, XP_BONUS_CONTRATO = 25, XP_BONUS_PERFEITO = 40;
+const XP_ROTINA = [
+  { id: 'acordar', label: 'acordei no horário', xp: 10 },
+  { id: 'sono', label: 'dormi no horário', xp: 20 },
+  { id: 'mexer', label: 'exercício', xp: 15 },
+  { id: 'almoco', label: 'almoço sem trabalhar', xp: 10 },
+  { id: 'telas', label: 'telas desligadas', xp: 10 },
+  { id: 'revisao', label: 'revisão do dia', xp: 10 },
+];
+const xpForLevel = (L) => 50 * L * (L - 1);   // XP acumulado pra ENTRAR no nível L (L1 = 0)
+function xpLevelOf(xp) {
+  let L = 1;
+  while (xp >= xpForLevel(L + 1)) L++;
+  return { level: L, base: xpForLevel(L), next: xpForLevel(L + 1) };
+}
+function rotinaDone(D, dk_, id) { return D['rot_' + dk_ + '_' + id] === 1; }
+function isDiaLeve(D, dk_) { return D['leve_' + dk_] === 1; }
+function dayTargetMs(d, plan) {
+  if (!plan) return 0;
+  const idx = (d.getDay() + 6) % 7;
+  let h = 0;
+  for (const cat in plan) h += Number((plan[cat] || [])[idx]) || 0;
+  return h * 3600000;
+}
+function dayXpInfo(k, ctx, liveMs) {
+  const d = new Date(k + 'T00:00:00');
+  const foco = Math.max(0, (ctx.history[k] ? Object.values(ctx.history[k]).reduce((a, b) => a + b, 0) : 0) + (liveMs || 0));
+  const leve = isDiaLeve(ctx.D, k);
+  const alvo = dayTargetMs(d, ctx.plan) * (leve ? 0.5 : 1);
+  const xpFoco = Math.floor(foco / 60000 * XP_FOCO_POR_MIN);
+  let xpRot = 0, nRot = 0;
+  for (const it of XP_ROTINA) if (rotinaDone(ctx.D, k, it.id)) { xpRot += it.xp; nRot++; }
+  const metaOk = alvo > 0 && foco >= alvo;
+  const c = Number(ctx.D['contrato_' + k]);
+  const contratoOk = Number.isFinite(c) && c > 0 && foco >= c * 3600000;
+  const perfeito = nRot === XP_ROTINA.length && (alvo === 0 ? foco > 0 : metaOk);
+  const bonus = (metaOk ? XP_BONUS_META : 0) + (contratoOk ? XP_BONUS_CONTRATO : 0) + (perfeito ? XP_BONUS_PERFEITO : 0);
+  const xp = xpFoco + xpRot + bonus;
+  // dia "ganho" (mantém sequência): meio expediente de XP; folga sem meta e sem nada é neutra
+  const folga = alvo === 0 && !leve && xp === 0;
+  const ganho = xp >= (leve ? 30 : 60);
+  return { xp, xpFoco, xpRot, bonus, metaOk, contratoOk, perfeito, leve, folga, ganho, alvo, foco };
+}
+let _xpCache = { min: -1, live: -1, val: null };
+function computeXp() {
+  const now = new Date();
+  const live = state.running ? state.totalElapsedMs + (state.paused ? 0 : Date.now() - state.startedAt) : 0;
+  const minuteStamp = now.getDate() * 10000 + now.getHours() * 60 + now.getMinutes();
+  if (_xpCache.min === minuteStamp && _xpCache.live === Math.floor(live / 60000)) return _xpCache.val;
+  const ctx = { history: loadHistory(), D: loadH2(), plan: loadWeekPlan() };
+  if (ctx.plan && Object.keys(ctx.plan).length === 0) ctx.plan = null;
+  const hojeK = dateKey(now);
+  const dias = new Set(Object.keys(ctx.history));
+  for (const key in ctx.D) {
+    const m = /^(?:rot|leve)_(\d{4}-\d{2}-\d{2})/.exec(key);
+    if (m) dias.add(m[1]);
+  }
+  dias.add(hojeK);
+  let total = 0, hoje = null;
+  const info = {};
+  for (const k of dias) {
+    const r = dayXpInfo(k, ctx, k === hojeK ? live : 0);
+    info[k] = r;
+    total += r.xp;
+    if (k === hojeK) hoje = r;
+  }
+  // sequência: dias ganhos consecutivos; folga é neutra; 1 deslize por semana é perdoado
+  let streak = 0;
+  const graca = new Set();
+  const cur = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (!(info[hojeK] && info[hojeK].ganho)) cur.setDate(cur.getDate() - 1); // hoje em aberto não quebra
+  const firstKey = [...dias].sort()[0] || hojeK;
+  for (let i = 0; i < 400; i++) {
+    const k = dateKey(cur);
+    if (k < firstKey) break;
+    const r = info[k] || dayXpInfo(k, ctx, 0);
+    if (r.ganho) streak++;
+    else if (!r.folga) {
+      const wk = dateKey(mondayOf(cur));
+      if (graca.has(wk)) break;
+      graca.add(wk);
+    }
+    cur.setDate(cur.getDate() - 1);
+  }
+  const lv = xpLevelOf(total);
+  const val = { total, hoje, streak, ...lv, graca: graca.has(dateKey(mondayOf(now))) };
+  _xpCache = { min: minuteStamp, live: Math.floor(live / 60000), val };
+  return val;
+}
+function checkLevelUp() {
+  const xp = computeXp();
+  let last = Number(localStorage.getItem('timerLastLevel') || -1);
+  if (last < 0) { try { localStorage.setItem('timerLastLevel', String(xp.level)); } catch {} return; } // 1ª vez só semeia
+  if (xp.level > last) {
+    try { localStorage.setItem('timerLastLevel', String(xp.level)); } catch {}
+    showRecordToast(`nível ${xp.level} — ${xp.total} XP`);
+  }
+}
+// Rotina do dia: pílulas que o dono marca (gesto → única escrita)
+function toggleRotina(dk_, id) {
+  const D = loadH2();
+  const key = id === 'leve' ? 'leve_' + dk_ : 'rot_' + dk_ + '_' + id;
+  if (D[key] === 1) delete D[key]; else D[key] = 1;
+  saveH2(D);
+  _xpCache = { min: -1, live: -1, val: null };
+  renderToday();
+}
+function renderXpLine() {
+  const el = $('#xpLine'), rl = $('#routineLine');
+  if (!el || !rl) return;
+  try {
+    const xp = computeXp();
+    const falta = xp.next - xp.total;
+    const pct = Math.max(0, Math.min(100, Math.round((xp.total - xp.base) / (xp.next - xp.base) * 100)));
+    const hojeXp = xp.hoje ? xp.hoje.xp : 0;
+    el.innerHTML = `<div class="xp-head"><span>nível <b>${xp.level}</b></span><span>hoje <b>+${hojeXp}</b> XP${xp.streak > 0 ? ` &nbsp;·&nbsp; sequência <b>${xp.streak}</b>` : ''}</span></div>
+      <div class="xp-bar"><i style="width:${pct}%"></i></div>
+      <div class="xp-foot"><span>${xp.total - xp.base} / ${xp.next - xp.base} XP</span><span>faltam ${falta} pro nível ${xp.level + 1}</span></div>`;
+    el.style.display = '';
+    if (!(document.activeElement && rl.contains(document.activeElement))) {
+      const hoje = dateKey(new Date());
+      const D = loadH2();
+      rl.innerHTML = XP_ROTINA.map((it) => `<button type="button" class="rot-pill${rotinaDone(D, hoje, it.id) ? ' on' : ''}" data-rot="${it.id}">${it.label} <i>+${it.xp}</i></button>`).join('')
+        + `<button type="button" class="rot-pill leve${isDiaLeve(D, hoje) ? ' on' : ''}" data-rot="leve" title="meta do dia pela metade; não quebra a sequência">dia leve</button>`;
+      rl.style.display = '';
+    }
+  } catch { el.style.display = 'none'; rl.style.display = 'none'; }
+}
+(() => {
+  const rl = document.getElementById('routineLine');
+  if (!rl) return;
+  rl.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-rot]');
+    if (!b) return;
+    toggleRotina(dateKey(new Date()), b.dataset.rot);
+  });
+})();
+
 // ===== Duelo semanal: a semana atual contra a passada NO MESMO ponto =====
 let _dueloCache = { min: -1, val: null };
 function computeDuel() {
@@ -4417,6 +4572,8 @@ function computeBoss() {
 
 function renderToday() {
   renderExecStrip();
+  renderXpLine();
+  try { checkLevelUp(); } catch {}
   const history = loadHistory();
   const today = dateKey(new Date());
   const day = history[today] || {};

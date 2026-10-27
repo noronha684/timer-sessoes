@@ -1024,11 +1024,21 @@ window.firebaseConfig = {
   .exec-strip { font-size: 11.5px; color: var(--text-subtle); margin-top: 8px; letter-spacing: 0.3px; }
   .exec-strip b { color: var(--text-muted); font-weight: 600; }
   .xp-line { position: relative; margin-top: 14px; font-size: 11.5px; color: var(--text-subtle); letter-spacing: 0.3px; }
-  .xp-pop { position: absolute; right: 0; top: -4px; color: var(--accent); font-weight: 600; font-size: 13px; letter-spacing: 0.4px; pointer-events: none; animation: xpPop 1.8s ease-out forwards; }
+  .xp-head { align-items: center; }
+  .xp-head > span:first-child { display: inline-flex; align-items: center; gap: 12px; }
+  .xp-n { font-size: 34px; font-weight: 200; line-height: 1; color: var(--accent); letter-spacing: -0.5px; }
+  .xp-t { display: flex; flex-direction: column; font-size: 13px; color: var(--text-muted); letter-spacing: 0.4px; line-height: 1.25; }
+  .xp-t i { font-style: normal; font-size: 9.5px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--text-subtle); }
+  .xp-hero { display: flex; align-items: baseline; gap: 10px; margin-top: 12px; }
+  .xp-hero-n { font-size: 52px; font-weight: 200; line-height: 1; color: var(--accent); letter-spacing: -1px; }
+  .xp-hero-u { font-size: 11px; letter-spacing: 1.8px; text-transform: uppercase; color: var(--text-subtle); }
+  .xp-pop { position: absolute; right: 0; top: 34px; color: var(--accent); font-weight: 300; font-size: 26px; letter-spacing: -0.3px; pointer-events: none; animation: xpPop 1.8s ease-out forwards; }
   @keyframes xpPop { 0% { opacity: 0; transform: translateY(6px); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-22px); } }
   .xp-bar i.lvlup { animation: xpLvl 1.3s ease-out; }
   @keyframes xpLvl { 0%, 100% { box-shadow: none; } 30% { box-shadow: 0 0 0 3px rgba(242,242,240,0.35); } }
-  .mission-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 12px; font-size: 11.5px; color: var(--text-subtle); letter-spacing: 0.3px; }
+  .mission-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 16px; font-size: 12.5px; color: var(--text-muted); letter-spacing: 0.3px; }
+  .mission-line .ms.ok i { opacity: 1; }
+  .xp-foot { font-size: 12px; }
   .mission-line .ms-label { text-transform: uppercase; letter-spacing: 1.2px; font-size: 10px; opacity: .8; }
   .mission-line .ms i { font-style: normal; opacity: .6; }
   .mission-line .ms.ok { color: var(--accent); }
@@ -1037,7 +1047,7 @@ window.firebaseConfig = {
   #rewardLine b { color: var(--accent); }
   .xp-line b { color: var(--accent); font-weight: 600; }
   .xp-head, .xp-foot { display: flex; justify-content: space-between; gap: 12px; }
-  .xp-bar { height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; margin: 7px 0 6px; overflow: hidden; }
+  .xp-bar { height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; margin: 12px 0 8px; overflow: hidden; }
   .xp-bar i { display: block; height: 100%; background: var(--accent); border-radius: 2px; transition: width .4s; }
   .routine-line { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
   .rot-pill { background: transparent; border: 1px solid rgba(255,255,255,0.18); color: var(--text-subtle); border-radius: 999px; padding: 6px 11px; font: inherit; font-size: 11.5px; letter-spacing: 0.3px; cursor: pointer; min-height: 32px; }
@@ -4505,13 +4515,15 @@ function renderXpLine() {
     const xp = computeXp();
     if (!el.firstChild || !document.getElementById('xpFill')) {
       el.innerHTML = `<div class="xp-head"><span id="xpLvl"></span><span id="xpRight"></span></div>
+        <div class="xp-hero"><span class="xp-hero-n" id="xpHoje">+0</span><span class="xp-hero-u">XP hoje</span></div>
         <div class="xp-bar"><i id="xpFill"></i></div>
         <div class="xp-foot"><span id="xpFootL"></span><span id="xpFootR"></span></div>`;
     }
     const pct = Math.max(0, Math.min(100, Math.round((xp.total - xp.base) / (xp.next - xp.base) * 100)));
     const hojeXp = xp.hoje ? xp.hoje.xp : 0;
-    $('#xpLvl').innerHTML = `nível <b>${xp.level}</b> · ${xp.titulo}`;
-    $('#xpRight').innerHTML = `hoje <b>+${hojeXp}</b> XP${xp.streak > 0 ? ` &nbsp;·&nbsp; sequência <b>${xp.streak}</b>` : ''}`;
+    $('#xpLvl').innerHTML = `<b class="xp-n">${xp.level}</b><span class="xp-t"><i>nível</i>${xp.titulo}</span>`;
+    $('#xpRight').innerHTML = xp.streak > 0 ? `<b>${xp.streak}</b> ${xp.streak === 1 ? 'dia' : 'dias'} de sequência` : '';
+    $('#xpHoje').textContent = '+' + hojeXp;
     $('#xpFill').style.width = pct + '%';
     $('#xpFootL').textContent = `${xp.total - xp.base} / ${xp.next - xp.base} XP`;
     // combo: sessão rodando, ou cadeia ainda "quente" depois de uma sessão
